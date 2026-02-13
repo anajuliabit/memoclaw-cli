@@ -164,6 +164,13 @@ function table(rows: Record<string, any>[], columns?: { key: string; label: stri
   }
 }
 
+/** Simple progress bar */
+function progressBar(current: number, total: number, width = 30): string {
+  const pct = Math.min(current / total, 1);
+  const filled = Math.round(pct * width);
+  return `${c.green}${'█'.repeat(filled)}${c.dim}${'░'.repeat(width - filled)}${c.reset} ${current}/${total}`;
+}
+
 // ─── HTTP ────────────────────────────────────────────────────────────────────
 
 async function request(method: string, path: string, body: any = null) {
@@ -230,7 +237,7 @@ async function request(method: string, path: string, body: any = null) {
 
 async function cmdStore(content: string, opts: ParsedArgs) {
   const body: Record<string, any> = { content };
-  if (opts.importance) body.importance = parseFloat(opts.importance);
+  if (opts.importance != null && opts.importance !== true) body.importance = parseFloat(opts.importance);
   if (opts.tags) body.metadata = { tags: opts.tags.split(',').map((t: string) => t.trim()) };
   if (opts.namespace) body.namespace = opts.namespace;
 
@@ -245,8 +252,8 @@ async function cmdStore(content: string, opts: ParsedArgs) {
 
 async function cmdRecall(query: string, opts: ParsedArgs) {
   const body: Record<string, any> = { query };
-  if (opts.limit) body.limit = parseInt(opts.limit);
-  if (opts.minSimilarity) body.min_similarity = parseFloat(opts.minSimilarity);
+  if (opts.limit != null && opts.limit !== true) body.limit = parseInt(opts.limit);
+  if (opts.minSimilarity != null && opts.minSimilarity !== true) body.min_similarity = parseFloat(opts.minSimilarity);
   if (opts.namespace) body.namespace = opts.namespace;
   if (opts.tags) body.filters = { tags: opts.tags.split(',').map((t: string) => t.trim()) };
 
@@ -282,8 +289,8 @@ async function cmdRecall(query: string, opts: ParsedArgs) {
 
 async function cmdList(opts: ParsedArgs) {
   const params = new URLSearchParams();
-  if (opts.limit) params.set('limit', opts.limit);
-  if (opts.offset) params.set('offset', opts.offset);
+  if (opts.limit != null && opts.limit !== true) params.set('limit', opts.limit);
+  if (opts.offset != null && opts.offset !== true) params.set('offset', opts.offset);
   if (opts.namespace) params.set('namespace', opts.namespace);
 
   const result = await request('GET', `/v1/memories?${params}`) as any;
@@ -345,7 +352,7 @@ async function cmdDelete(id: string) {
 
 async function cmdSuggested(opts: ParsedArgs) {
   const params = new URLSearchParams();
-  if (opts.limit) params.set('limit', opts.limit);
+  if (opts.limit != null && opts.limit !== true) params.set('limit', opts.limit);
   if (opts.namespace) params.set('namespace', opts.namespace);
   if (opts.category) params.set('category', opts.category);
 
@@ -381,7 +388,7 @@ async function cmdSuggested(opts: ParsedArgs) {
 async function cmdUpdate(id: string, opts: ParsedArgs) {
   const body: Record<string, any> = {};
   if (opts.content) body.content = opts.content;
-  if (opts.importance) body.importance = parseFloat(opts.importance);
+  if (opts.importance != null && opts.importance !== true) body.importance = parseFloat(opts.importance);
   if (opts.memoryType) body.memory_type = opts.memoryType;
   if (opts.namespace) body.namespace = opts.namespace;
   if (opts.tags) body.metadata = { tags: opts.tags.split(',').map((t: string) => t.trim()) };
@@ -438,7 +445,7 @@ async function cmdExtract(text: string, opts: ParsedArgs) {
 async function cmdConsolidate(opts: ParsedArgs) {
   const body: Record<string, any> = {};
   if (opts.namespace) body.namespace = opts.namespace;
-  if (opts.minSimilarity) body.min_similarity = parseFloat(opts.minSimilarity);
+  if (opts.minSimilarity != null && opts.minSimilarity !== true) body.min_similarity = parseFloat(opts.minSimilarity);
   if (opts.mode) body.mode = opts.mode;
   if (opts.dryRun !== undefined) body.dry_run = true;
 
@@ -597,7 +604,7 @@ async function cmdImport(opts: ParsedArgs) {
       await request('POST', '/v1/store', body);
       imported++;
       if (!outputQuiet) {
-        process.stderr.write(`${c.dim}Imported ${imported}/${memories.length}...${c.reset}\r`);
+        process.stderr.write(`\r  ${progressBar(imported, memories.length)}`);
       }
     } catch (e: any) {
       failed++;
@@ -659,7 +666,7 @@ async function cmdStats(opts: ParsedArgs) {
 
 async function cmdCompletions(shell: string) {
   const commands = ['store', 'recall', 'list', 'get', 'update', 'delete', 'ingest', 'extract',
-    'consolidate', 'relations', 'suggested', 'status', 'export', 'import', 'stats', 'completions', 'config'];
+    'consolidate', 'relations', 'suggested', 'status', 'export', 'import', 'stats', 'browse', 'completions', 'config'];
   
   if (shell === 'bash') {
     console.log(`# Add to ~/.bashrc:
@@ -732,6 +739,116 @@ async function cmdConfig(subcmd: string, rest: string[]) {
   } else {
     throw new Error('Usage: config [show|check]');
   }
+}
+
+async function cmdBrowse(opts: ParsedArgs) {
+  const readline = await import('readline');
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  const prompt = (q: string): Promise<string> => new Promise(r => rl.question(q, r));
+
+  console.log(`${c.bold}MemoClaw Interactive Browser${c.reset} ${c.dim}(type "help" or "q" to quit)${c.reset}`);
+  if (opts.namespace) console.log(`${c.dim}Namespace: ${opts.namespace}${c.reset}`);
+  console.log();
+
+  let offset = 0;
+  const limit = 10;
+
+  while (true) {
+    const input = (await prompt(`${c.cyan}memoclaw>${c.reset} `)).trim();
+    if (!input) continue;
+    if (input === 'q' || input === 'quit' || input === 'exit') break;
+
+    const parts = input.split(/\s+/);
+    const browsCmd = parts[0];
+    const browseArgs = parts.slice(1).join(' ');
+
+    try {
+      switch (browsCmd) {
+        case 'help':
+          console.log(`${c.bold}Commands:${c.reset}
+  list / ls          List memories (paginated)
+  next / n           Next page
+  prev / p           Previous page
+  get <id>           Show memory details
+  recall <query>     Search memories
+  store <content>    Store a new memory
+  delete <id>        Delete a memory
+  stats              Show stats
+  q / quit           Exit browser`);
+          break;
+        case 'list': case 'ls': {
+          offset = 0;
+          const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+          if (opts.namespace) params.set('namespace', opts.namespace);
+          const result = await request('GET', `/v1/memories?${params}`) as any;
+          const memories = result.memories || result.data || [];
+          if (memories.length === 0) { console.log(`${c.dim}No memories.${c.reset}`); break; }
+          for (const m of memories) {
+            const text = m.content?.length > 60 ? m.content.slice(0, 60) + '…' : (m.content || '');
+            console.log(`  ${c.cyan}${(m.id || '?').slice(0, 8)}${c.reset}  ${text}`);
+          }
+          console.log(`${c.dim}─ showing ${offset + 1}-${offset + memories.length}${result.total ? ` of ${result.total}` : ''}${c.reset}`);
+          break;
+        }
+        case 'next': case 'n':
+          offset += limit;
+          /* falls through to list logic */ {
+            const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+            if (opts.namespace) params.set('namespace', opts.namespace);
+            const result = await request('GET', `/v1/memories?${params}`) as any;
+            const memories = result.memories || result.data || [];
+            if (memories.length === 0) { console.log(`${c.dim}No more memories.${c.reset}`); offset = Math.max(0, offset - limit); break; }
+            for (const m of memories) {
+              const text = m.content?.length > 60 ? m.content.slice(0, 60) + '…' : (m.content || '');
+              console.log(`  ${c.cyan}${(m.id || '?').slice(0, 8)}${c.reset}  ${text}`);
+            }
+            console.log(`${c.dim}─ showing ${offset + 1}-${offset + memories.length}${result.total ? ` of ${result.total}` : ''}${c.reset}`);
+          }
+          break;
+        case 'prev': case 'p':
+          offset = Math.max(0, offset - limit);
+          {
+            const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+            if (opts.namespace) params.set('namespace', opts.namespace);
+            const result = await request('GET', `/v1/memories?${params}`) as any;
+            const memories = result.memories || result.data || [];
+            for (const m of memories) {
+              const text = m.content?.length > 60 ? m.content.slice(0, 60) + '…' : (m.content || '');
+              console.log(`  ${c.cyan}${(m.id || '?').slice(0, 8)}${c.reset}  ${text}`);
+            }
+            console.log(`${c.dim}─ showing ${offset + 1}-${offset + memories.length}${result.total ? ` of ${result.total}` : ''}${c.reset}`);
+          }
+          break;
+        case 'get':
+          if (!browseArgs) { console.log(`${c.red}Usage: get <id>${c.reset}`); break; }
+          await cmdGet(browseArgs);
+          break;
+        case 'recall': case 'search':
+          if (!browseArgs) { console.log(`${c.red}Usage: recall <query>${c.reset}`); break; }
+          await cmdRecall(browseArgs, opts);
+          break;
+        case 'store':
+          if (!browseArgs) { console.log(`${c.red}Usage: store <content>${c.reset}`); break; }
+          await cmdStore(browseArgs, opts);
+          break;
+        case 'delete': case 'rm':
+          if (!browseArgs) { console.log(`${c.red}Usage: delete <id>${c.reset}`); break; }
+          await cmdDelete(browseArgs);
+          break;
+        case 'stats':
+          await cmdStats(opts);
+          break;
+        default:
+          console.log(`${c.dim}Unknown command. Type "help" for available commands.${c.reset}`);
+      }
+    } catch (e: any) {
+      console.log(`${c.red}Error:${c.reset} ${e.message}`);
+    }
+    console.log();
+  }
+
+  rl.close();
+  console.log(`${c.dim}Bye!${c.reset}`);
 }
 
 // ─── Help ────────────────────────────────────────────────────────────────────
@@ -808,6 +925,16 @@ Subcommands:
   show       Display current configuration (default)
   check      Validate configuration and test connectivity`,
 
+      browse: `${c.bold}memoclaw browse${c.reset} [options]
+
+Interactive memory browser (REPL). Explore, search, and manage
+memories in a persistent session.
+
+Options:
+  --namespace <name>     Filter by namespace
+
+Commands inside browser: list, get, recall, store, delete, stats, next, prev`,
+
       completions: `${c.bold}memoclaw completions${c.reset} <bash|zsh|fish>
 
 Generate shell completion scripts.
@@ -847,6 +974,7 @@ ${c.bold}Commands:${c.reset}
   ${c.cyan}export${c.reset}                 Export all memories as JSON
   ${c.cyan}import${c.reset}                 Import memories from JSON
   ${c.cyan}completions${c.reset} <shell>    Generate shell completions
+  ${c.cyan}browse${c.reset}                 Interactive memory browser (REPL)
   ${c.cyan}config${c.reset} [show|check]    Show or validate configuration
 
 ${c.bold}Global Options:${c.reset}
@@ -972,6 +1100,9 @@ try {
     case 'completions':
       if (!rest[0]) throw new Error('Shell required: bash, zsh, or fish');
       await cmdCompletions(rest[0]);
+      break;
+    case 'browse':
+      await cmdBrowse(args);
       break;
     case 'config':
       await cmdConfig(rest[0], rest.slice(1));

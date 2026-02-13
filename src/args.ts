@@ -30,21 +30,62 @@ export function parseArgs(args: string[]): ParsedArgs {
   while (i < args.length) {
     const arg = args[i];
 
-    // Short flags
-    if (arg.length === 2 && arg[0] === '-' && arg[1] !== '-' && SHORT_FLAGS[arg]) {
-      const key = SHORT_FLAGS[arg];
-      if (BOOLEAN_FLAGS.has(key)) {
-        result[key] = true;
-        i++;
-      } else {
-        const next = args[i + 1];
-        if (next !== undefined) {
-          result[key] = next;
-          i += 2;
-        } else {
+    // Short flags (single like -j or combined like -jq)
+    if (arg[0] === '-' && arg[1] !== '-' && arg.length >= 2) {
+      // Check if it's a known single short flag first
+      if (arg.length === 2 && SHORT_FLAGS[arg]) {
+        const key = SHORT_FLAGS[arg];
+        if (BOOLEAN_FLAGS.has(key)) {
           result[key] = true;
           i++;
+        } else {
+          const next = args[i + 1];
+          if (next !== undefined && !next.startsWith('-')) {
+            result[key] = next;
+            i += 2;
+          } else {
+            result[key] = true;
+            i++;
+          }
         }
+      } else if (arg.length > 2 && !SHORT_FLAGS[arg]) {
+        // Combined short flags like -jq
+        const chars = arg.slice(1).split('');
+        let allValid = true;
+        for (const ch of chars) {
+          const flag = `-${ch}`;
+          if (!SHORT_FLAGS[flag]) { allValid = false; break; }
+        }
+        if (allValid) {
+          // Only allow combined if all resolve to boolean flags (last may take value)
+          for (let ci = 0; ci < chars.length; ci++) {
+            const flag = `-${chars[ci]}`;
+            const key = SHORT_FLAGS[flag];
+            if (BOOLEAN_FLAGS.has(key)) {
+              result[key] = true;
+            } else if (ci === chars.length - 1) {
+              // Last flag can take a value
+              const next = args[i + 1];
+              if (next !== undefined && !next.startsWith('-')) {
+                result[key] = next;
+                i++; // extra bump for consumed value
+              } else {
+                result[key] = true;
+              }
+            } else {
+              // Non-boolean in middle of combined flags — treat as boolean
+              result[key] = true;
+            }
+          }
+          i++;
+        } else {
+          // Unknown combined flag, treat as positional
+          result._.push(arg);
+          i++;
+        }
+      } else {
+        result._.push(arg);
+        i++;
       }
     } else if (arg === '--') {
       // Everything after -- is positional

@@ -118,6 +118,27 @@ describe('parseArgs', () => {
     expect(result._).toEqual(['list']);
   });
 
+  test('combined short flags -jq', () => {
+    const result = parseArgs(['-jq', 'list']);
+    expect(result.json).toBe(true);
+    expect(result.quiet).toBe(true);
+    expect(result._).toEqual(['list']);
+  });
+
+  test('combined short flags -jn with value', () => {
+    const result = parseArgs(['-jn', 'myns', 'list']);
+    expect(result.json).toBe(true);
+    expect(result.namespace).toBe('myns');
+    expect(result._).toEqual(['list']);
+  });
+
+  test('short value flag -n does not consume flag-like next arg', () => {
+    const result = parseArgs(['-n', '--json']);
+    // -n sees --json as a flag, not a value
+    expect(result.namespace).toBe(true);
+    expect(result.json).toBe(true);
+  });
+
   test('all short flags combined', () => {
     const result = parseArgs(['-j', '-q', '-n', 'ns', '-l', '5', 'recall', 'test']);
     expect(result.json).toBe(true);
@@ -260,10 +281,10 @@ describe('export format', () => {
 
 describe('completions', () => {
   const commands = ['store', 'recall', 'list', 'get', 'update', 'delete', 'ingest', 'extract',
-    'consolidate', 'relations', 'suggested', 'status', 'export', 'import', 'stats', 'completions', 'config'];
+    'consolidate', 'relations', 'suggested', 'status', 'export', 'import', 'stats', 'browse', 'completions', 'config'];
 
   test('all commands present', () => {
-    expect(commands.length).toBe(17);
+    expect(commands.length).toBe(18);
     expect(commands).toContain('store');
     expect(commands).toContain('get');
     expect(commands).toContain('export');
@@ -271,6 +292,43 @@ describe('completions', () => {
     expect(commands).toContain('stats');
     expect(commands).toContain('completions');
     expect(commands).toContain('config');
+    expect(commands).toContain('browse');
+  });
+});
+
+// ─── Falsy value handling ────────────────────────────────────────────────────
+
+describe('falsy value handling', () => {
+  test('importance of 0 is preserved as string', () => {
+    const result = parseArgs(['store', 'test', '--importance', '0']);
+    expect(result.importance).toBe('0');
+    // Ensures `if (opts.importance)` bug is caught — "0" is truthy as string
+  });
+
+  test('limit of 0 is preserved', () => {
+    const result = parseArgs(['list', '--limit', '0']);
+    expect(result.limit).toBe('0');
+  });
+
+  test('offset of 0 is preserved', () => {
+    const result = parseArgs(['list', '--offset', '0']);
+    expect(result.offset).toBe('0');
+  });
+
+  test('null-check pattern works for flag values', () => {
+    // Simulates the fixed pattern: opts.x != null && opts.x !== true
+    const opts: any = { limit: '0', importance: '0.0', offset: '0' };
+    expect(opts.limit != null && opts.limit !== true).toBe(true);
+    expect(opts.importance != null && opts.importance !== true).toBe(true);
+    expect(opts.offset != null && opts.offset !== true).toBe(true);
+
+    // When flag has no value (boolean fallback)
+    const opts2: any = { limit: true };
+    expect(opts2.limit != null && opts2.limit !== true).toBe(false);
+
+    // When flag is absent
+    const opts3: any = {};
+    expect(opts3.limit != null && opts3.limit !== true).toBe(false);
   });
 });
 
