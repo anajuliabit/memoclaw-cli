@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.7.0
+
+### New Commands
+- `memoclaw graph <id>` — ASCII tree visualization of memory relations (color-coded by relation type)
+- `memoclaw purge` — Delete all memories with confirmation prompt (or `--force` to skip)
+- `memoclaw count` — Quick memory count, pipe-friendly (just prints the number)
+
+### Improvements
+- **Network error handling** — Friendly messages for DNS failures, connection refused, timeouts instead of raw stack traces
+- **`--force` flag** — Skip confirmation prompts (for `purge` and future destructive commands)
+- **`--timeout` flag** — Configurable request timeout (default: 30s)
+- **21 commands total** — Up from 18; shell completions updated
+
+### Testing
+- 53 tests (up from 46), covering new commands, graph helpers, boolean flags
+
 ## 1.6.0
 
 ### New Commands
