@@ -281,10 +281,11 @@ describe('export format', () => {
 
 describe('completions', () => {
   const commands = ['store', 'recall', 'list', 'get', 'update', 'delete', 'ingest', 'extract',
-    'consolidate', 'relations', 'suggested', 'status', 'export', 'import', 'stats', 'browse', 'completions', 'config'];
+    'consolidate', 'relations', 'suggested', 'status', 'export', 'import', 'stats', 'browse',
+    'completions', 'config', 'graph', 'purge', 'count'];
 
   test('all commands present', () => {
-    expect(commands.length).toBe(18);
+    expect(commands.length).toBe(21);
     expect(commands).toContain('store');
     expect(commands).toContain('get');
     expect(commands).toContain('export');
@@ -293,6 +294,9 @@ describe('completions', () => {
     expect(commands).toContain('completions');
     expect(commands).toContain('config');
     expect(commands).toContain('browse');
+    expect(commands).toContain('graph');
+    expect(commands).toContain('purge');
+    expect(commands).toContain('count');
   });
 });
 
@@ -350,5 +354,64 @@ describe('BOOLEAN_FLAGS', () => {
     expect(BOOLEAN_FLAGS.has('namespace')).toBe(false);
     expect(BOOLEAN_FLAGS.has('limit')).toBe(false);
     expect(BOOLEAN_FLAGS.has('tags')).toBe(false);
+  });
+
+  test('contains new boolean flags', () => {
+    expect(BOOLEAN_FLAGS.has('force')).toBe(true);
+    expect(BOOLEAN_FLAGS.has('count')).toBe(true);
+    expect(BOOLEAN_FLAGS.has('wide')).toBe(true);
+  });
+});
+
+// ─── New commands routing ────────────────────────────────────────────────────
+
+describe('new command routing', () => {
+  test('graph command extracts ID', () => {
+    const args = parseArgs(['graph', 'abc-123', '--json']);
+    const [cmd, ...rest] = args._;
+    expect(cmd).toBe('graph');
+    expect(rest[0]).toBe('abc-123');
+    expect(args.json).toBe(true);
+  });
+
+  test('purge command with --force', () => {
+    const args = parseArgs(['purge', '--force', '--namespace', 'old']);
+    const [cmd] = args._;
+    expect(cmd).toBe('purge');
+    expect(args.force).toBe(true);
+    expect(args.namespace).toBe('old');
+  });
+
+  test('count command with namespace', () => {
+    const args = parseArgs(['count', '-n', 'proj1']);
+    const [cmd] = args._;
+    expect(cmd).toBe('count');
+    expect(args.namespace).toBe('proj1');
+  });
+
+  test('timeout flag parsed as value', () => {
+    const args = parseArgs(['list', '--timeout', '60']);
+    expect(args.timeout).toBe('60');
+  });
+});
+
+// ─── Graph output ────────────────────────────────────────────────────────────
+
+describe('graph helpers', () => {
+  test('shortId truncates to 8 chars', () => {
+    const shortId = (s: string) => s?.slice(0, 8) || '?';
+    expect(shortId('abcdefgh-1234-5678')).toBe('abcdefgh');
+    expect(shortId('short')).toBe('short');
+    expect(shortId('')).toBe('?');
+  });
+
+  test('label truncates at 40 chars', () => {
+    const label = (content: string) => {
+      const text = content.slice(0, 40);
+      return text.length < content.length ? text + '…' : text;
+    };
+    expect(label('short')).toBe('short');
+    expect(label('a'.repeat(50))).toBe('a'.repeat(40) + '…');
+    expect(label('a'.repeat(40))).toBe('a'.repeat(40));
   });
 });

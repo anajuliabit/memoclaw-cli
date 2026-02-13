@@ -19,7 +19,7 @@ import { privateKeyToAccount } from 'viem/accounts';
 import { parseArgs } from './args.js';
 import type { ParsedArgs } from './args.js';
 
-const VERSION = '1.6.0';
+const VERSION = '1.7.0';
 const API_URL = process.env.MEMOCLAW_URL || 'https://api.memoclaw.com';
 const PRIVATE_KEY = process.env.MEMOCLAW_PRIVATE_KEY as `0x${string}`;
 
@@ -182,7 +182,21 @@ async function request(method: string, path: string, body: any = null) {
   const walletAuth = await getWalletAuthHeader();
   headers['x-wallet-auth'] = walletAuth;
 
-  let res = await fetch(url, { ...options, headers });
+  let res: Response;
+  try {
+    res = await fetch(url, { ...options, headers });
+  } catch (e: any) {
+    if (e.code === 'ECONNREFUSED' || e.cause?.code === 'ECONNREFUSED') {
+      throw new Error(`Cannot connect to ${API_URL} — is the server running?`);
+    }
+    if (e.code === 'ENOTFOUND' || e.cause?.code === 'ENOTFOUND') {
+      throw new Error(`DNS lookup failed for ${API_URL} — check your internet connection`);
+    }
+    if (e.name === 'AbortError') {
+      throw new Error(`Request timed out`);
+    }
+    throw new Error(`Network error: ${e.message}`);
+  }
 
   const freeTierRemaining = res.headers.get('x-free-tier-remaining');
   if (freeTierRemaining !== null && process.env.DEBUG) {
@@ -664,9 +678,107 @@ async function cmdStats(opts: ParsedArgs) {
   }
 }
 
+async function cmdGraph(id: string, opts: ParsedArgs) {
+  // Fetch memory and its relations, display as ASCII graph
+  const result = await request('GET', `/v1/memories/${id}`) as any;
+  const mem = result.memory || result;
+  const relResult = await request('GET', `/v1/memories/${id}/relations`) as any;
+  const relations = relResult.relations || [];
+
+  if (outputJson) {
+    out({ memory: mem, relations });
+    return;
+  }
+
+  const label = (m: any) => {
+    const text = (m.content || '').slice(0, 40);
+    return text.length < (m.content || '').length ? text + '…' : text;
+  };
+
+  const shortId = (s: string) => s?.slice(0, 8) || '?';
+
+  console.log();
+  console.log(`  ${c.bold}${c.cyan}[${shortId(mem.id)}]${c.reset} ${label(mem)}`);
+
+  if (relations.length === 0) {
+    console.log(`  ${c.dim}  └── (no relations)${c.reset}`);
+  } else {
+    for (let i = 0; i < relations.length; i++) {
+      const r = relations[i];
+      const isLast = i === relations.length - 1;
+      const branch = isLast ? '└' : '├';
+      const typeColor = {
+        contradicts: c.red, supersedes: c.yellow, supports: c.green,
+        derived_from: c.magenta, related_to: c.blue,
+      }[r.relation_type] || c.dim;
+      console.log(`  ${c.dim}  ${branch}──${c.reset} ${typeColor}${r.relation_type}${c.reset} ${c.dim}→${c.reset} ${c.cyan}[${shortId(r.target_id)}]${c.reset}`);
+    }
+  }
+  console.log();
+}
+
+async function cmdPurge(opts: ParsedArgs) {
+  if (!opts.force) {
+    // In non-interactive mode without --force, abort
+    if (!process.stdin.isTTY) {
+      throw new Error('Use --force to confirm purge in non-interactive mode');
+    }
+    const readline = await import('readline');
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+    const answer = await new Promise<string>(r => rl.question(
+      `${c.red}⚠ Delete ALL memories${opts.namespace ? ` in namespace "${opts.namespace}"` : ''}? Type "yes" to confirm: ${c.reset}`,
+      r
+    ));
+    rl.close();
+    if (answer.trim().toLowerCase() !== 'yes') {
+      console.log(`${c.dim}Aborted.${c.reset}`);
+      return;
+    }
+  }
+
+  // Paginate and delete all
+  const params = new URLSearchParams({ limit: '100' });
+  if (opts.namespace) params.set('namespace', opts.namespace);
+  let deleted = 0;
+
+  while (true) {
+    params.set('offset', '0');
+    const result = await request('GET', `/v1/memories?${params}`) as any;
+    const memories = result.memories || result.data || [];
+    if (memories.length === 0) break;
+
+    for (const mem of memories) {
+      await request('DELETE', `/v1/memories/${mem.id}`);
+      deleted++;
+      if (!outputQuiet) process.stderr.write(`\r  ${progressBar(deleted, result.total || deleted)}`);
+    }
+  }
+
+  if (!outputQuiet) process.stderr.write('\n');
+  if (outputJson) {
+    out({ deleted });
+  } else {
+    success(`Purged ${deleted} memories`);
+  }
+}
+
+async function cmdCount(opts: ParsedArgs) {
+  const params = new URLSearchParams({ limit: '1' });
+  if (opts.namespace) params.set('namespace', opts.namespace);
+  const result = await request('GET', `/v1/memories?${params}`) as any;
+  const total = result.total ?? '?';
+
+  if (outputJson) {
+    out({ count: total, namespace: opts.namespace || null });
+  } else {
+    console.log(String(total));
+  }
+}
+
 async function cmdCompletions(shell: string) {
   const commands = ['store', 'recall', 'list', 'get', 'update', 'delete', 'ingest', 'extract',
-    'consolidate', 'relations', 'suggested', 'status', 'export', 'import', 'stats', 'browse', 'completions', 'config'];
+    'consolidate', 'relations', 'suggested', 'status', 'export', 'import', 'stats', 'browse',
+    'completions', 'config', 'graph', 'purge', 'count'];
   
   if (shell === 'bash') {
     console.log(`# Add to ~/.bashrc:
@@ -935,6 +1047,34 @@ Options:
 
 Commands inside browser: list, get, recall, store, delete, stats, next, prev`,
 
+      graph: `${c.bold}memoclaw graph${c.reset} <id>
+
+Show an ASCII tree of a memory and its relations.
+
+Options:
+  --json                 Output as JSON`,
+
+      purge: `${c.bold}memoclaw purge${c.reset} [options]
+
+Delete ALL memories. Requires confirmation or --force.
+
+  ${c.dim}memoclaw purge --force${c.reset}
+  ${c.dim}memoclaw purge --namespace old-project --force${c.reset}
+
+Options:
+  --force                Skip confirmation prompt
+  --namespace <name>     Only purge memories in namespace`,
+
+      count: `${c.bold}memoclaw count${c.reset} [options]
+
+Print the total number of memories (pipe-friendly).
+
+  ${c.dim}memoclaw count${c.reset}
+  ${c.dim}memoclaw count --namespace project1${c.reset}
+
+Options:
+  --namespace <name>     Count only in namespace`,
+
       completions: `${c.bold}memoclaw completions${c.reset} <bash|zsh|fish>
 
 Generate shell completion scripts.
@@ -976,6 +1116,9 @@ ${c.bold}Commands:${c.reset}
   ${c.cyan}completions${c.reset} <shell>    Generate shell completions
   ${c.cyan}browse${c.reset}                 Interactive memory browser (REPL)
   ${c.cyan}config${c.reset} [show|check]    Show or validate configuration
+  ${c.cyan}graph${c.reset} <id>             ASCII visualization of memory relations
+  ${c.cyan}purge${c.reset}                  Delete ALL memories (requires --force or confirm)
+  ${c.cyan}count${c.reset}                  Quick memory count
 
 ${c.bold}Global Options:${c.reset}
   -h, --help             Show help (use with command for details)
@@ -986,6 +1129,8 @@ ${c.bold}Global Options:${c.reset}
   -l, --limit <n>        Limit results
   -t, --tags <a,b>       Comma-separated tags
   --raw                  Raw output (content only, for piping)
+  --force                Skip confirmation prompts
+  --timeout <seconds>    Request timeout (default: 30)
 
 ${c.bold}Environment:${c.reset}
   MEMOCLAW_PRIVATE_KEY   Wallet private key for auth + payments
@@ -1028,6 +1173,9 @@ if (args.help) {
   printHelp(cmd);
   process.exit(0);
 }
+
+// Wrap request() with timeout support
+const TIMEOUT_MS = args.timeout ? parseInt(args.timeout) * 1000 : 30000;
 
 try {
   switch (cmd) {
@@ -1106,6 +1254,16 @@ try {
       break;
     case 'config':
       await cmdConfig(rest[0], rest.slice(1));
+      break;
+    case 'graph':
+      if (!rest[0]) throw new Error('Memory ID required');
+      await cmdGraph(rest[0], args);
+      break;
+    case 'purge':
+      await cmdPurge(args);
+      break;
+    case 'count':
+      await cmdCount(args);
       break;
     case 'help':
       printHelp(rest[0]);
