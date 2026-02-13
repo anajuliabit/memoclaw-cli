@@ -16,8 +16,10 @@ import { x402HTTPClient } from '@x402/core/http';
 import { ExactEvmScheme } from '@x402/evm/exact/client';
 import { toClientEvmSigner } from '@x402/evm';
 import { privateKeyToAccount } from 'viem/accounts';
+import { parseArgs } from './args.js';
+import type { ParsedArgs } from './args.js';
 
-const VERSION = '1.5.0';
+const VERSION = '1.6.0';
 const API_URL = process.env.MEMOCLAW_URL || 'https://api.memoclaw.com';
 const PRIVATE_KEY = process.env.MEMOCLAW_PRIVATE_KEY as `0x${string}`;
 
@@ -77,62 +79,6 @@ async function getWalletAuthHeader(): Promise<string> {
   const message = `memoclaw-auth:${timestamp}`;
   const signature = await account.signMessage({ message });
   return `${account.address}:${timestamp}:${signature}`;
-}
-
-// ─── Arg Parsing ─────────────────────────────────────────────────────────────
-
-interface ParsedArgs {
-  _: string[];
-  [key: string]: any;
-}
-
-// Boolean-only flags that never take a value
-const BOOLEAN_FLAGS = new Set([
-  'help', 'version', 'raw', 'json', 'quiet', 'dryRun', 'verbose',
-]);
-
-function parseArgs(args: string[]): ParsedArgs {
-  const result: ParsedArgs = { _: [] };
-  let i = 0;
-  while (i < args.length) {
-    const arg = args[i];
-    if (arg === '-h' || arg === '--help') {
-      result.help = true;
-      i++;
-    } else if (arg === '-v' || arg === '--version') {
-      result.version = true;
-      i++;
-    } else if (arg === '-q' || arg === '--quiet') {
-      result.quiet = true;
-      i++;
-    } else if (arg === '-j' || arg === '--json') {
-      result.json = true;
-      i++;
-    } else if (arg === '--') {
-      // Everything after -- is positional
-      result._.push(...args.slice(i + 1));
-      break;
-    } else if (arg.startsWith('--')) {
-      const key = arg.slice(2).replace(/-([a-z])/g, (_, ch) => ch.toUpperCase());
-      if (BOOLEAN_FLAGS.has(key)) {
-        result[key] = true;
-        i++;
-      } else {
-        const next = args[i + 1];
-        if (next !== undefined && !next.startsWith('--')) {
-          result[key] = next;
-          i += 2;
-        } else {
-          result[key] = true;
-          i++;
-        }
-      }
-    } else {
-      result._.push(arg);
-      i++;
-    }
-  }
-  return result;
 }
 
 // ─── Stdin Helper ────────────────────────────────────────────────────────────
@@ -308,6 +254,11 @@ async function cmdRecall(query: string, opts: ParsedArgs) {
   
   if (outputJson) {
     out(result);
+  } else if (opts.raw) {
+    const memories = result.memories || [];
+    for (const mem of memories) {
+      console.log(mem.content);
+    }
   } else {
     const memories = result.memories || [];
     if (memories.length === 0) {
@@ -362,6 +313,24 @@ async function cmdList(opts: ParsedArgs) {
         console.log(`${c.dim}─ ${memories.length} of ${result.total} memories${c.reset}`);
       }
     }
+  }
+}
+
+async function cmdGet(id: string) {
+  const result = await request('GET', `/v1/memories/${id}`) as any;
+  if (outputJson) {
+    out(result);
+  } else {
+    const mem = result.memory || result;
+    console.log(`${c.bold}ID:${c.reset}         ${mem.id || id}`);
+    console.log(`${c.bold}Content:${c.reset}    ${mem.content}`);
+    if (mem.importance !== undefined) console.log(`${c.bold}Importance:${c.reset} ${mem.importance}`);
+    if (mem.namespace) console.log(`${c.bold}Namespace:${c.reset}  ${mem.namespace}`);
+    if (mem.metadata?.tags?.length) console.log(`${c.bold}Tags:${c.reset}       ${mem.metadata.tags.join(', ')}`);
+    if (mem.memory_type) console.log(`${c.bold}Type:${c.reset}       ${mem.memory_type}`);
+    if (mem.created_at) console.log(`${c.bold}Created:${c.reset}    ${new Date(mem.created_at).toLocaleString()}`);
+    if (mem.updated_at) console.log(`${c.bold}Updated:${c.reset}    ${new Date(mem.updated_at).toLocaleString()}`);
+    if (mem.pinned) console.log(`${c.bold}Pinned:${c.reset}     ${c.green}yes${c.reset}`);
   }
 }
 
@@ -689,8 +658,8 @@ async function cmdStats(opts: ParsedArgs) {
 }
 
 async function cmdCompletions(shell: string) {
-  const commands = ['store', 'recall', 'list', 'update', 'delete', 'ingest', 'extract',
-    'consolidate', 'relations', 'suggested', 'status', 'export', 'import', 'stats', 'completions'];
+  const commands = ['store', 'recall', 'list', 'get', 'update', 'delete', 'ingest', 'extract',
+    'consolidate', 'relations', 'suggested', 'status', 'export', 'import', 'stats', 'completions', 'config'];
   
   if (shell === 'bash') {
     console.log(`# Add to ~/.bashrc:
@@ -716,6 +685,52 @@ compdef _memoclaw memoclaw`);
 ${commands.map(cmd => `complete -c memoclaw -n '__fish_use_subcommand' -a '${cmd}'`).join('\n')}`);
   } else {
     throw new Error(`Unknown shell: ${shell}. Supported: bash, zsh, fish`);
+  }
+}
+
+async function cmdConfig(subcmd: string, rest: string[]) {
+  if (subcmd === 'show' || !subcmd) {
+    const config: Record<string, string> = {
+      MEMOCLAW_URL: API_URL,
+      MEMOCLAW_PRIVATE_KEY: PRIVATE_KEY ? `${PRIVATE_KEY.slice(0, 6)}…${PRIVATE_KEY.slice(-4)}` : '(not set)',
+      NO_COLOR: process.env.NO_COLOR || '(not set)',
+      DEBUG: process.env.DEBUG || '(not set)',
+    };
+    if (outputJson) {
+      out(config);
+    } else {
+      console.log(`${c.bold}MemoClaw Configuration${c.reset}`);
+      console.log(`${c.dim}${'─'.repeat(50)}${c.reset}`);
+      for (const [key, val] of Object.entries(config)) {
+        const isSet = !val.includes('not set');
+        console.log(`  ${c.cyan}${key.padEnd(24)}${c.reset} ${isSet ? val : `${c.dim}${val}${c.reset}`}`);
+      }
+      console.log(`\n${c.dim}Set via environment variables or .env file${c.reset}`);
+    }
+  } else if (subcmd === 'check') {
+    // Validate configuration
+    const issues: string[] = [];
+    if (!PRIVATE_KEY) issues.push('MEMOCLAW_PRIVATE_KEY is not set');
+    else if (!PRIVATE_KEY.startsWith('0x')) issues.push('MEMOCLAW_PRIVATE_KEY should start with 0x');
+    else if (PRIVATE_KEY.length !== 66) issues.push(`MEMOCLAW_PRIVATE_KEY has wrong length (${PRIVATE_KEY.length}, expected 66)`);
+
+    if (outputJson) {
+      out({ valid: issues.length === 0, issues });
+    } else {
+      if (issues.length === 0) {
+        success('Configuration looks good!');
+        try {
+          const acct = getAccount();
+          info(`Wallet address: ${acct.address}`);
+        } catch {}
+      } else {
+        for (const issue of issues) {
+          console.log(`${c.red}✗${c.reset} ${issue}`);
+        }
+      }
+    }
+  } else {
+    throw new Error('Usage: config [show|check]');
   }
 }
 
@@ -781,6 +796,18 @@ Show memory statistics and account info.
 Options:
   --namespace <name>     Filter by namespace`,
 
+      get: `${c.bold}memoclaw get${c.reset} <id>
+
+Retrieve a single memory by its ID.`,
+
+      config: `${c.bold}memoclaw config${c.reset} [show|check]
+
+Show or validate your MemoClaw configuration.
+
+Subcommands:
+  show       Display current configuration (default)
+  check      Validate configuration and test connectivity`,
+
       completions: `${c.bold}memoclaw completions${c.reset} <bash|zsh|fish>
 
 Generate shell completion scripts.
@@ -807,6 +834,7 @@ ${c.bold}Commands:${c.reset}
   ${c.cyan}store${c.reset} "content"        Store a memory (also accepts stdin)
   ${c.cyan}recall${c.reset} "query"         Search memories by similarity
   ${c.cyan}list${c.reset}                   List memories in a table
+  ${c.cyan}get${c.reset} <id>               Get a single memory by ID
   ${c.cyan}update${c.reset} <id>            Update a memory
   ${c.cyan}delete${c.reset} <id>            Delete a memory
   ${c.cyan}ingest${c.reset}                 Ingest raw text into memories
@@ -819,12 +847,17 @@ ${c.bold}Commands:${c.reset}
   ${c.cyan}export${c.reset}                 Export all memories as JSON
   ${c.cyan}import${c.reset}                 Import memories from JSON
   ${c.cyan}completions${c.reset} <shell>    Generate shell completions
+  ${c.cyan}config${c.reset} [show|check]    Show or validate configuration
 
 ${c.bold}Global Options:${c.reset}
   -h, --help             Show help (use with command for details)
   -v, --version          Show version
   -j, --json             Output as JSON (machine-readable)
   -q, --quiet            Suppress non-essential output
+  -n, --namespace <name> Filter/set namespace
+  -l, --limit <n>        Limit results
+  -t, --tags <a,b>       Comma-separated tags
+  --raw                  Raw output (content only, for piping)
 
 ${c.bold}Environment:${c.reset}
   MEMOCLAW_PRIVATE_KEY   Wallet private key for auth + payments
@@ -887,6 +920,10 @@ try {
     case 'list':
       await cmdList(args);
       break;
+    case 'get':
+      if (!rest[0]) throw new Error('Memory ID required');
+      await cmdGet(rest[0]);
+      break;
     case 'update':
       if (!rest[0]) throw new Error('Memory ID required');
       await cmdUpdate(rest[0], args);
@@ -935,6 +972,9 @@ try {
     case 'completions':
       if (!rest[0]) throw new Error('Shell required: bash, zsh, or fish');
       await cmdCompletions(rest[0]);
+      break;
+    case 'config':
+      await cmdConfig(rest[0], rest.slice(1));
       break;
     case 'help':
       printHelp(rest[0]);
