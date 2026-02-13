@@ -1,0 +1,43 @@
+{
+  "name": "memoclaw",
+  "version": "1.2.0",
+  "description": "MemoClaw CLI - Memory-as-a-Service for AI agents. 1000 free calls, then x402 micropayments.",
+  "type": "module",
+  "bin": {
+    "memoclaw": "./dist/cli.mjs"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "bun build src/cli.ts --outfile=dist/cli.mjs --target=node",
+    "prepublishOnly": "bun run build"
+  },
+  "keywords": [
+    "ai",
+    "memory",
+    "agents",
+    "llm",
+    "vector",
+    "search",
+    "x402",
+    "payments",
+    "usdc",
+    "base",
+    "free-tier",
+    "wallet",
+    "cli"
+  ],
+  "author": "Ana <anajuliabit@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/anajuliabit/memoclaw-cli"
+  },
+  "homepage": "https://memoclaw.dev",
+  "dependencies": {
+    "@x402/core": "^2.3.0",
+    "@x402/evm": "^2.3.0",
+    "viem": "^2.45.2"
+  }
+}
