@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.6.0
+
+### New Commands
+- `memoclaw get <id>` — Retrieve and display a single memory with formatted output
+- `memoclaw config [show|check]` — Show current configuration or validate setup
+
+### New Features
+- **Short flags** — `-n` (namespace), `-l` (limit), `-t` (tags), `-o` (output)
+- **`--key=value` syntax** — Alternative to `--key value` for all flags
+- **`--no-color` flag** — Disable colored output programmatically
+- **`--raw` flag for `recall`** — Outputs content only, one per line (pipe-friendly)
+
+### Refactoring
+- **Shared arg parser** — Extracted `parseArgs` to `src/args.ts`; tests import the real parser instead of duplicating logic
+- Shell completions updated (17 commands)
+
+### Testing
+- 39 tests (up from 33), all using shared `src/args.ts`
+- New coverage: short flags, `--key=value`, `get`, `config`, `BOOLEAN_FLAGS`
+
 ## 1.5.0
 
 ### New Commands

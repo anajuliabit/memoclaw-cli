@@ -1,58 +1,7 @@
 import { describe, test, expect } from 'bun:test';
+import { parseArgs, BOOLEAN_FLAGS } from '../src/args';
 
-// ─── parseArgs tests (extracted logic) ───────────────────────────────────────
-
-const BOOLEAN_FLAGS = new Set([
-  'help', 'version', 'raw', 'json', 'quiet', 'dryRun', 'verbose',
-]);
-
-interface ParsedArgs {
-  _: string[];
-  [key: string]: any;
-}
-
-function parseArgs(args: string[]): ParsedArgs {
-  const result: ParsedArgs = { _: [] };
-  let i = 0;
-  while (i < args.length) {
-    const arg = args[i];
-    if (arg === '-h' || arg === '--help') {
-      result.help = true;
-      i++;
-    } else if (arg === '-v' || arg === '--version') {
-      result.version = true;
-      i++;
-    } else if (arg === '-q' || arg === '--quiet') {
-      result.quiet = true;
-      i++;
-    } else if (arg === '-j' || arg === '--json') {
-      result.json = true;
-      i++;
-    } else if (arg === '--') {
-      result._.push(...args.slice(i + 1));
-      break;
-    } else if (arg.startsWith('--')) {
-      const key = arg.slice(2).replace(/-([a-z])/g, (_, ch) => ch.toUpperCase());
-      if (BOOLEAN_FLAGS.has(key)) {
-        result[key] = true;
-        i++;
-      } else {
-        const next = args[i + 1];
-        if (next !== undefined && !next.startsWith('--')) {
-          result[key] = next;
-          i += 2;
-        } else {
-          result[key] = true;
-          i++;
-        }
-      }
-    } else {
-      result._.push(arg);
-      i++;
-    }
-  }
-  return result;
-}
+// ─── parseArgs ───────────────────────────────────────────────────────────────
 
 describe('parseArgs', () => {
   test('parses positional arguments', () => {
@@ -73,25 +22,26 @@ describe('parseArgs', () => {
   });
 
   test('parses short flags', () => {
-    const result = parseArgs(['-h']);
-    expect(result.help).toBe(true);
+    expect(parseArgs(['-h']).help).toBe(true);
+    expect(parseArgs(['-v']).version).toBe(true);
+    expect(parseArgs(['-j', 'list']).json).toBe(true);
+    expect(parseArgs(['-q', 'store', 'hello']).quiet).toBe(true);
   });
 
-  test('parses -v as version', () => {
-    const result = parseArgs(['-v']);
-    expect(result.version).toBe(true);
-  });
-
-  test('parses -j as json', () => {
-    const result = parseArgs(['-j', 'list']);
-    expect(result.json).toBe(true);
+  test('parses short flag -n as namespace with value', () => {
+    const result = parseArgs(['list', '-n', 'myns']);
+    expect(result.namespace).toBe('myns');
     expect(result._).toEqual(['list']);
   });
 
-  test('parses -q as quiet', () => {
-    const result = parseArgs(['-q', 'store', 'hello']);
-    expect(result.quiet).toBe(true);
-    expect(result._).toEqual(['store', 'hello']);
+  test('parses short flag -l as limit with value', () => {
+    const result = parseArgs(['list', '-l', '5']);
+    expect(result.limit).toBe('5');
+  });
+
+  test('parses short flag -t as tags with value', () => {
+    const result = parseArgs(['recall', 'q', '-t', 'foo,bar']);
+    expect(result.tags).toBe('foo,bar');
   });
 
   test('handles -- separator', () => {
@@ -144,7 +94,62 @@ describe('parseArgs', () => {
     expect(result.verbose).toBe(true);
     expect(result._).toEqual(['list']);
   });
+
+  test('handles --key=value syntax', () => {
+    const result = parseArgs(['--namespace=test', '--limit=10']);
+    expect(result.namespace).toBe('test');
+    expect(result.limit).toBe('10');
+  });
+
+  test('handles --key=value with boolean flag', () => {
+    const result = parseArgs(['--json', '--namespace=test']);
+    expect(result.json).toBe(true);
+    expect(result.namespace).toBe('test');
+  });
+
+  test('handles --key=value with empty value', () => {
+    const result = parseArgs(['--namespace=']);
+    expect(result.namespace).toBe('');
+  });
+
+  test('handles --no-color as boolean', () => {
+    const result = parseArgs(['--no-color', 'list']);
+    expect(result.noColor).toBe(true);
+    expect(result._).toEqual(['list']);
+  });
+
+  test('combined short flags -jq', () => {
+    const result = parseArgs(['-jq', 'list']);
+    expect(result.json).toBe(true);
+    expect(result.quiet).toBe(true);
+    expect(result._).toEqual(['list']);
+  });
+
+  test('combined short flags -jn with value', () => {
+    const result = parseArgs(['-jn', 'myns', 'list']);
+    expect(result.json).toBe(true);
+    expect(result.namespace).toBe('myns');
+    expect(result._).toEqual(['list']);
+  });
+
+  test('short value flag -n does not consume flag-like next arg', () => {
+    const result = parseArgs(['-n', '--json']);
+    // -n sees --json as a flag, not a value
+    expect(result.namespace).toBe(true);
+    expect(result.json).toBe(true);
+  });
+
+  test('all short flags combined', () => {
+    const result = parseArgs(['-j', '-q', '-n', 'ns', '-l', '5', 'recall', 'test']);
+    expect(result.json).toBe(true);
+    expect(result.quiet).toBe(true);
+    expect(result.namespace).toBe('ns');
+    expect(result.limit).toBe('5');
+    expect(result._).toEqual(['recall', 'test']);
+  });
 });
+
+// ─── Command routing ─────────────────────────────────────────────────────────
 
 describe('command routing', () => {
   test('extracts command and rest from positionals', () => {
@@ -160,7 +165,24 @@ describe('command routing', () => {
     expect(cmd).toBeUndefined();
     expect(args.help).toBe(true);
   });
+
+  test('get command extracts ID', () => {
+    const args = parseArgs(['get', 'abc-123', '--json']);
+    const [cmd, ...rest] = args._;
+    expect(cmd).toBe('get');
+    expect(rest[0]).toBe('abc-123');
+    expect(args.json).toBe(true);
+  });
+
+  test('config command with subcommand', () => {
+    const args = parseArgs(['config', 'check']);
+    const [cmd, ...rest] = args._;
+    expect(cmd).toBe('config');
+    expect(rest[0]).toBe('check');
+  });
 });
+
+// ─── Tag parsing ─────────────────────────────────────────────────────────────
 
 describe('tag parsing', () => {
   test('splits comma-separated tags', () => {
@@ -173,6 +195,8 @@ describe('tag parsing', () => {
     expect(tags).toEqual(['solo']);
   });
 });
+
+// ─── Output formatting ──────────────────────────────────────────────────────
 
 describe('output formatting', () => {
   test('truncates long content', () => {
@@ -189,7 +213,6 @@ describe('output formatting', () => {
   });
 
   test('similarity color thresholds', () => {
-    // High similarity (>0.8) = green, medium (>0.5) = yellow, low = red
     const getColor = (sim: number) => sim > 0.8 ? 'green' : sim > 0.5 ? 'yellow' : 'red';
     expect(getColor(0.95)).toBe('green');
     expect(getColor(0.65)).toBe('yellow');
@@ -199,9 +222,11 @@ describe('output formatting', () => {
   });
 });
 
+// ─── Relation type validation ────────────────────────────────────────────────
+
 describe('relation type validation', () => {
   const validTypes = ['related_to', 'derived_from', 'contradicts', 'supersedes', 'supports'];
-  
+
   test('accepts valid types', () => {
     for (const t of validTypes) {
       expect(validTypes.includes(t)).toBe(true);
@@ -213,6 +238,8 @@ describe('relation type validation', () => {
     expect(validTypes.includes('')).toBe(false);
   });
 });
+
+// ─── Import/export format ────────────────────────────────────────────────────
 
 describe('import format validation', () => {
   test('accepts array format', () => {
@@ -250,16 +277,78 @@ describe('export format', () => {
   });
 });
 
+// ─── Completions ─────────────────────────────────────────────────────────────
+
 describe('completions', () => {
-  const commands = ['store', 'recall', 'list', 'update', 'delete', 'ingest', 'extract',
-    'consolidate', 'relations', 'suggested', 'status', 'export', 'import', 'stats', 'completions'];
+  const commands = ['store', 'recall', 'list', 'get', 'update', 'delete', 'ingest', 'extract',
+    'consolidate', 'relations', 'suggested', 'status', 'export', 'import', 'stats', 'browse', 'completions', 'config'];
 
   test('all commands present', () => {
-    expect(commands.length).toBe(15);
+    expect(commands.length).toBe(18);
     expect(commands).toContain('store');
+    expect(commands).toContain('get');
     expect(commands).toContain('export');
     expect(commands).toContain('import');
     expect(commands).toContain('stats');
     expect(commands).toContain('completions');
+    expect(commands).toContain('config');
+    expect(commands).toContain('browse');
+  });
+});
+
+// ─── Falsy value handling ────────────────────────────────────────────────────
+
+describe('falsy value handling', () => {
+  test('importance of 0 is preserved as string', () => {
+    const result = parseArgs(['store', 'test', '--importance', '0']);
+    expect(result.importance).toBe('0');
+    // Ensures `if (opts.importance)` bug is caught — "0" is truthy as string
+  });
+
+  test('limit of 0 is preserved', () => {
+    const result = parseArgs(['list', '--limit', '0']);
+    expect(result.limit).toBe('0');
+  });
+
+  test('offset of 0 is preserved', () => {
+    const result = parseArgs(['list', '--offset', '0']);
+    expect(result.offset).toBe('0');
+  });
+
+  test('null-check pattern works for flag values', () => {
+    // Simulates the fixed pattern: opts.x != null && opts.x !== true
+    const opts: any = { limit: '0', importance: '0.0', offset: '0' };
+    expect(opts.limit != null && opts.limit !== true).toBe(true);
+    expect(opts.importance != null && opts.importance !== true).toBe(true);
+    expect(opts.offset != null && opts.offset !== true).toBe(true);
+
+    // When flag has no value (boolean fallback)
+    const opts2: any = { limit: true };
+    expect(opts2.limit != null && opts2.limit !== true).toBe(false);
+
+    // When flag is absent
+    const opts3: any = {};
+    expect(opts3.limit != null && opts3.limit !== true).toBe(false);
+  });
+});
+
+// ─── BOOLEAN_FLAGS ───────────────────────────────────────────────────────────
+
+describe('BOOLEAN_FLAGS', () => {
+  test('contains expected flags', () => {
+    expect(BOOLEAN_FLAGS.has('help')).toBe(true);
+    expect(BOOLEAN_FLAGS.has('version')).toBe(true);
+    expect(BOOLEAN_FLAGS.has('json')).toBe(true);
+    expect(BOOLEAN_FLAGS.has('quiet')).toBe(true);
+    expect(BOOLEAN_FLAGS.has('dryRun')).toBe(true);
+    expect(BOOLEAN_FLAGS.has('raw')).toBe(true);
+    expect(BOOLEAN_FLAGS.has('verbose')).toBe(true);
+    expect(BOOLEAN_FLAGS.has('noColor')).toBe(true);
+  });
+
+  test('does not contain value flags', () => {
+    expect(BOOLEAN_FLAGS.has('namespace')).toBe(false);
+    expect(BOOLEAN_FLAGS.has('limit')).toBe(false);
+    expect(BOOLEAN_FLAGS.has('tags')).toBe(false);
   });
 });

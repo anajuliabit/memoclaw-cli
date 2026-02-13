@@ -1,6 +1,6 @@
 {
   "name": "memoclaw",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "description": "MemoClaw CLI - Memory-as-a-Service for AI agents. 1000 free calls, then x402 micropayments.",
   "type": "module",
   "bin": {
@@ -11,6 +11,7 @@
   ],
   "scripts": {
     "build": "bun build src/cli.ts --outfile=dist/cli.mjs --target=node",
+    "test": "bun test",
     "prepublishOnly": "bun run build"
   },
   "keywords": [
