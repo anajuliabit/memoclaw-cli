@@ -104,6 +104,7 @@ let outputJson = false;
 let outputQuiet = false;
 let outputPretty = false;
 let outputFormat: 'json' | 'table' | 'csv' | 'yaml' = 'table';
+let outputTruncate = 0; // 0 = no truncation
 
 function out(data: any) {
   if (outputQuiet) return;
@@ -209,6 +210,12 @@ function progressBar(current: number, total: number, width = 30): string {
   return `${c.green}${'█'.repeat(filled)}${c.dim}${'░'.repeat(width - filled)}${c.reset} ${current}/${total}`;
 }
 
+/** Truncate text to specified width */
+function truncate(text: string, width: number): string {
+  if (width <= 0 || text.length <= width) return text;
+  return text.slice(0, width - 1) + '…';
+}
+
 // ─── HTTP ────────────────────────────────────────────────────────────────────
 
 async function request(method: string, path: string, body: any = null) {
@@ -309,6 +316,53 @@ async function cmdRecall(query: string, opts: ParsedArgs) {
   if (opts.namespace) body.namespace = opts.namespace;
   if (opts.tags) body.filters = { tags: opts.tags.split(',').map((t: string) => t.trim()) };
 
+  // Watch mode: continuously poll for changes
+  if (opts.watch) {
+    let lastCount = -1;
+    const pollInterval = parseInt(opts.watchInterval || '5000');
+    const readline = await import('readline');
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+    
+    console.log(`${c.dim}Watching for changes... Press Ctrl+C to stop.${c.reset}`);
+    
+    while (true) {
+      try {
+        const result = await request('POST', '/v1/recall', body) as any;
+        const memories = result.memories || [];
+        
+        // Only output if count changed
+        if (memories.length !== lastCount) {
+          // Clear previous output (simple approach - just print separator)
+          if (lastCount >= 0) {
+            console.log(`${c.dim}${'─'.repeat(40)}${c.reset}`);
+          }
+          lastCount = memories.length;
+          
+          if (memories.length === 0) {
+            console.log(`${c.dim}No memories found.${c.reset}`);
+          } else {
+            for (const mem of memories) {
+              const sim = mem.similarity?.toFixed(3) || '???';
+              const simColor = (mem.similarity || 0) > 0.8 ? c.green : (mem.similarity || 0) > 0.5 ? c.yellow : c.red;
+              const content = outputTruncate ? truncate(mem.content, outputTruncate) : mem.content;
+              console.log(`${simColor}[${sim}]${c.reset} ${content}`);
+              if (mem.metadata?.tags?.length) {
+                console.log(`  ${c.dim}tags: ${mem.metadata.tags.join(', ')}${c.reset}`);
+              }
+            }
+            console.log(`${c.dim}─ ${memories.length} result${memories.length !== 1 ? 's' : ''}${c.reset}`);
+          }
+        }
+        
+        // Wait before next poll
+        await new Promise(r => setTimeout(r, pollInterval));
+      } catch (e) {
+        if (process.env.DEBUG) console.error('Watch error:', e);
+        await new Promise(r => setTimeout(r, pollInterval));
+      }
+    }
+  }
+  
   const result = await request('POST', '/v1/recall', body) as any;
   
   if (outputJson) {
@@ -326,7 +380,8 @@ async function cmdRecall(query: string, opts: ParsedArgs) {
       for (const mem of memories) {
         const sim = mem.similarity?.toFixed(3) || '???';
         const simColor = (mem.similarity || 0) > 0.8 ? c.green : (mem.similarity || 0) > 0.5 ? c.yellow : c.red;
-        console.log(`${simColor}[${sim}]${c.reset} ${mem.content}`);
+        const content = outputTruncate ? truncate(mem.content, outputTruncate) : mem.content;
+        console.log(`${simColor}[${sim}]${c.reset} ${content}`);
         if (mem.metadata?.tags?.length) {
           console.log(`  ${c.dim}tags: ${mem.metadata.tags.join(', ')}${c.reset}`);
         }
@@ -345,6 +400,56 @@ async function cmdList(opts: ParsedArgs) {
   if (opts.offset != null && opts.offset !== true) params.set('offset', opts.offset);
   if (opts.namespace) params.set('namespace', opts.namespace);
 
+  // Watch mode: continuously poll for changes
+  if (opts.watch) {
+    let lastTotal = -1;
+    const pollInterval = parseInt(opts.watchInterval || '5000');
+    
+    console.log(`${c.dim}Watching for changes... Press Ctrl+C to stop.${c.reset}`);
+    
+    while (true) {
+      try {
+        const result = await request('GET', `/v1/memories?${params}`) as any;
+        const memories = result.memories || result.data || [];
+        const total = result.total ?? memories.length;
+        
+        // Only output if total changed
+        if (total !== lastTotal) {
+          if (lastTotal >= 0) {
+            console.log(`${c.dim}${'─'.repeat(40)}${c.reset}`);
+          }
+          lastTotal = total;
+          
+          if (memories.length === 0) {
+            console.log(`${c.dim}No memories found.${c.reset}`);
+          } else {
+            const truncateWidth = outputTruncate || 50;
+            const rows = memories.map((m: any) => ({
+              id: m.id?.slice(0, 8) || '?',
+              content: m.content?.length > truncateWidth ? m.content.slice(0, truncateWidth) + '…' : (m.content || ''),
+              importance: m.importance?.toFixed(2) || '-',
+              tags: m.metadata?.tags?.join(', ') || '',
+              created: m.created_at ? new Date(m.created_at).toLocaleDateString() : '',
+            }));
+            table(rows, [
+              { key: 'id', label: 'ID', width: 10 },
+              { key: 'content', label: 'CONTENT', width: outputTruncate || 52 },
+              { key: 'importance', label: 'IMP', width: 5 },
+              { key: 'tags', label: 'TAGS', width: 20 },
+              { key: 'created', label: 'CREATED', width: 12 },
+            ]);
+            console.log(`${c.dim}─ ${memories.length} of ${total} memories${c.reset}`);
+          }
+        }
+        
+        await new Promise(r => setTimeout(r, pollInterval));
+      } catch (e) {
+        if (process.env.DEBUG) console.error('Watch error:', e);
+        await new Promise(r => setTimeout(r, pollInterval));
+      }
+    }
+  }
+  
   const result = await request('GET', `/v1/memories?${params}`) as any;
   
   if (outputJson) {
@@ -354,16 +459,17 @@ async function cmdList(opts: ParsedArgs) {
     if (memories.length === 0) {
       console.log(`${c.dim}No memories found.${c.reset}`);
     } else {
+      const truncateWidth = outputTruncate || 50;
       const rows = memories.map((m: any) => ({
         id: m.id?.slice(0, 8) || '?',
-        content: m.content?.length > 50 ? m.content.slice(0, 50) + '…' : (m.content || ''),
+        content: m.content?.length > truncateWidth ? m.content.slice(0, truncateWidth) + '…' : (m.content || ''),
         importance: m.importance?.toFixed(2) || '-',
         tags: m.metadata?.tags?.join(', ') || '',
         created: m.created_at ? new Date(m.created_at).toLocaleDateString() : '',
       }));
       table(rows, [
         { key: 'id', label: 'ID', width: 10 },
-        { key: 'content', label: 'CONTENT', width: 52 },
+        { key: 'content', label: 'CONTENT', width: outputTruncate || 52 },
         { key: 'importance', label: 'IMP', width: 5 },
         { key: 'tags', label: 'TAGS', width: 20 },
         { key: 'created', label: 'CREATED', width: 12 },
@@ -644,23 +750,39 @@ async function cmdImport(opts: ParsedArgs) {
   const memories = data.memories || data;
   if (!Array.isArray(memories)) throw new Error('Invalid format: expected { memories: [...] } or [...]');
 
+  // Concurrency control for parallel imports
+  const concurrency = opts.concurrency ? parseInt(opts.concurrency) : 1;
+  const batchSize = Math.min(concurrency, memories.length);
+  
   let imported = 0;
   let failed = 0;
-
-  for (const mem of memories) {
-    try {
-      const body: Record<string, any> = { content: mem.content };
-      if (mem.importance !== undefined) body.importance = mem.importance;
-      if (mem.metadata) body.metadata = mem.metadata;
-      if (mem.namespace || opts.namespace) body.namespace = mem.namespace || opts.namespace;
-      await request('POST', '/v1/store', body);
-      imported++;
-      if (!outputQuiet) {
-        process.stderr.write(`\r  ${progressBar(imported, memories.length)}`);
+  
+  // Process in batches for concurrent import
+  for (let i = 0; i < memories.length; i += batchSize) {
+    const batch = memories.slice(i, i + batchSize);
+    
+    const results = await Promise.allSettled(
+      batch.map(async (mem) => {
+        const body: Record<string, any> = { content: mem.content };
+        if (mem.importance !== undefined) body.importance = mem.importance;
+        if (mem.metadata) body.metadata = mem.metadata;
+        if (mem.namespace || opts.namespace) body.namespace = mem.namespace || opts.namespace;
+        await request('POST', '/v1/store', body);
+        return true;
+      })
+    );
+    
+    for (const result of results) {
+      if (result.status === 'fulfilled') {
+        imported++;
+      } else {
+        failed++;
+        if (process.env.DEBUG) console.error(`Failed to import: ${result.reason}`);
       }
-    } catch (e: any) {
-      failed++;
-      if (process.env.DEBUG) console.error(`Failed to import: ${e.message}`);
+    }
+    
+    if (!outputQuiet) {
+      process.stderr.write(`\r  ${progressBar(imported, memories.length)}`);
     }
   }
 
@@ -756,10 +878,13 @@ async function cmdGraph(id: string, opts: ParsedArgs) {
 }
 
 async function cmdPurge(opts: ParsedArgs) {
-  if (!opts.force) {
+  // Support both --force and --yes flags
+  const confirmed = opts.force || opts.yes;
+  
+  if (!confirmed) {
     // In non-interactive mode without --force, abort
     if (!process.stdin.isTTY) {
-      throw new Error('Use --force to confirm purge in non-interactive mode');
+      throw new Error('Use --force or --yes to confirm purge in non-interactive mode');
     }
     const readline = await import('readline');
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
@@ -1237,6 +1362,10 @@ ${c.bold}Global Options:${c.reset}
   -f, --format <fmt>     Output format: json, table, csv, yaml
   -p, --pretty          Pretty-print JSON output
   -w, --watch            Watch for changes (continuous polling)
+  --watch-interval <ms>  Polling interval for watch mode (default: 5000)
+  -s, --truncate <n>     Truncate output to n characters
+  -c, --concurrency <n>  Number of parallel imports (default: 1)
+  -y, --yes              Skip confirmation prompts (alias for --force)
   --raw                  Raw output (content only, for piping)
   --wide                 Use wider columns in table output
   --force                Skip confirmation prompts
@@ -1282,6 +1411,13 @@ if (args.format) {
 // --json flag overrides format
 if (args.json) {
   outputFormat = 'json';
+}
+
+// Parse truncate option
+if (args.truncate != null && args.truncate !== true) {
+  outputTruncate = parseInt(args.truncate);
+} else if (args.truncate === true) {
+  outputTruncate = 80; // default truncate width
 }
 
 if (args.version) {

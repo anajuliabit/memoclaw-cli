@@ -602,3 +602,59 @@ describe('config handling', () => {
     expect(result.format).toBe('yml');
   });
 });
+
+// ─── New flags: truncate, concurrency, yes ───────────────────────────────────
+
+describe('new flags: truncate, concurrency, yes', () => {
+  test('parses --truncate with value', () => {
+    const result = parseArgs(['--truncate', '80', 'list']);
+    expect(result.truncate).toBe('80');
+    expect(result._).toEqual(['list']);
+  });
+
+  test('parses --truncate as boolean (defaults to true if next arg is flag-like)', () => {
+    const result = parseArgs(['--truncate', '--json', 'list']);
+    expect(result.truncate).toBe(true);
+    expect(result._).toEqual(['list']);
+  });
+
+  test('parses -s short flag for truncate', () => {
+    const result = parseArgs(['-s', '40', 'list']);
+    expect(result.truncate).toBe('40');
+  });
+
+  test('parses --concurrency with value', () => {
+    const result = parseArgs(['--concurrency', '5', 'import']);
+    expect(result.concurrency).toBe('5');
+  });
+
+  test('parses -c short flag for concurrency', () => {
+    const result = parseArgs(['-c', '10', 'import']);
+    expect(result.concurrency).toBe('10');
+  });
+
+  test('parses --yes flag', () => {
+    const result = parseArgs(['purge', '--yes']);
+    expect(result.yes).toBe(true);
+  });
+
+  test('parses -y short flag for yes', () => {
+    const result = parseArgs(['purge', '-y']);
+    expect(result.yes).toBe(true);
+  });
+
+  test('--watch-interval is parsed', () => {
+    const result = parseArgs(['--watch-interval', '2000', 'recall', 'test']);
+    expect(result.watchInterval).toBe('2000');
+  });
+
+  test('--truncate=60 works', () => {
+    const result = parseArgs(['--truncate=60', 'list']);
+    expect(result.truncate).toBe('60');
+  });
+
+  test('--concurrency=3 works', () => {
+    const result = parseArgs(['--concurrency=3', 'import']);
+    expect(result.concurrency).toBe('3');
+  });
+});
