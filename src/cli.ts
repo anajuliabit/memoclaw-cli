@@ -20,13 +20,27 @@ import { privateKeyToAccount } from 'viem/accounts';
 const API_URL = process.env.MEMOCLAW_URL || 'https://api.memoclaw.com';
 const PRIVATE_KEY = process.env.MEMOCLAW_PRIVATE_KEY as `0x${string}`;
 
-if (!PRIVATE_KEY) {
-  console.error('Error: MEMOCLAW_PRIVATE_KEY environment variable required');
-  process.exit(1);
+function ensureAuth() {
+  if (!PRIVATE_KEY) {
+    console.error('Error: MEMOCLAW_PRIVATE_KEY environment variable required');
+    process.exit(1);
+  }
 }
 
-// Setup wallet
-const account = privateKeyToAccount(PRIVATE_KEY);
+// Setup wallet (lazy - account used only after ensureAuth)
+let _account: ReturnType<typeof privateKeyToAccount> | null = null;
+function getAccount() {
+  if (!_account) {
+    ensureAuth();
+    _account = privateKeyToAccount(PRIVATE_KEY);
+  }
+  return _account;
+}
+
+// Keep backward compat reference
+const account = new Proxy({} as ReturnType<typeof privateKeyToAccount>, {
+  get(_, prop) { return (getAccount() as any)[prop]; }
+});
 
 // x402 client (lazy init - only when needed)
 let _x402Client: x402HTTPClient | null = null;
@@ -56,7 +70,13 @@ function parseArgs(args: string[]) {
   let i = 0;
   while (i < args.length) {
     const arg = args[i];
-    if (arg.startsWith('--')) {
+    if (arg === '-h' || arg === '--help') {
+      result.help = true;
+      i++;
+    } else if (arg === '-v' || arg === '--version') {
+      result.version = true;
+      i++;
+    } else if (arg.startsWith('--')) {
       const key = arg.slice(2).replace(/-([a-z])/g, (_, c) => c.toUpperCase());
       const next = args[i + 1];
       if (next && !next.startsWith('--')) {
@@ -162,9 +182,14 @@ async function recall(query: string, opts: Record<string, any>) {
   if (opts.raw) {
     console.log(JSON.stringify(result, null, 2));
   } else {
-    for (const mem of result.memories || []) {
-      console.log(`[${mem.similarity?.toFixed(3) || '???'}] ${mem.content}`);
-      if (mem.metadata?.tags?.length) console.log(`  tags: ${mem.metadata.tags.join(', ')}`);
+    const memories = result.memories || [];
+    if (memories.length === 0) {
+      console.log('No memories found.');
+    } else {
+      for (const mem of memories) {
+        console.log(`[${mem.similarity?.toFixed(3) || '???'}] ${mem.content}`);
+        if (mem.metadata?.tags?.length) console.log(`  tags: ${mem.metadata.tags.join(', ')}`);
+      }
     }
   }
 }
@@ -202,10 +227,16 @@ async function suggested(opts: Record<string, any>) {
       console.log('---');
     }
     
-    for (const mem of result.suggested || []) {
-      const cat = mem.category?.toUpperCase() || '???';
-      console.log(`[${cat}] (${mem.review_score?.toFixed(2) || '?'}) ${mem.content.slice(0, 100)}...`);
-      if (mem.metadata?.tags?.length) console.log(`  tags: ${mem.metadata.tags.join(', ')}`);
+    const suggestions = result.suggested || [];
+    if (suggestions.length === 0) {
+      console.log('No suggested memories.');
+    } else {
+      for (const mem of suggestions) {
+        const cat = mem.category?.toUpperCase() || '???';
+        const text = mem.content.length > 100 ? mem.content.slice(0, 100) + '...' : mem.content;
+        console.log(`[${cat}] (${mem.review_score?.toFixed(2) || '?'}) ${text}`);
+        if (mem.metadata?.tags?.length) console.log(`  tags: ${mem.metadata.tags.join(', ')}`);
+      }
     }
   }
 }
@@ -367,8 +398,13 @@ Usage:
   memoclaw status
     Check free tier remaining and wallet info
 
+Options:
+  --help, -h             Show this help
+  --version, -v          Show version
+
 Environment:
   MEMOCLAW_PRIVATE_KEY   Wallet private key for auth + payments
+  MEMOCLAW_URL           API endpoint (default: https://api.memoclaw.com)
 
 Free Tier:
   Every wallet gets 1000 free API calls. After that, x402
@@ -379,6 +415,16 @@ API: https://api.memoclaw.com`);
 
 const args = parseArgs(process.argv.slice(2));
 const [cmd, ...rest] = args._;
+
+if (args.version) {
+  console.log('memoclaw 1.3.0');
+  process.exit(0);
+}
+
+if (args.help || (!cmd && args._.length === 0)) {
+  printHelp();
+  process.exit(0);
+}
 
 try {
   switch (cmd) {
@@ -434,7 +480,9 @@ try {
       await status();
       break;
     default:
-      printHelp();
+      console.error(`Unknown command: ${cmd}`);
+      console.error('Run "memoclaw --help" for usage.');
+      process.exit(1);
   }
 } catch (err: any) {
   console.error('Error:', err.message);
