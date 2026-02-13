@@ -70,8 +70,9 @@ Every wallet gets **1000 free API calls**. After that, x402 micropayments kick i
 
 ## API
 
-- Docs: [https://memoclaw.dev](https://memoclaw.dev)
+- Dashboard: [https://memoclaw.com](https://memoclaw.com)
 - API: [https://api.memoclaw.com](https://api.memoclaw.com)
+- Docs: [https://docs.memoclaw.com](https://docs.memoclaw.com)
 
 ## License
 

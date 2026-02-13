@@ -34,7 +34,7 @@
     "type": "git",
     "url": "https://github.com/anajuliabit/memoclaw-cli"
   },
-  "homepage": "https://memoclaw.dev",
+  "homepage": "https://memoclaw.com",
   "dependencies": {
     "@x402/core": "^2.3.0",
     "@x402/evm": "^2.3.0",
