@@ -585,4 +585,20 @@ describe('config handling', () => {
     expect(invalidShort.length).toBeLessThan(66);
     expect(invalidNoPrefix.startsWith('0x')).toBe(false);
   });
+
+  test('--format=yaml is parsed', () => {
+    const result = parseArgs(['--format=yaml', 'list']);
+    expect(result.format).toBe('yaml');
+  });
+
+  test('--format=YAML works (case insensitive)', () => {
+    const result = parseArgs(['--format=YAML', 'list']);
+    // Format is case-preserving in args, but normalized in output
+    expect(result.format).toBe('YAML');
+  });
+
+  test('--format=yml works', () => {
+    const result = parseArgs(['--format=yml', 'list']);
+    expect(result.format).toBe('yml');
+  });
 });

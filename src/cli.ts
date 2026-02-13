@@ -18,10 +18,16 @@ import { toClientEvmSigner } from '@x402/evm';
 import { privateKeyToAccount } from 'viem/accounts';
 import { parseArgs } from './args.js';
 import type { ParsedArgs } from './args.js';
+import yaml from 'js-yaml';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
 
 const VERSION = '1.7.0';
 const API_URL = process.env.MEMOCLAW_URL || 'https://api.memoclaw.com';
 const PRIVATE_KEY = process.env.MEMOCLAW_PRIVATE_KEY as `0x${string}`;
+const CONFIG_DIR = path.join(os.homedir(), '.memoclaw');
+const CONFIG_FILE = path.join(CONFIG_DIR, 'config');
 
 // ─── Colors ──────────────────────────────────────────────────────────────────
 
@@ -97,12 +103,14 @@ async function readStdin(): Promise<string | null> {
 let outputJson = false;
 let outputQuiet = false;
 let outputPretty = false;
-let outputFormat: 'json' | 'table' | 'csv' = 'table';
+let outputFormat: 'json' | 'table' | 'csv' | 'yaml' = 'table';
 
 function out(data: any) {
   if (outputQuiet) return;
   if (outputJson || outputFormat === 'json') {
     console.log(JSON.stringify(data, outputPretty ? null : undefined, outputPretty ? 2 : undefined));
+  } else if (outputFormat === 'yaml') {
+    console.log(yaml.dump(data, { indent: 2, lineWidth: 120 }));
   } else if (outputFormat === 'csv') {
     if (Array.isArray(data)) {
       if (data.length === 0) return;
@@ -149,6 +157,11 @@ function table(rows: Record<string, any>[], columns?: { key: string; label: stri
   
   if (outputJson || outputFormat === 'json') {
     console.log(JSON.stringify(rows, null, 2));
+    return;
+  }
+
+  if (outputFormat === 'yaml') {
+    console.log(yaml.dump(rows, { indent: 2, lineWidth: 120 }));
     return;
   }
 
@@ -832,7 +845,74 @@ ${commands.map(cmd => `complete -c memoclaw -n '__fish_use_subcommand' -a '${cmd
   }
 }
 
+// ─── Config File Support ───────────────────────────────────────────────────
+
+interface ConfigFile {
+  url?: string;
+  privateKey?: string;
+  namespace?: string;
+  timeout?: number;
+}
+
+function loadConfigFile(): ConfigFile {
+  try {
+    if (fs.existsSync(CONFIG_FILE)) {
+      const content = fs.readFileSync(CONFIG_FILE, 'utf-8');
+      // Support both YAML and JSON
+      if (CONFIG_FILE.endsWith('.json')) {
+        return JSON.parse(content);
+      }
+      return yaml.load(content) as ConfigFile;
+    }
+  } catch (e: any) {
+    if (process.env.DEBUG) {
+      console.error(`Failed to load config: ${e.message}`);
+    }
+  }
+  return {};
+}
+
+function ensureConfigDir() {
+  if (!fs.existsSync(CONFIG_DIR)) {
+    fs.mkdirSync(CONFIG_DIR, { recursive: true });
+  }
+}
+
+// Load config file at startup
+const configFile = loadConfigFile();
+
+// ─── Config Command ─────────────────────────────────────────────────────────
+
 async function cmdConfig(subcmd: string, rest: string[]) {
+  if (subcmd === 'init') {
+    // Initialize config file
+    ensureConfigDir();
+    const sampleConfig: ConfigFile = {
+      url: 'https://api.memoclaw.com',
+      namespace: '',
+      timeout: 30,
+    };
+    
+    // If user has env vars set, use those as defaults
+    if (process.env.MEMOCLAW_URL) sampleConfig.url = process.env.MEMOCLAW_URL;
+    if (process.env.MEMOCLAW_NAMESPACE) sampleConfig.namespace = process.env.MEMOCLAW_NAMESPACE;
+    if (process.env.MEMOCLAW_TIMEOUT) sampleConfig.timeout = parseInt(process.env.MEMOCLAW_TIMEOUT);
+    
+    const configPath = CONFIG_FILE.endsWith('.yaml') || CONFIG_FILE.endsWith('.yml') 
+      ? CONFIG_FILE 
+      : CONFIG_FILE + '.yaml';
+    
+    fs.writeFileSync(configPath, yaml.dump(sampleConfig, { indent: 2 }));
+    success(`Config file created at ${c.cyan}${configPath}${c.reset}`);
+    console.log(`${c.dim}Edit this file and remove the privateKey line (set via MEMOCLAW_PRIVATE_KEY env var)${c.reset}`);
+    return;
+  }
+  
+  if (subcmd === 'path') {
+    console.log(CONFIG_FILE);
+    return;
+  }
+
   if (subcmd === 'show' || !subcmd) {
     const config: Record<string, string> = {
       MEMOCLAW_URL: API_URL,
@@ -874,7 +954,7 @@ async function cmdConfig(subcmd: string, rest: string[]) {
       }
     }
   } else {
-    throw new Error('Usage: config [show|check]');
+    throw new Error('Usage: config [show|check|init|path]');
   }
 }
 
@@ -1154,7 +1234,7 @@ ${c.bold}Global Options:${c.reset}
   -l, --limit <n>        Limit results
   -o, --offset <n>      Pagination offset
   -t, --tags <a,b>       Comma-separated tags
-  -f, --format <fmt>     Output format: json, table, csv
+  -f, --format <fmt>     Output format: json, table, csv, yaml
   -p, --pretty          Pretty-print JSON output
   -w, --watch            Watch for changes (continuous polling)
   --raw                  Raw output (content only, for piping)
@@ -1192,8 +1272,10 @@ outputPretty = !!args.pretty;
 
 // Parse output format
 if (args.format) {
-  const fmt = String(args.format).toLowerCase();
-  if (fmt === 'json' || fmt === 'table' || fmt === 'csv') {
+  let fmt = String(args.format).toLowerCase();
+  // Normalize yml to yaml
+  if (fmt === 'yml') fmt = 'yaml';
+  if (fmt === 'json' || fmt === 'table' || fmt === 'csv' || fmt === 'yaml') {
     outputFormat = fmt;
   }
 }
