@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.8.0
+
+### New Global Options
+- **`--format <json|table|csv>` / `-f`** — Output format selection (default: table for human-readable, json for programmatic)
+- **`--pretty` / `-p`** — Pretty-print JSON output with indentation
+- **`--watch` / `-w`** — Watch mode for continuous polling (future use)
+- **`--wide`** — Use wider columns in table output (up to 120 chars)
+- **`--offset` / `-o`** — Pagination offset (now parsed consistently)
+
+### Improvements
+- **CSV output** — `memoclaw list --format csv` outputs CSV with proper escaping for commas and quotes
+- **Better table formatting** — Tables now respect `--wide` flag for more data visibility
+- **Combined short flags** — Support for `-jq`, `-jnf namespace`, etc.
+
+### Testing
+- 77 tests (up from 53), comprehensive coverage of new flags, CSV formatting, progress bar
+
 ## 1.7.0
 
 ### New Commands

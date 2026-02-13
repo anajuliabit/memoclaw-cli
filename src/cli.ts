@@ -96,11 +96,30 @@ async function readStdin(): Promise<string | null> {
 /** Global output mode from parsed args */
 let outputJson = false;
 let outputQuiet = false;
+let outputPretty = false;
+let outputFormat: 'json' | 'table' | 'csv' = 'table';
 
 function out(data: any) {
   if (outputQuiet) return;
-  if (outputJson) {
-    console.log(JSON.stringify(data, null, 2));
+  if (outputJson || outputFormat === 'json') {
+    console.log(JSON.stringify(data, outputPretty ? null : undefined, outputPretty ? 2 : undefined));
+  } else if (outputFormat === 'csv') {
+    if (Array.isArray(data)) {
+      if (data.length === 0) return;
+      const headers = Object.keys(data[0]);
+      console.log(headers.join(','));
+      for (const row of data) {
+        console.log(headers.map(h => {
+          const val = row[h];
+          const str = val === null || val === undefined ? '' : String(val);
+          return str.includes(',') || str.includes('"') ? `"${str.replace(/"/g, '""')}"` : str;
+        }).join(','));
+      }
+    } else if (typeof data === 'string') {
+      console.log(data);
+    } else {
+      console.log(JSON.stringify(data, null, 2));
+    }
   } else if (typeof data === 'string') {
     console.log(data);
   } else {
@@ -128,8 +147,13 @@ function info(msg: string) {
 function table(rows: Record<string, any>[], columns?: { key: string; label: string; width?: number }[]) {
   if (rows.length === 0) return;
   
-  if (outputJson) {
+  if (outputJson || outputFormat === 'json') {
     console.log(JSON.stringify(rows, null, 2));
+    return;
+  }
+
+  if (outputFormat === 'csv') {
+    out(rows);
     return;
   }
 
@@ -139,13 +163,14 @@ function table(rows: Record<string, any>[], columns?: { key: string; label: stri
   }
 
   // Calculate widths
+  const capWidth = args.wide ? 120 : 60;
   for (const col of columns) {
     if (!col.width) {
       col.width = Math.max(
         col.label.length,
         ...rows.map(r => String(r[col.key] ?? '').length)
       );
-      col.width = Math.min(col.width, 60); // cap
+      col.width = Math.min(col.width, capWidth); // cap
     }
   }
 
@@ -1127,10 +1152,15 @@ ${c.bold}Global Options:${c.reset}
   -q, --quiet            Suppress non-essential output
   -n, --namespace <name> Filter/set namespace
   -l, --limit <n>        Limit results
+  -o, --offset <n>      Pagination offset
   -t, --tags <a,b>       Comma-separated tags
+  -f, --format <fmt>     Output format: json, table, csv
+  -p, --pretty          Pretty-print JSON output
+  -w, --watch            Watch for changes (continuous polling)
   --raw                  Raw output (content only, for piping)
+  --wide                 Use wider columns in table output
   --force                Skip confirmation prompts
-  --timeout <seconds>    Request timeout (default: 30)
+  --timeout <seconds>   Request timeout (default: 30)
 
 ${c.bold}Environment:${c.reset}
   MEMOCLAW_PRIVATE_KEY   Wallet private key for auth + payments
@@ -1158,6 +1188,19 @@ const [cmd, ...rest] = args._;
 
 outputJson = !!args.json;
 outputQuiet = !!args.quiet;
+outputPretty = !!args.pretty;
+
+// Parse output format
+if (args.format) {
+  const fmt = String(args.format).toLowerCase();
+  if (fmt === 'json' || fmt === 'table' || fmt === 'csv') {
+    outputFormat = fmt;
+  }
+}
+// --json flag overrides format
+if (args.json) {
+  outputFormat = 'json';
+}
 
 if (args.version) {
   console.log(`memoclaw ${VERSION}`);

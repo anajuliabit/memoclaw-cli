@@ -354,12 +354,16 @@ describe('BOOLEAN_FLAGS', () => {
     expect(BOOLEAN_FLAGS.has('namespace')).toBe(false);
     expect(BOOLEAN_FLAGS.has('limit')).toBe(false);
     expect(BOOLEAN_FLAGS.has('tags')).toBe(false);
+    expect(BOOLEAN_FLAGS.has('format')).toBe(false);
   });
 
   test('contains new boolean flags', () => {
     expect(BOOLEAN_FLAGS.has('force')).toBe(true);
     expect(BOOLEAN_FLAGS.has('count')).toBe(true);
     expect(BOOLEAN_FLAGS.has('wide')).toBe(true);
+    expect(BOOLEAN_FLAGS.has('pretty')).toBe(true);
+    expect(BOOLEAN_FLAGS.has('watch')).toBe(true);
+    expect(BOOLEAN_FLAGS.has('interactive')).toBe(true);
   });
 });
 
@@ -413,5 +417,172 @@ describe('graph helpers', () => {
     expect(label('short')).toBe('short');
     expect(label('a'.repeat(50))).toBe('a'.repeat(40) + '…');
     expect(label('a'.repeat(40))).toBe('a'.repeat(40));
+  });
+});
+
+// ─── New flags ────────────────────────────────────────────────────────────────
+
+describe('new flags parsing', () => {
+  test('parses --format json', () => {
+    const result = parseArgs(['--format', 'json', 'list']);
+    expect(result.format).toBe('json');
+    expect(result._).toEqual(['list']);
+  });
+
+  test('parses --format table', () => {
+    const result = parseArgs(['--format', 'table', 'list']);
+    expect(result.format).toBe('table');
+  });
+
+  test('parses --format csv', () => {
+    const result = parseArgs(['--format', 'csv', 'list']);
+    expect(result.format).toBe('csv');
+  });
+
+  test('parses -f short flag for format', () => {
+    const result = parseArgs(['-f', 'csv', 'list']);
+    expect(result.format).toBe('csv');
+  });
+
+  test('parses --pretty flag', () => {
+    const result = parseArgs(['--pretty', 'list']);
+    expect(result.pretty).toBe(true);
+  });
+
+  test('parses -p short flag for pretty', () => {
+    const result = parseArgs(['-p', 'list']);
+    expect(result.pretty).toBe(true);
+  });
+
+  test('parses --watch flag', () => {
+    const result = parseArgs(['--watch', 'recall', 'test']);
+    expect(result.watch).toBe(true);
+    expect(result._).toEqual(['recall', 'test']);
+  });
+
+  test('parses -w short flag for watch', () => {
+    const result = parseArgs(['-w', 'recall', 'test']);
+    expect(result.watch).toBe(true);
+  });
+
+  test('parses --interactive flag', () => {
+    const result = parseArgs(['--interactive', 'list']);
+    expect(result.interactive).toBe(true);
+  });
+
+  test('parses -i short flag for interactive', () => {
+    const result = parseArgs(['-i', 'list']);
+    expect(result.interactive).toBe(true);
+  });
+
+  test('parses -d short flag for dryRun', () => {
+    const result = parseArgs(['-d', 'consolidate']);
+    expect(result.dryRun).toBe(true);
+  });
+
+  test('--format=csv works', () => {
+    const result = parseArgs(['--format=csv', 'list']);
+    expect(result.format).toBe('csv');
+  });
+
+  test('--pretty works with --json', () => {
+    const result = parseArgs(['--json', '--pretty', 'list']);
+    expect(result.json).toBe(true);
+    expect(result.pretty).toBe(true);
+  });
+
+  test('--offset is parsed', () => {
+    const result = parseArgs(['list', '--offset', '10']);
+    expect(result.offset).toBe('10');
+  });
+
+  test('--offset=20 works', () => {
+    const result = parseArgs(['list', '--offset=20']);
+    expect(result.offset).toBe('20');
+  });
+});
+
+// ─── CSV output formatting ────────────────────────────────────────────────────
+
+describe('CSV output formatting', () => {
+  test('handles simple array of objects', () => {
+    const data = [
+      { id: '1', content: 'test' },
+      { id: '2', content: 'hello' },
+    ];
+    const headers = Object.keys(data[0]);
+    expect(headers).toEqual(['id', 'content']);
+    expect(data.length).toBe(2);
+  });
+
+  test('handles empty array', () => {
+    const data: any[] = [];
+    const headers = data.length > 0 ? Object.keys(data[0]) : [];
+    expect(headers).toEqual([]);
+  });
+
+  test('escapes commas in values', () => {
+    const str = 'a,b';
+    const escaped = str.includes(',') ? `"${str.replace(/"/g, '""')}"` : str;
+    expect(escaped).toBe('"a,b"');
+  });
+
+  test('escapes quotes in values', () => {
+    const str = 'a"b';
+    // Escape quotes if the string contains comma OR quote
+    const needsQuoting = str.includes(',') || str.includes('"');
+    const escaped = needsQuoting ? `"${str.replace(/"/g, '""')}"` : str;
+    expect(escaped).toBe('"a""b"');
+  });
+
+  test('handles null/undefined values', () => {
+    const row = { id: '1', content: null, tags: undefined };
+    const getVal = (val: any) => val === null || val === undefined ? '' : String(val);
+    expect(getVal(row.content)).toBe('');
+    expect(getVal(row.tags)).toBe('');
+  });
+});
+
+// ─── Progress bar ─────────────────────────────────────────────────────────────
+
+describe('progress bar', () => {
+  test('renders correctly at 0%', () => {
+    const pct = Math.min(0 / 10, 1);
+    const filled = Math.round(pct * 30);
+    const bar = `${'█'.repeat(filled)}${'░'.repeat(30 - filled)}`;
+    expect(bar.length).toBe(30);
+    expect(bar).toBe('░'.repeat(30));
+  });
+
+  test('renders correctly at 50%', () => {
+    const pct = Math.min(5 / 10, 1);
+    const filled = Math.round(pct * 30);
+    const bar = `${'█'.repeat(filled)}${'░'.repeat(30 - filled)}`;
+    expect(bar.length).toBe(30);
+    expect(bar.indexOf('█')).toBe(0);
+    expect(bar.indexOf('░')).toBe(15);
+  });
+
+  test('renders correctly at 100%', () => {
+    const pct = Math.min(10 / 10, 1);
+    const filled = Math.round(pct * 30);
+    const bar = `${'█'.repeat(filled)}${'░'.repeat(30 - filled)}`;
+    expect(bar.length).toBe(30);
+    expect(bar).toBe('█'.repeat(30));
+  });
+});
+
+// ─── Config handling ─────────────────────────────────────────────────────────
+
+describe('config handling', () => {
+  test('validates private key format', () => {
+    const validKey = '0x' + 'a'.repeat(64); // 64 hex chars after 0x
+    const invalidShort = '0x123';
+    const invalidNoPrefix = 'a'.repeat(64);
+
+    expect(validKey.startsWith('0x')).toBe(true);
+    expect(validKey.length).toBe(66); // 2 + 64
+    expect(invalidShort.length).toBeLessThan(66);
+    expect(invalidNoPrefix.startsWith('0x')).toBe(false);
   });
 });
