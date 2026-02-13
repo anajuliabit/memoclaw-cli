@@ -17,17 +17,37 @@ import { ExactEvmScheme } from '@x402/evm/exact/client';
 import { toClientEvmSigner } from '@x402/evm';
 import { privateKeyToAccount } from 'viem/accounts';
 
+const VERSION = '1.5.0';
 const API_URL = process.env.MEMOCLAW_URL || 'https://api.memoclaw.com';
 const PRIVATE_KEY = process.env.MEMOCLAW_PRIVATE_KEY as `0x${string}`;
 
+// ─── Colors ──────────────────────────────────────────────────────────────────
+
+const NO_COLOR = !!process.env.NO_COLOR || !process.stdout.isTTY;
+
+const c = {
+  reset: NO_COLOR ? '' : '\x1b[0m',
+  bold: NO_COLOR ? '' : '\x1b[1m',
+  dim: NO_COLOR ? '' : '\x1b[2m',
+  red: NO_COLOR ? '' : '\x1b[31m',
+  green: NO_COLOR ? '' : '\x1b[32m',
+  yellow: NO_COLOR ? '' : '\x1b[33m',
+  blue: NO_COLOR ? '' : '\x1b[34m',
+  magenta: NO_COLOR ? '' : '\x1b[35m',
+  cyan: NO_COLOR ? '' : '\x1b[36m',
+  gray: NO_COLOR ? '' : '\x1b[90m',
+};
+
+// ─── Auth ────────────────────────────────────────────────────────────────────
+
 function ensureAuth() {
   if (!PRIVATE_KEY) {
-    console.error('Error: MEMOCLAW_PRIVATE_KEY environment variable required');
+    console.error(`${c.red}Error:${c.reset} MEMOCLAW_PRIVATE_KEY environment variable required`);
+    console.error(`${c.dim}Set it with: export MEMOCLAW_PRIVATE_KEY=0x...${c.reset}`);
     process.exit(1);
   }
 }
 
-// Setup wallet (lazy - account used only after ensureAuth)
 let _account: ReturnType<typeof privateKeyToAccount> | null = null;
 function getAccount() {
   if (!_account) {
@@ -37,12 +57,10 @@ function getAccount() {
   return _account;
 }
 
-// Keep backward compat reference
 const account = new Proxy({} as ReturnType<typeof privateKeyToAccount>, {
   get(_, prop) { return (getAccount() as any)[prop]; }
 });
 
-// x402 client (lazy init - only when needed)
 let _x402Client: x402HTTPClient | null = null;
 function getX402Client() {
   if (!_x402Client) {
@@ -54,10 +72,6 @@ function getX402Client() {
   return _x402Client;
 }
 
-/**
- * Generate wallet auth header for free tier
- * Format: {address}:{timestamp}:{signature}
- */
 async function getWalletAuthHeader(): Promise<string> {
   const timestamp = Math.floor(Date.now() / 1000);
   const message = `memoclaw-auth:${timestamp}`;
@@ -65,8 +79,20 @@ async function getWalletAuthHeader(): Promise<string> {
   return `${account.address}:${timestamp}:${signature}`;
 }
 
-function parseArgs(args: string[]) {
-  const result: Record<string, any> = { _: [] };
+// ─── Arg Parsing ─────────────────────────────────────────────────────────────
+
+interface ParsedArgs {
+  _: string[];
+  [key: string]: any;
+}
+
+// Boolean-only flags that never take a value
+const BOOLEAN_FLAGS = new Set([
+  'help', 'version', 'raw', 'json', 'quiet', 'dryRun', 'verbose',
+]);
+
+function parseArgs(args: string[]): ParsedArgs {
+  const result: ParsedArgs = { _: [] };
   let i = 0;
   while (i < args.length) {
     const arg = args[i];
@@ -76,15 +102,30 @@ function parseArgs(args: string[]) {
     } else if (arg === '-v' || arg === '--version') {
       result.version = true;
       i++;
+    } else if (arg === '-q' || arg === '--quiet') {
+      result.quiet = true;
+      i++;
+    } else if (arg === '-j' || arg === '--json') {
+      result.json = true;
+      i++;
+    } else if (arg === '--') {
+      // Everything after -- is positional
+      result._.push(...args.slice(i + 1));
+      break;
     } else if (arg.startsWith('--')) {
-      const key = arg.slice(2).replace(/-([a-z])/g, (_, c) => c.toUpperCase());
-      const next = args[i + 1];
-      if (next && !next.startsWith('--')) {
-        result[key] = next;
-        i += 2;
-      } else {
+      const key = arg.slice(2).replace(/-([a-z])/g, (_, ch) => ch.toUpperCase());
+      if (BOOLEAN_FLAGS.has(key)) {
         result[key] = true;
         i++;
+      } else {
+        const next = args[i + 1];
+        if (next !== undefined && !next.startsWith('--')) {
+          result[key] = next;
+          i += 2;
+        } else {
+          result[key] = true;
+          i++;
+        }
       }
     } else {
       result._.push(arg);
@@ -94,27 +135,107 @@ function parseArgs(args: string[]) {
   return result;
 }
 
+// ─── Stdin Helper ────────────────────────────────────────────────────────────
+
+async function readStdin(): Promise<string | null> {
+  if (process.stdin.isTTY) return null;
+  const chunks: string[] = [];
+  for await (const chunk of process.stdin) chunks.push(chunk.toString());
+  const text = chunks.join('').trim();
+  return text || null;
+}
+
+// ─── Output Helpers ──────────────────────────────────────────────────────────
+
+/** Global output mode from parsed args */
+let outputJson = false;
+let outputQuiet = false;
+
+function out(data: any) {
+  if (outputQuiet) return;
+  if (outputJson) {
+    console.log(JSON.stringify(data, null, 2));
+  } else if (typeof data === 'string') {
+    console.log(data);
+  } else {
+    console.log(JSON.stringify(data, null, 2));
+  }
+}
+
+function success(msg: string) {
+  if (outputQuiet) return;
+  if (outputJson) return; // JSON mode suppresses decorative output
+  console.log(`${c.green}✓${c.reset} ${msg}`);
+}
+
+function warn(msg: string) {
+  console.error(`${c.yellow}⚠${c.reset} ${msg}`);
+}
+
+function info(msg: string) {
+  if (outputQuiet) return;
+  if (outputJson) return;
+  console.error(`${c.blue}ℹ${c.reset} ${msg}`);
+}
+
+/** Print a simple table */
+function table(rows: Record<string, any>[], columns?: { key: string; label: string; width?: number }[]) {
+  if (rows.length === 0) return;
+  
+  if (outputJson) {
+    console.log(JSON.stringify(rows, null, 2));
+    return;
+  }
+
+  if (!columns) {
+    // Auto-detect columns from first row
+    columns = Object.keys(rows[0]).map(k => ({ key: k, label: k.toUpperCase() }));
+  }
+
+  // Calculate widths
+  for (const col of columns) {
+    if (!col.width) {
+      col.width = Math.max(
+        col.label.length,
+        ...rows.map(r => String(r[col.key] ?? '').length)
+      );
+      col.width = Math.min(col.width, 60); // cap
+    }
+  }
+
+  // Header
+  const header = columns.map(col => col.label.padEnd(col.width!)).join('  ');
+  console.log(`${c.bold}${header}${c.reset}`);
+  console.log(`${c.dim}${columns.map(col => '─'.repeat(col.width!)).join('──')}${c.reset}`);
+
+  // Rows
+  for (const row of rows) {
+    const line = columns!.map(col => {
+      const val = String(row[col.key] ?? '');
+      return val.length > col.width! ? val.slice(0, col.width! - 1) + '…' : val.padEnd(col.width!);
+    }).join('  ');
+    console.log(line);
+  }
+}
+
+// ─── HTTP ────────────────────────────────────────────────────────────────────
+
 async function request(method: string, path: string, body: any = null) {
   const url = `${API_URL}${path}`;
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   const options: RequestInit = { method, headers };
   if (body) options.body = JSON.stringify(body);
 
-  // Try free tier first
   const walletAuth = await getWalletAuthHeader();
   headers['x-wallet-auth'] = walletAuth;
 
   let res = await fetch(url, { ...options, headers });
 
-  // Check free tier remaining
   const freeTierRemaining = res.headers.get('x-free-tier-remaining');
-  if (freeTierRemaining !== null) {
-    if (process.env.DEBUG) {
-      console.error(`Free tier remaining: ${freeTierRemaining}`);
-    }
+  if (freeTierRemaining !== null && process.env.DEBUG) {
+    console.error(`${c.dim}Free tier remaining: ${freeTierRemaining}${c.reset}`);
   }
 
-  // Handle 402 Payment Required (free tier exhausted or not applicable)
   if (res.status === 402) {
     const errorBody = await res.json();
     if (process.env.DEBUG) {
@@ -130,7 +251,6 @@ async function request(method: string, path: string, body: any = null) {
     );
     if (process.env.DEBUG) console.error('Payment required parsed:', JSON.stringify(paymentRequired, null, 2));
     
-    // Payment required - proceeding with x402
     const paymentPayload = await client.createPaymentPayload(paymentRequired);
     if (process.env.DEBUG) console.error('Payment payload created');
     
@@ -160,17 +280,24 @@ async function request(method: string, path: string, body: any = null) {
   return data;
 }
 
-async function store(content: string, opts: Record<string, any>) {
+// ─── Commands ────────────────────────────────────────────────────────────────
+
+async function cmdStore(content: string, opts: ParsedArgs) {
   const body: Record<string, any> = { content };
   if (opts.importance) body.importance = parseFloat(opts.importance);
   if (opts.tags) body.metadata = { tags: opts.tags.split(',').map((t: string) => t.trim()) };
   if (opts.namespace) body.namespace = opts.namespace;
 
   const result = await request('POST', '/v1/store', body);
-  console.log(JSON.stringify(result, null, 2));
+  if (outputJson) {
+    out(result);
+  } else {
+    success(`Memory stored${result.id ? ` (${c.cyan}${result.id}${c.reset})` : ''}`);
+    if (result.importance !== undefined) info(`Importance: ${result.importance}`);
+  }
 }
 
-async function recall(query: string, opts: Record<string, any>) {
+async function cmdRecall(query: string, opts: ParsedArgs) {
   const body: Record<string, any> = { query };
   if (opts.limit) body.limit = parseInt(opts.limit);
   if (opts.minSimilarity) body.min_similarity = parseFloat(opts.minSimilarity);
@@ -179,37 +306,75 @@ async function recall(query: string, opts: Record<string, any>) {
 
   const result = await request('POST', '/v1/recall', body) as any;
   
-  if (opts.raw) {
-    console.log(JSON.stringify(result, null, 2));
+  if (outputJson) {
+    out(result);
   } else {
     const memories = result.memories || [];
     if (memories.length === 0) {
-      console.log('No memories found.');
+      console.log(`${c.dim}No memories found.${c.reset}`);
     } else {
       for (const mem of memories) {
-        console.log(`[${mem.similarity?.toFixed(3) || '???'}] ${mem.content}`);
-        if (mem.metadata?.tags?.length) console.log(`  tags: ${mem.metadata.tags.join(', ')}`);
+        const sim = mem.similarity?.toFixed(3) || '???';
+        const simColor = (mem.similarity || 0) > 0.8 ? c.green : (mem.similarity || 0) > 0.5 ? c.yellow : c.red;
+        console.log(`${simColor}[${sim}]${c.reset} ${mem.content}`);
+        if (mem.metadata?.tags?.length) {
+          console.log(`  ${c.dim}tags: ${mem.metadata.tags.join(', ')}${c.reset}`);
+        }
+        if (mem.id) {
+          console.log(`  ${c.dim}id: ${mem.id}${c.reset}`);
+        }
       }
+      console.log(`${c.dim}─ ${memories.length} result${memories.length !== 1 ? 's' : ''}${c.reset}`);
     }
   }
 }
 
-async function list(opts: Record<string, any>) {
+async function cmdList(opts: ParsedArgs) {
   const params = new URLSearchParams();
   if (opts.limit) params.set('limit', opts.limit);
   if (opts.offset) params.set('offset', opts.offset);
   if (opts.namespace) params.set('namespace', opts.namespace);
 
-  const result = await request('GET', `/v1/memories?${params}`);
-  console.log(JSON.stringify(result, null, 2));
+  const result = await request('GET', `/v1/memories?${params}`) as any;
+  
+  if (outputJson) {
+    out(result);
+  } else {
+    const memories = result.memories || result.data || [];
+    if (memories.length === 0) {
+      console.log(`${c.dim}No memories found.${c.reset}`);
+    } else {
+      const rows = memories.map((m: any) => ({
+        id: m.id?.slice(0, 8) || '?',
+        content: m.content?.length > 50 ? m.content.slice(0, 50) + '…' : (m.content || ''),
+        importance: m.importance?.toFixed(2) || '-',
+        tags: m.metadata?.tags?.join(', ') || '',
+        created: m.created_at ? new Date(m.created_at).toLocaleDateString() : '',
+      }));
+      table(rows, [
+        { key: 'id', label: 'ID', width: 10 },
+        { key: 'content', label: 'CONTENT', width: 52 },
+        { key: 'importance', label: 'IMP', width: 5 },
+        { key: 'tags', label: 'TAGS', width: 20 },
+        { key: 'created', label: 'CREATED', width: 12 },
+      ]);
+      if (result.total !== undefined) {
+        console.log(`${c.dim}─ ${memories.length} of ${result.total} memories${c.reset}`);
+      }
+    }
+  }
 }
 
-async function deleteMemory(id: string) {
+async function cmdDelete(id: string) {
   const result = await request('DELETE', `/v1/memories/${id}`);
-  console.log(JSON.stringify(result, null, 2));
+  if (outputJson) {
+    out(result);
+  } else {
+    success(`Memory ${c.cyan}${id.slice(0, 8)}…${c.reset} deleted`);
+  }
 }
 
-async function suggested(opts: Record<string, any>) {
+async function cmdSuggested(opts: ParsedArgs) {
   const params = new URLSearchParams();
   if (opts.limit) params.set('limit', opts.limit);
   if (opts.namespace) params.set('namespace', opts.namespace);
@@ -217,31 +382,34 @@ async function suggested(opts: Record<string, any>) {
 
   const result = await request('GET', `/v1/suggested?${params}`) as any;
   
-  if (opts.raw) {
-    console.log(JSON.stringify(result, null, 2));
+  if (outputJson) {
+    out(result);
   } else {
-    // Show category summary
     if (result.categories) {
-      console.log('Categories:', Object.entries(result.categories)
-        .map(([k, v]) => `${k}=${v}`).join(', '));
-      console.log('---');
+      const cats = Object.entries(result.categories)
+        .map(([k, v]) => `${c.bold}${k}${c.reset}=${v}`).join('  ');
+      console.log(`Categories: ${cats}`);
+      console.log(`${c.dim}${'─'.repeat(60)}${c.reset}`);
     }
     
     const suggestions = result.suggested || [];
     if (suggestions.length === 0) {
-      console.log('No suggested memories.');
+      console.log(`${c.dim}No suggested memories.${c.reset}`);
     } else {
       for (const mem of suggestions) {
         const cat = mem.category?.toUpperCase() || '???';
-        const text = mem.content.length > 100 ? mem.content.slice(0, 100) + '...' : mem.content;
-        console.log(`[${cat}] (${mem.review_score?.toFixed(2) || '?'}) ${text}`);
-        if (mem.metadata?.tags?.length) console.log(`  tags: ${mem.metadata.tags.join(', ')}`);
+        const catColor = { STALE: c.red, FRESH: c.green, HOT: c.yellow, DECAYING: c.magenta }[cat] || c.gray;
+        const text = mem.content.length > 100 ? mem.content.slice(0, 100) + '…' : mem.content;
+        console.log(`${catColor}[${cat}]${c.reset} ${c.dim}(${mem.review_score?.toFixed(2) || '?'})${c.reset} ${text}`);
+        if (mem.metadata?.tags?.length) {
+          console.log(`  ${c.dim}tags: ${mem.metadata.tags.join(', ')}${c.reset}`);
+        }
       }
     }
   }
 }
 
-async function update(id: string, opts: Record<string, any>) {
+async function cmdUpdate(id: string, opts: ParsedArgs) {
   const body: Record<string, any> = {};
   if (opts.content) body.content = opts.content;
   if (opts.importance) body.importance = parseFloat(opts.importance);
@@ -251,11 +419,19 @@ async function update(id: string, opts: Record<string, any>) {
   if (opts.expiresAt) body.expires_at = opts.expiresAt;
   if (opts.pinned !== undefined) body.pinned = opts.pinned === 'true' || opts.pinned === true;
 
+  if (Object.keys(body).length === 0) {
+    throw new Error('No fields to update. Use --content, --importance, --tags, etc.');
+  }
+
   const result = await request('PATCH', `/v1/memories/${id}`, body);
-  console.log(JSON.stringify(result, null, 2));
+  if (outputJson) {
+    out(result);
+  } else {
+    success(`Memory ${c.cyan}${id.slice(0, 8)}…${c.reset} updated`);
+  }
 }
 
-async function ingest(opts: Record<string, any>) {
+async function cmdIngest(opts: ParsedArgs) {
   const body: Record<string, any> = {};
   if (opts.text) body.text = opts.text;
   if (opts.namespace) body.namespace = opts.namespace;
@@ -264,227 +440,515 @@ async function ingest(opts: Record<string, any>) {
   if (opts.autoRelate !== undefined) body.auto_relate = opts.autoRelate !== 'false';
   else body.auto_relate = true;
 
-  // Read from stdin if no text provided
-  if (!body.text && !process.stdin.isTTY) {
-    const chunks: string[] = [];
-    for await (const chunk of process.stdin) chunks.push(chunk.toString());
-    body.text = chunks.join('');
+  if (!body.text) {
+    const stdin = await readStdin();
+    if (stdin) body.text = stdin;
   }
 
   if (!body.text) throw new Error('Text required (use --text or pipe via stdin)');
 
-  const result = await request('POST', '/v1/ingest', body);
-  console.log(JSON.stringify(result, null, 2));
+  const result = await request('POST', '/v1/ingest', body) as any;
+  if (outputJson) {
+    out(result);
+  } else {
+    const count = result.memories_created ?? result.count ?? '?';
+    success(`Ingested text → ${count} memories created`);
+  }
 }
 
-async function extract(text: string, opts: Record<string, any>) {
+async function cmdExtract(text: string, opts: ParsedArgs) {
   const body: Record<string, any> = { text };
   if (opts.namespace) body.namespace = opts.namespace;
   if (opts.sessionId) body.session_id = opts.sessionId;
   if (opts.agentId) body.agent_id = opts.agentId;
 
   const result = await request('POST', '/v1/memories/extract', body);
-  console.log(JSON.stringify(result, null, 2));
+  out(result);
 }
 
-async function consolidate(opts: Record<string, any>) {
+async function cmdConsolidate(opts: ParsedArgs) {
   const body: Record<string, any> = {};
   if (opts.namespace) body.namespace = opts.namespace;
   if (opts.minSimilarity) body.min_similarity = parseFloat(opts.minSimilarity);
   if (opts.mode) body.mode = opts.mode;
   if (opts.dryRun !== undefined) body.dry_run = true;
 
-  const result = await request('POST', '/v1/memories/consolidate', body);
-  console.log(JSON.stringify(result, null, 2));
+  const result = await request('POST', '/v1/memories/consolidate', body) as any;
+  if (outputJson) {
+    out(result);
+  } else {
+    if (opts.dryRun) {
+      info('Dry run — no changes applied');
+    }
+    const merged = result.merged_count ?? result.merged ?? '?';
+    success(`Consolidated: ${merged} memories merged`);
+    if (result.clusters) {
+      info(`Clusters found: ${result.clusters.length}`);
+    }
+  }
 }
 
-async function createRelation(memoryId: string, targetId: string, relationType: string, opts: Record<string, any>) {
-  const body: Record<string, any> = { target_id: targetId, relation_type: relationType };
-  const result = await request('POST', `/v1/memories/${memoryId}/relations`, body);
-  console.log(JSON.stringify(result, null, 2));
+async function cmdRelations(subcmd: string, rest: string[], opts: ParsedArgs) {
+  if (subcmd === 'list') {
+    if (!rest[0]) throw new Error('Memory ID required');
+    const result = await request('GET', `/v1/memories/${rest[0]}/relations`) as any;
+    if (outputJson) {
+      out(result);
+    } else {
+      const relations = result.relations || [];
+      if (relations.length === 0) {
+        console.log(`${c.dim}No relations found.${c.reset}`);
+      } else {
+        const rows = relations.map((r: any) => ({
+          id: r.id?.slice(0, 8) || '?',
+          type: r.relation_type || '?',
+          target: r.target_id?.slice(0, 8) || '?',
+        }));
+        table(rows, [
+          { key: 'id', label: 'ID', width: 10 },
+          { key: 'type', label: 'TYPE', width: 16 },
+          { key: 'target', label: 'TARGET', width: 10 },
+        ]);
+      }
+    }
+  } else if (subcmd === 'create') {
+    if (!rest[0] || !rest[1] || !rest[2]) throw new Error('Usage: relations create <memory-id> <target-id> <type>');
+    const validTypes = ['related_to', 'derived_from', 'contradicts', 'supersedes', 'supports'];
+    if (!validTypes.includes(rest[2])) {
+      throw new Error(`Invalid relation type "${rest[2]}". Valid: ${validTypes.join(', ')}`);
+    }
+    const body = { target_id: rest[1], relation_type: rest[2] };
+    const result = await request('POST', `/v1/memories/${rest[0]}/relations`, body);
+    if (outputJson) {
+      out(result);
+    } else {
+      success(`Relation created: ${rest[0].slice(0, 8)}… ${c.cyan}${rest[2]}${c.reset} → ${rest[1].slice(0, 8)}…`);
+    }
+  } else if (subcmd === 'delete') {
+    if (!rest[0] || !rest[1]) throw new Error('Usage: relations delete <memory-id> <relation-id>');
+    const result = await request('DELETE', `/v1/memories/${rest[0]}/relations/${rest[1]}`);
+    if (outputJson) {
+      out(result);
+    } else {
+      success('Relation deleted');
+    }
+  } else {
+    throw new Error('Usage: relations [list|create|delete]');
+  }
 }
 
-async function listRelations(memoryId: string) {
-  const result = await request('GET', `/v1/memories/${memoryId}/relations`);
-  console.log(JSON.stringify(result, null, 2));
-}
-
-async function deleteRelation(memoryId: string, relationId: string) {
-  const result = await request('DELETE', `/v1/memories/${memoryId}/relations/${relationId}`);
-  console.log(JSON.stringify(result, null, 2));
-}
-
-async function status() {
-  // Check free tier status
+async function cmdStatus() {
   const walletAuth = await getWalletAuthHeader();
   const res = await fetch(`${API_URL}/v1/free-tier/status`, {
     headers: { 'x-wallet-auth': walletAuth }
   });
   
   if (res.ok) {
-    const data = await res.json();
-    console.log(`Wallet: ${data.wallet}`);
-    console.log(`Free tier: ${data.free_tier_remaining}/${data.free_tier_total} calls remaining`);
-    if (data.free_tier_remaining === 0) {
-      console.log('→ Next calls will use x402 payment ($0.001/call)');
+    const data = await res.json() as any;
+    if (outputJson) {
+      out(data);
+    } else {
+      console.log(`${c.bold}Wallet:${c.reset}     ${data.wallet}`);
+      const remaining = data.free_tier_remaining ?? 0;
+      const total = data.free_tier_total ?? 1000;
+      const pct = Math.round((remaining / total) * 100);
+      const barLen = 20;
+      const filled = Math.round((remaining / total) * barLen);
+      const bar = `${c.green}${'█'.repeat(filled)}${c.dim}${'░'.repeat(barLen - filled)}${c.reset}`;
+      console.log(`${c.bold}Free tier:${c.reset}  ${remaining}/${total} calls remaining`);
+      console.log(`            ${bar} ${pct}%`);
+      if (remaining === 0) {
+        console.log(`${c.yellow}→ Next calls will use x402 payment ($0.001/call)${c.reset}`);
+      }
     }
   } else {
-    const err = await res.json();
+    const err = await res.json() as any;
     throw new Error(err.error?.message || 'Failed to get status');
   }
 }
 
-function printHelp() {
-  console.log(`MemoClaw CLI - Memory-as-a-Service for AI agents
+async function cmdExport(opts: ParsedArgs) {
+  const params = new URLSearchParams();
+  if (opts.namespace) params.set('namespace', opts.namespace);
+  params.set('limit', opts.limit || '1000');
+  let offset = 0;
+  const allMemories: any[] = [];
+  const limit = parseInt(opts.limit || '1000');
 
-Usage:
-  memoclaw store "content" [options]
-    --importance <0-1>     Importance score (default: 0.5)
-    --tags <tag1,tag2>     Comma-separated tags
-    --namespace <name>     Memory namespace
+  // Paginate through all memories
+  while (true) {
+    params.set('offset', String(offset));
+    const result = await request('GET', `/v1/memories?${params}`) as any;
+    const memories = result.memories || result.data || [];
+    allMemories.push(...memories);
+    if (memories.length < limit) break;
+    offset += limit;
+    if (!outputQuiet) process.stderr.write(`${c.dim}Fetched ${allMemories.length} memories...${c.reset}\r`);
+  }
 
-  memoclaw recall "query" [options]
-    --limit <n>            Max results (default: 10)
-    --min-similarity <0-1> Similarity threshold (default: 0.5)
-    --namespace <name>     Filter by namespace
-    --tags <tag1,tag2>     Filter by tags
-    --raw                  Output raw JSON
+  const exportData = {
+    version: 1,
+    exported_at: new Date().toISOString(),
+    count: allMemories.length,
+    memories: allMemories,
+  };
 
-  memoclaw list [options]
-    --limit <n>            Max results (default: 20)
-    --offset <n>           Pagination offset
-    --namespace <name>     Filter by namespace
+  // Always output JSON for export (it's data)
+  console.log(JSON.stringify(exportData, null, 2));
+  if (!outputQuiet) {
+    console.error(`${c.green}✓${c.reset} Exported ${allMemories.length} memories`);
+  }
+}
 
-  memoclaw update <id> [options]
-    --content <text>       New content
-    --importance <0-1>     New importance score
-    --memory-type <type>   New memory type
-    --namespace <name>     New namespace
-    --tags <tag1,tag2>     New tags
-    --expires-at <date>    Expiry date (ISO 8601) or "null"
-    --pinned <true|false>  Pin/unpin memory
+async function cmdImport(opts: ParsedArgs) {
+  let jsonText: string;
 
-  memoclaw delete <id>
+  if (opts.file) {
+    const fs = await import('fs');
+    jsonText = fs.readFileSync(opts.file, 'utf-8');
+  } else {
+    const stdin = await readStdin();
+    if (!stdin) throw new Error('Provide --file <path> or pipe JSON via stdin');
+    jsonText = stdin;
+  }
 
-  memoclaw ingest [options]
-    --text <text>          Raw text to ingest (or pipe via stdin)
-    --namespace <name>     Namespace for memories
-    --session-id <id>      Session identifier
-    --agent-id <id>        Agent identifier
-    --auto-relate <bool>   Auto-create relations (default: true)
+  const data = JSON.parse(jsonText);
+  const memories = data.memories || data;
+  if (!Array.isArray(memories)) throw new Error('Invalid format: expected { memories: [...] } or [...]');
 
-  memoclaw extract "text" [options]
-    --namespace <name>     Namespace for memories
-    --session-id <id>      Session identifier
-    --agent-id <id>        Agent identifier
+  let imported = 0;
+  let failed = 0;
 
-  memoclaw consolidate [options]
-    --namespace <name>     Namespace to consolidate
-    --min-similarity <0-1> Similarity threshold for clustering
-    --mode <mode>          Consolidation mode
-    --dry-run              Preview without merging
+  for (const mem of memories) {
+    try {
+      const body: Record<string, any> = { content: mem.content };
+      if (mem.importance !== undefined) body.importance = mem.importance;
+      if (mem.metadata) body.metadata = mem.metadata;
+      if (mem.namespace || opts.namespace) body.namespace = mem.namespace || opts.namespace;
+      await request('POST', '/v1/store', body);
+      imported++;
+      if (!outputQuiet) {
+        process.stderr.write(`${c.dim}Imported ${imported}/${memories.length}...${c.reset}\r`);
+      }
+    } catch (e: any) {
+      failed++;
+      if (process.env.DEBUG) console.error(`Failed to import: ${e.message}`);
+    }
+  }
 
-  memoclaw relations list <memory-id>
-  memoclaw relations create <memory-id> <target-id> <type>
-    Types: related_to, derived_from, contradicts, supersedes, supports
-  memoclaw relations delete <memory-id> <relation-id>
+  if (!outputQuiet) process.stderr.write('\n');
 
-  memoclaw suggested [options]
-    --limit <n>            Max results (default: 10)
-    --namespace <name>     Filter by namespace
-    --category <cat>       Filter: stale|fresh|hot|decaying
-    --raw                  Output raw JSON
+  if (outputJson) {
+    out({ imported, failed, total: memories.length });
+  } else {
+    success(`Imported ${imported}/${memories.length} memories${failed ? ` (${c.red}${failed} failed${c.reset})` : ''}`);
+  }
+}
 
-  memoclaw status
-    Check free tier remaining and wallet info
+async function cmdStats(opts: ParsedArgs) {
+  // Gather stats from list endpoint
+  const params = new URLSearchParams();
+  if (opts.namespace) params.set('namespace', opts.namespace);
+  params.set('limit', '1');
+  
+  const result = await request('GET', `/v1/memories?${params}`) as any;
+  const total = result.total ?? '?';
+
+  // Get free tier status too
+  const walletAuth = await getWalletAuthHeader();
+  const statusRes = await fetch(`${API_URL}/v1/free-tier/status`, {
+    headers: { 'x-wallet-auth': walletAuth }
+  });
+
+  let tierData: any = {};
+  if (statusRes.ok) {
+    tierData = await statusRes.json();
+  }
+
+  if (outputJson) {
+    out({
+      total_memories: total,
+      api_url: API_URL,
+      wallet: tierData.wallet || getAccount().address,
+      free_tier_remaining: tierData.free_tier_remaining,
+      free_tier_total: tierData.free_tier_total,
+    });
+  } else {
+    console.log(`${c.bold}MemoClaw Stats${c.reset}`);
+    console.log(`${c.dim}${'─'.repeat(40)}${c.reset}`);
+    console.log(`Memories:        ${c.cyan}${total}${c.reset}`);
+    console.log(`API:             ${c.dim}${API_URL}${c.reset}`);
+    console.log(`Wallet:          ${c.dim}${tierData.wallet || getAccount().address}${c.reset}`);
+    if (tierData.free_tier_remaining !== undefined) {
+      console.log(`Free calls left: ${c.cyan}${tierData.free_tier_remaining}${c.reset}/${tierData.free_tier_total}`);
+    }
+    if (opts.namespace) {
+      console.log(`Namespace:       ${c.cyan}${opts.namespace}${c.reset}`);
+    }
+  }
+}
+
+async function cmdCompletions(shell: string) {
+  const commands = ['store', 'recall', 'list', 'update', 'delete', 'ingest', 'extract',
+    'consolidate', 'relations', 'suggested', 'status', 'export', 'import', 'stats', 'completions'];
+  
+  if (shell === 'bash') {
+    console.log(`# Add to ~/.bashrc:
+# eval "$(memoclaw completions bash)"
+_memoclaw() {
+  local cur="\${COMP_WORDS[COMP_CWORD]}"
+  local cmds="${commands.join(' ')}"
+  if [ "\$COMP_CWORD" -eq 1 ]; then
+    COMPREPLY=( $(compgen -W "\$cmds" -- "\$cur") )
+  fi
+}
+complete -F _memoclaw memoclaw`);
+  } else if (shell === 'zsh') {
+    console.log(`# Add to ~/.zshrc:
+# eval "$(memoclaw completions zsh)"
+_memoclaw() {
+  local -a commands=(${commands.map(c => `'${c}'`).join(' ')})
+  _describe 'command' commands
+}
+compdef _memoclaw memoclaw`);
+  } else if (shell === 'fish') {
+    console.log(`# Add to ~/.config/fish/completions/memoclaw.fish:
+${commands.map(cmd => `complete -c memoclaw -n '__fish_use_subcommand' -a '${cmd}'`).join('\n')}`);
+  } else {
+    throw new Error(`Unknown shell: ${shell}. Supported: bash, zsh, fish`);
+  }
+}
+
+// ─── Help ────────────────────────────────────────────────────────────────────
+
+function printHelp(command?: string) {
+  if (command) {
+    const subHelp: Record<string, string> = {
+      store: `${c.bold}memoclaw store${c.reset} "content" [options]
+
+Store a memory. Supports piping: ${c.dim}echo "content" | memoclaw store${c.reset}
 
 Options:
-  --help, -h             Show this help
-  --version, -v          Show version
+  --importance <0-1>     Importance score (default: 0.5)
+  --tags <tag1,tag2>     Comma-separated tags
+  --namespace <name>     Memory namespace`,
 
-Environment:
+      recall: `${c.bold}memoclaw recall${c.reset} "query" [options]
+
+Search memories by semantic similarity.
+
+Options:
+  --limit <n>            Max results (default: 10)
+  --min-similarity <0-1> Similarity threshold (default: 0.5)
+  --namespace <name>     Filter by namespace
+  --tags <tag1,tag2>     Filter by tags`,
+
+      list: `${c.bold}memoclaw list${c.reset} [options]
+
+List all memories in a table format.
+
+Options:
+  --limit <n>            Max results (default: 20)
+  --offset <n>           Pagination offset
+  --namespace <name>     Filter by namespace`,
+
+      export: `${c.bold}memoclaw export${c.reset} [options]
+
+Export all memories as JSON. Useful for backups.
+
+  ${c.dim}memoclaw export > backup.json${c.reset}
+  ${c.dim}memoclaw export --namespace project1 > project1.json${c.reset}
+
+Options:
+  --namespace <name>     Filter by namespace
+  --limit <n>            Max per page (default: 1000)`,
+
+      import: `${c.bold}memoclaw import${c.reset} [options]
+
+Import memories from JSON file or stdin.
+
+  ${c.dim}memoclaw import --file backup.json${c.reset}
+  ${c.dim}cat backup.json | memoclaw import${c.reset}
+
+Options:
+  --file <path>          JSON file to import
+  --namespace <name>     Override namespace for all memories`,
+
+      stats: `${c.bold}memoclaw stats${c.reset} [options]
+
+Show memory statistics and account info.
+
+Options:
+  --namespace <name>     Filter by namespace`,
+
+      completions: `${c.bold}memoclaw completions${c.reset} <bash|zsh|fish>
+
+Generate shell completion scripts.
+
+  ${c.dim}eval "$(memoclaw completions bash)"${c.reset}
+  ${c.dim}eval "$(memoclaw completions zsh)"${c.reset}
+  ${c.dim}memoclaw completions fish > ~/.config/fish/completions/memoclaw.fish${c.reset}`,
+    };
+
+    if (subHelp[command]) {
+      console.log(subHelp[command]);
+    } else {
+      console.log(`No detailed help for "${command}". Run ${c.dim}memoclaw --help${c.reset} for overview.`);
+    }
+    return;
+  }
+
+  console.log(`${c.bold}MemoClaw CLI${c.reset} ${c.dim}v${VERSION}${c.reset} — Memory-as-a-Service for AI agents
+
+${c.bold}Usage:${c.reset}
+  memoclaw <command> [options]
+
+${c.bold}Commands:${c.reset}
+  ${c.cyan}store${c.reset} "content"        Store a memory (also accepts stdin)
+  ${c.cyan}recall${c.reset} "query"         Search memories by similarity
+  ${c.cyan}list${c.reset}                   List memories in a table
+  ${c.cyan}update${c.reset} <id>            Update a memory
+  ${c.cyan}delete${c.reset} <id>            Delete a memory
+  ${c.cyan}ingest${c.reset}                 Ingest raw text into memories
+  ${c.cyan}extract${c.reset} "text"         Extract memories from text
+  ${c.cyan}consolidate${c.reset}            Merge similar memories
+  ${c.cyan}relations${c.reset} <sub>        Manage memory relations
+  ${c.cyan}suggested${c.reset}              Get suggested memories for review
+  ${c.cyan}status${c.reset}                 Check account & free tier info
+  ${c.cyan}stats${c.reset}                  Memory statistics
+  ${c.cyan}export${c.reset}                 Export all memories as JSON
+  ${c.cyan}import${c.reset}                 Import memories from JSON
+  ${c.cyan}completions${c.reset} <shell>    Generate shell completions
+
+${c.bold}Global Options:${c.reset}
+  -h, --help             Show help (use with command for details)
+  -v, --version          Show version
+  -j, --json             Output as JSON (machine-readable)
+  -q, --quiet            Suppress non-essential output
+
+${c.bold}Environment:${c.reset}
   MEMOCLAW_PRIVATE_KEY   Wallet private key for auth + payments
   MEMOCLAW_URL           API endpoint (default: https://api.memoclaw.com)
+  NO_COLOR               Disable colored output
+  DEBUG                  Enable debug logging
 
-Free Tier:
+${c.bold}Piping:${c.reset}
+  echo "meeting notes" | memoclaw store
+  echo "long text" | memoclaw ingest
+  memoclaw export | jq '.memories | length'
+  cat backup.json | memoclaw import
+
+${c.bold}Free Tier:${c.reset}
   Every wallet gets 1000 free API calls. After that, x402
   micropayments kick in automatically ($0.001/call USDC on Base).
 
-API: https://api.memoclaw.com`);
+${c.dim}API: https://api.memoclaw.com${c.reset}`);
 }
+
+// ─── Main ────────────────────────────────────────────────────────────────────
 
 const args = parseArgs(process.argv.slice(2));
 const [cmd, ...rest] = args._;
 
+outputJson = !!args.json;
+outputQuiet = !!args.quiet;
+
 if (args.version) {
-  console.log('memoclaw 1.3.0');
+  console.log(`memoclaw ${VERSION}`);
   process.exit(0);
 }
 
-if (args.help || (!cmd && args._.length === 0)) {
+if (!cmd && args._.length === 0) {
   printHelp();
+  process.exit(0);
+}
+
+if (args.help) {
+  printHelp(cmd);
   process.exit(0);
 }
 
 try {
   switch (cmd) {
-    case 'store':
-      if (!rest[0]) throw new Error('Content required');
-      await store(rest[0], args);
+    case 'store': {
+      let content = rest[0];
+      if (!content) {
+        const stdin = await readStdin();
+        if (stdin) content = stdin;
+      }
+      if (!content) throw new Error('Content required. Provide as argument or pipe via stdin.');
+      await cmdStore(content, args);
       break;
+    }
     case 'recall':
       if (!rest[0]) throw new Error('Query required');
-      await recall(rest[0], args);
+      await cmdRecall(rest[0], args);
       break;
     case 'list':
-      await list(args);
+      await cmdList(args);
       break;
     case 'update':
       if (!rest[0]) throw new Error('Memory ID required');
-      await update(rest[0], args);
+      await cmdUpdate(rest[0], args);
       break;
     case 'delete':
       if (!rest[0]) throw new Error('Memory ID required');
-      await deleteMemory(rest[0]);
+      await cmdDelete(rest[0]);
       break;
     case 'ingest':
-      await ingest(args);
+      await cmdIngest(args);
       break;
-    case 'extract':
-      if (!rest[0]) throw new Error('Text required');
-      await extract(rest[0], args);
+    case 'extract': {
+      let text = rest[0];
+      if (!text) {
+        const stdin = await readStdin();
+        if (stdin) text = stdin;
+      }
+      if (!text) throw new Error('Text required. Provide as argument or pipe via stdin.');
+      await cmdExtract(text, args);
       break;
+    }
     case 'consolidate':
-      await consolidate(args);
+      await cmdConsolidate(args);
       break;
     case 'relations': {
       const subcmd = rest[0];
-      if (subcmd === 'list') {
-        if (!rest[1]) throw new Error('Memory ID required');
-        await listRelations(rest[1]);
-      } else if (subcmd === 'create') {
-        if (!rest[1] || !rest[2] || !rest[3]) throw new Error('Usage: relations create <memory-id> <target-id> <type>');
-        await createRelation(rest[1], rest[2], rest[3], args);
-      } else if (subcmd === 'delete') {
-        if (!rest[1] || !rest[2]) throw new Error('Usage: relations delete <memory-id> <relation-id>');
-        await deleteRelation(rest[1], rest[2]);
-      } else {
-        throw new Error('Usage: relations [list|create|delete]');
-      }
+      if (!subcmd) throw new Error('Usage: relations [list|create|delete]');
+      await cmdRelations(subcmd, rest.slice(1), args);
       break;
     }
     case 'suggested':
-      await suggested(args);
+      await cmdSuggested(args);
       break;
     case 'status':
-      await status();
+      await cmdStatus();
+      break;
+    case 'export':
+      await cmdExport(args);
+      break;
+    case 'import':
+      await cmdImport(args);
+      break;
+    case 'stats':
+      await cmdStats(args);
+      break;
+    case 'completions':
+      if (!rest[0]) throw new Error('Shell required: bash, zsh, or fish');
+      await cmdCompletions(rest[0]);
+      break;
+    case 'help':
+      printHelp(rest[0]);
       break;
     default:
-      console.error(`Unknown command: ${cmd}`);
-      console.error('Run "memoclaw --help" for usage.');
+      console.error(`${c.red}Unknown command: ${cmd}${c.reset}`);
+      console.error(`Run ${c.dim}memoclaw --help${c.reset} for usage.`);
       process.exit(1);
   }
 } catch (err: any) {
-  console.error('Error:', err.message);
+  if (outputJson) {
+    console.error(JSON.stringify({ error: err.message }));
+  } else {
+    console.error(`${c.red}Error:${c.reset} ${err.message}`);
+  }
   process.exit(1);
 }
