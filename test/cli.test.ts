@@ -658,3 +658,64 @@ describe('new flags: truncate, concurrency, yes', () => {
     expect(result.concurrency).toBe('3');
   });
 });
+
+// ─── Bug fix: -o should map to offset ────────────────────────────────────────
+
+describe('bug fix: -o maps to offset', () => {
+  test('-o short flag maps to offset (not output)', () => {
+    const result = parseArgs(['list', '-o', '20']);
+    expect(result.offset).toBe('20');
+    expect(result._).toEqual(['list']);
+    // Should NOT set 'output' (which was the bug)
+    expect(result.output).toBeUndefined();
+  });
+
+  test('--offset works correctly', () => {
+    const result = parseArgs(['list', '--offset', '10']);
+    expect(result.offset).toBe('10');
+  });
+
+  test('-o=30 works', () => {
+    const result = parseArgs(['list', '-o=30']);
+    expect(result.offset).toBe('30');
+  });
+});
+
+// ─── New short flags ─────────────────────────────────────────────────────────
+
+describe('new short flags', () => {
+  test('-T for timeout', () => {
+    const result = parseArgs(['list', '-T', '60']);
+    expect(result.timeout).toBe('60');
+  });
+
+  test('-x for text', () => {
+    const result = parseArgs(['ingest', '-x', 'some text']);
+    expect(result.text).toBe('some text');
+  });
+
+  test('-e for expiresAt', () => {
+    const result = parseArgs(['update', 'id', '-e', '2025-12-31']);
+    expect(result.expiresAt).toBe('2025-12-31');
+  });
+
+  test('-C for category', () => {
+    const result = parseArgs(['suggested', '-C', 'work']);
+    expect(result.category).toBe('work');
+  });
+
+  test('-S for sessionId', () => {
+    const result = parseArgs(['ingest', '-S', 'session123']);
+    expect(result.sessionId).toBe('session123');
+  });
+
+  test('-A for agentId', () => {
+    const result = parseArgs(['ingest', '-A', 'agent456']);
+    expect(result.agentId).toBe('agent456');
+  });
+
+  test('--timeout=120 works', () => {
+    const result = parseArgs(['list', '--timeout=120']);
+    expect(result.timeout).toBe('120');
+  });
+});
