@@ -23,7 +23,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 
-const VERSION = "1.8.4";
+const VERSION = "1.8.5";
 const CONFIG_DIR = path.join(os.homedir(), '.memoclaw');
 const CONFIG_FILE_JSON = path.join(CONFIG_DIR, 'config.json');
 const CONFIG_FILE_YAML = path.join(CONFIG_DIR, 'config');
@@ -264,10 +264,15 @@ async function request(method: string, path: string, body: any = null) {
   const walletAuth = await getWalletAuthHeader();
   headers['x-wallet-auth'] = walletAuth;
 
+  // Apply timeout if configured
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
+
   let res: Response;
   try {
-    res = await fetch(url, { ...options, headers });
+    res = await fetch(url, { ...options, headers, signal: controller.signal });
   } catch (e: any) {
+    clearTimeout(timeoutId);
     if (e.code === 'ECONNREFUSED' || e.cause?.code === 'ECONNREFUSED') {
       throw new Error(`Cannot connect to ${API_URL} — is the server running?`);
     }
@@ -275,10 +280,11 @@ async function request(method: string, path: string, body: any = null) {
       throw new Error(`DNS lookup failed for ${API_URL} — check your internet connection`);
     }
     if (e.name === 'AbortError') {
-      throw new Error(`Request timed out`);
+      throw new Error(`Request timed out after ${TIMEOUT_MS / 1000}s`);
     }
     throw new Error(`Network error: ${e.message}`);
   }
+  clearTimeout(timeoutId);
 
   const freeTierRemaining = res.headers.get('x-free-tier-remaining');
   if (freeTierRemaining !== null && process.env.DEBUG) {
@@ -842,9 +848,9 @@ async function cmdExport(opts: ParsedArgs) {
   };
 
   // Always output JSON for export (it's data)
-  console.log(JSON.stringify(exportData, null, 2));
+  outputWrite(JSON.stringify(exportData, null, 2));
   if (!outputQuiet) {
-    console.error(`${c.green}✓${c.reset} Exported ${allMemories.length} memories`);
+    outputError(`${c.green}✓${c.reset} Exported ${allMemories.length} memories`);
   }
 }
 
@@ -1066,10 +1072,12 @@ async function cmdPurge(opts: ParsedArgs) {
     }
   }
 
-  // Paginate and delete all
+  // Paginate and delete all with safety limit to prevent infinite loops
   const params = new URLSearchParams({ limit: '100' });
   if (opts.namespace) params.set('namespace', opts.namespace);
   let deleted = 0;
+  let failedInRow = 0;
+  const MAX_CONSECUTIVE_FAILURES = 3;
 
   while (true) {
     params.set('offset', '0');
@@ -1077,10 +1085,26 @@ async function cmdPurge(opts: ParsedArgs) {
     const memories = result.memories || result.data || [];
     if (memories.length === 0) break;
 
+    let batchDeleted = 0;
     for (const mem of memories) {
-      await request('DELETE', `/v1/memories/${mem.id}`);
-      deleted++;
-      if (!outputQuiet) process.stderr.write(`\r  ${progressBar(deleted, result.total || deleted)}`);
+      try {
+        await request('DELETE', `/v1/memories/${mem.id}`);
+        deleted++;
+        batchDeleted++;
+        failedInRow = 0;
+        if (!outputQuiet) process.stderr.write(`\r  ${progressBar(deleted, result.total || deleted)}`);
+      } catch (e: any) {
+        if (process.env.DEBUG) console.error(`\nFailed to delete ${mem.id}: ${e.message}`);
+      }
+    }
+
+    // If no deletes succeeded in this batch, we're stuck — bail out
+    if (batchDeleted === 0) {
+      failedInRow++;
+      if (failedInRow >= MAX_CONSECUTIVE_FAILURES) {
+        warn(`Aborting: ${MAX_CONSECUTIVE_FAILURES} consecutive batches failed to delete any memories`);
+        break;
+      }
     }
   }
 
