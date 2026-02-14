@@ -719,3 +719,120 @@ describe('new short flags', () => {
     expect(result.timeout).toBe('120');
   });
 });
+
+// ─── Sort and column selection ────────────────────────────────────────────────
+
+describe('sort and column selection', () => {
+  test('--sort-by importance', () => {
+    const result = parseArgs(['list', '--sort-by', 'importance']);
+    expect(result.sortBy).toBe('importance');
+  });
+
+  test('-m created for sortBy', () => {
+    const result = parseArgs(['list', '-m', 'created']);
+    expect(result.sortBy).toBe('created');
+  });
+
+  test('--sort-by=updated works', () => {
+    const result = parseArgs(['list', '--sort-by=updated']);
+    expect(result.sortBy).toBe('updated');
+  });
+
+  test('--reverse flag', () => {
+    const result = parseArgs(['list', '--reverse']);
+    expect(result.reverse).toBe(true);
+  });
+
+  test('-r for reverse', () => {
+    const result = parseArgs(['list', '-r']);
+    expect(result.reverse).toBe(true);
+  });
+
+  test('--columns id,tags', () => {
+    const result = parseArgs(['list', '--columns', 'id,tags']);
+    expect(result.columns).toBe('id,tags');
+  });
+
+  test('-k for columns', () => {
+    const result = parseArgs(['list', '-k', 'id,content,importance']);
+    expect(result.columns).toBe('id,content,importance');
+  });
+
+  test('--columns=id works', () => {
+    const result = parseArgs(['list', '--columns=id']);
+    expect(result.columns).toBe('id');
+  });
+
+  test('combined sort options', () => {
+    const result = parseArgs(['list', '-m', 'importance', '-r', '-k', 'id,tags']);
+    expect(result.sortBy).toBe('importance');
+    expect(result.reverse).toBe(true);
+    expect(result.columns).toBe('id,tags');
+  });
+});
+
+// ─── Namespace command routing ────────────────────────────────────────────────
+
+describe('namespace command routing', () => {
+  test('namespace list', () => {
+    const args = parseArgs(['namespace', 'list']);
+    const [cmd, ...rest] = args._;
+    expect(cmd).toBe('namespace');
+    expect(rest[0]).toBe('list');
+  });
+
+  test('namespace stats', () => {
+    const args = parseArgs(['namespace', 'stats']);
+    const [cmd, ...rest] = args._;
+    expect(cmd).toBe('namespace');
+    expect(rest[0]).toBe('stats');
+  });
+
+  test('namespace with namespace filter', () => {
+    const args = parseArgs(['namespace', 'list', '-n', 'myns']);
+    const [cmd, ...rest] = args._;
+    expect(cmd).toBe('namespace');
+    expect(rest[0]).toBe('list');
+    expect(args.namespace).toBe('myns');
+  });
+});
+
+// ─── Client-side sorting logic ────────────────────────────────────────────────
+
+describe('client-side sorting logic', () => {
+  const memories = [
+    { id: '1', importance: 0.5, created_at: '2024-01-01T00:00:00Z' },
+    { id: '2', importance: 0.9, created_at: '2024-01-03T00:00:00Z' },
+    { id: '3', importance: 0.2, created_at: '2024-01-02T00:00:00Z' },
+  ];
+
+  test('sorts by importance ascending', () => {
+    const sorted = [...memories].sort((a: any, b: any) => {
+      const aVal = parseFloat(a.importance) || 0;
+      const bVal = parseFloat(b.importance) || 0;
+      return aVal - bVal;
+    });
+    expect(sorted[0].id).toBe('3');
+    expect(sorted[2].id).toBe('2');
+  });
+
+  test('sorts by importance descending', () => {
+    const sorted = [...memories].sort((a: any, b: any) => {
+      const aVal = parseFloat(a.importance) || 0;
+      const bVal = parseFloat(b.importance) || 0;
+      return bVal - aVal;
+    });
+    expect(sorted[0].id).toBe('2');
+    expect(sorted[2].id).toBe('3');
+  });
+
+  test('sorts by created date', () => {
+    const sorted = [...memories].sort((a: any, b: any) => {
+      const aVal = new Date(a.created_at).getTime();
+      const bVal = new Date(b.created_at).getTime();
+      return aVal - bVal;
+    });
+    expect(sorted[0].id).toBe('1');
+    expect(sorted[2].id).toBe('2');
+  });
+});

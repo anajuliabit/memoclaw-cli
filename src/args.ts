@@ -10,7 +10,7 @@ export interface ParsedArgs {
 /** Boolean-only flags that never take a value */
 export const BOOLEAN_FLAGS = new Set([
   'help', 'version', 'raw', 'json', 'quiet', 'dryRun', 'verbose', 'noColor',
-  'force', 'count', 'wide', 'pretty', 'watch', 'interactive', 'yes',
+  'force', 'count', 'wide', 'pretty', 'watch', 'interactive', 'yes', 'reverse',
 ]);
 
 /** Short flag aliases */
@@ -37,6 +37,9 @@ const SHORT_FLAGS: Record<string, string> = {
   '-C': 'category',
   '-S': 'sessionId',
   '-A': 'agentId',
+  '-r': 'reverse',
+  '-m': 'sortBy',
+  '-k': 'columns',
 };
 
 export function parseArgs(args: string[]): ParsedArgs {

@@ -455,25 +455,93 @@ async function cmdList(opts: ParsedArgs) {
   if (outputJson) {
     out(result);
   } else {
-    const memories = result.memories || result.data || [];
+    let memories = result.memories || result.data || [];
+    
+    // Apply client-side sorting if --sort-by specified
+    if (opts.sortBy && memories.length > 0) {
+      const sortKey = opts.sortBy;
+      const reverse = !!opts.reverse;
+      memories = [...memories].sort((a: any, b: any) => {
+        let aVal = a[sortKey];
+        let bVal = b[sortKey];
+        // Handle nested fields like metadata.tags
+        if (aVal === undefined && sortKey.includes('.')) {
+          const parts = sortKey.split('.');
+          let obj: any = a;
+          for (const p of parts) obj = obj?.[p];
+          aVal = obj;
+          obj = b;
+          for (const p of parts) obj = obj?.[p];
+          bVal = obj;
+        }
+        // Handle dates
+        if (aVal?.includes?.('-') && !isNaN(Date.parse(aVal))) {
+          aVal = new Date(aVal).getTime();
+          bVal = new Date(bVal as string).getTime();
+        }
+        // Handle importance as number
+        if (sortKey === 'importance') {
+          aVal = parseFloat(aVal) || 0;
+          bVal = parseFloat(bVal) || 0;
+        }
+        if (aVal < bVal) return reverse ? 1 : -1;
+        if (aVal > bVal) return reverse ? -1 : 1;
+        return 0;
+      });
+    }
+    
     if (memories.length === 0) {
       console.log(`${c.dim}No memories found.${c.reset}`);
     } else {
       const truncateWidth = outputTruncate || 50;
-      const rows = memories.map((m: any) => ({
-        id: m.id?.slice(0, 8) || '?',
-        content: m.content?.length > truncateWidth ? m.content.slice(0, truncateWidth) + '…' : (m.content || ''),
-        importance: m.importance?.toFixed(2) || '-',
-        tags: m.metadata?.tags?.join(', ') || '',
-        created: m.created_at ? new Date(m.created_at).toLocaleDateString() : '',
-      }));
-      table(rows, [
+      
+      // Default columns
+      let columns = [
         { key: 'id', label: 'ID', width: 10 },
         { key: 'content', label: 'CONTENT', width: outputTruncate || 52 },
         { key: 'importance', label: 'IMP', width: 5 },
         { key: 'tags', label: 'TAGS', width: 20 },
         { key: 'created', label: 'CREATED', width: 12 },
-      ]);
+      ];
+      
+      // Column selection: --columns id,tags,importance
+      if (opts.columns) {
+        const selected = opts.columns.split(',').map((c: string) => c.trim());
+        const colMap: Record<string, { key: string; label: string; width?: number }> = {
+          id: { key: 'id', label: 'ID', width: 10 },
+          content: { key: 'content', label: 'CONTENT', width: outputTruncate || 52 },
+          importance: { key: 'importance', label: 'IMP', width: 5 },
+          tags: { key: 'tags', label: 'TAGS', width: 20 },
+          created: { key: 'created', label: 'CREATED', width: 12 },
+          updated: { key: 'updated', label: 'UPDATED', width: 12 },
+          namespace: { key: 'namespace', label: 'NAMESPACE', width: 15 },
+          type: { key: 'memory_type', label: 'TYPE', width: 10 },
+        };
+        columns = selected.map((k: string) => colMap[k] || { key: k, label: k.toUpperCase(), width: 20 });
+      }
+      
+      const rows = memories.map((m: any) => {
+        const row: Record<string, any> = {};
+        for (const col of columns) {
+          let val = m[col.key];
+          if (col.key === 'content' && val?.length > (col.width || 50)) {
+            val = val.slice(0, (col.width || 50) - 1) + '…';
+          } else if (col.key === 'importance' && val !== undefined) {
+            val = val.toFixed(2);
+          } else if (col.key === 'tags') {
+            val = m.metadata?.tags?.join(', ') || '';
+          } else if ((col.key === 'created' || col.key === 'updated') && m[`${col.key}_at`]) {
+            val = new Date(m[`${col.key}_at`]).toLocaleDateString();
+          } else if (val === undefined || val === null) {
+            val = '';
+          } else {
+            val = String(val);
+          }
+          row[col.key] = val;
+        }
+        return row;
+      });
+      table(rows, columns);
       if (result.total !== undefined) {
         console.log(`${c.dim}─ ${memories.length} of ${result.total} memories${c.reset}`);
       }
@@ -877,6 +945,59 @@ async function cmdGraph(id: string, opts: ParsedArgs) {
   console.log();
 }
 
+// ─── Namespace Command ──────────────────────────────────────────────────────
+
+async function cmdNamespace(subcmd: string, rest: string[], opts: ParsedArgs) {
+  if (subcmd === 'list' || !subcmd) {
+    // List all namespaces by querying with different namespace filters
+    // Since there's no direct namespace list API, we list memories and extract namespaces
+    const params = new URLSearchParams({ limit: '1000' });
+    const result = await request('GET', `/v1/memories?${params}`) as any;
+    const memories = result.memories || result.data || [];
+    
+    const nsSet = new Set<string>();
+    for (const mem of memories) {
+      if (mem.namespace) nsSet.add(mem.namespace);
+    }
+    const namespaces = Array.from(nsSet).sort();
+    
+    if (outputJson) {
+      out({ namespaces, count: namespaces.length });
+    } else if (namespaces.length === 0) {
+      console.log(`${c.dim}No namespaces found.${c.reset}`);
+    } else {
+      table(namespaces.map(ns => ({ namespace: ns })), [{ key: 'namespace', label: 'NAMESPACE', width: 30 }]);
+      console.log(`${c.dim}─ ${namespaces.length} namespace${namespaces.length !== 1 ? 's' : ''}${c.reset}`);
+    }
+  } else if (subcmd === 'stats') {
+    // Show memory counts per namespace
+    const params = new URLSearchParams({ limit: '1000' });
+    const result = await request('GET', `/v1/memories?${params}`) as any;
+    const memories = result.memories || result.data || [];
+    
+    const nsCounts: Record<string, number> = { '': 0 };
+    for (const mem of memories) {
+      const ns = mem.namespace || '';
+      nsCounts[ns] = (nsCounts[ns] || 0) + 1;
+    }
+    
+    const rows = Object.entries(nsCounts)
+      .sort((a, b) => b[1] - a[1])
+      .map(([ns, count]) => ({ namespace: ns || '(default)', count: String(count) }));
+    
+    if (outputJson) {
+      out({ namespaces: rows });
+    } else {
+      table(rows, [
+        { key: 'namespace', label: 'NAMESPACE', width: 30 },
+        { key: 'count', label: 'COUNT', width: 10 },
+      ]);
+    }
+  } else {
+    throw new Error('Usage: namespace [list|stats]');
+  }
+}
+
 async function cmdPurge(opts: ParsedArgs) {
   // Support both --force and --yes flags
   const confirmed = opts.force || opts.yes;
@@ -941,7 +1062,7 @@ async function cmdCount(opts: ParsedArgs) {
 async function cmdCompletions(shell: string) {
   const commands = ['store', 'recall', 'list', 'get', 'update', 'delete', 'ingest', 'extract',
     'consolidate', 'relations', 'suggested', 'status', 'export', 'import', 'stats', 'browse',
-    'completions', 'config', 'graph', 'purge', 'count'];
+    'completions', 'config', 'graph', 'purge', 'count', 'namespace'];
   
   if (shell === 'bash') {
     console.log(`# Add to ~/.bashrc:
@@ -1224,7 +1345,10 @@ List all memories in a table format.
 Options:
   --limit <n>            Max results (default: 20)
   --offset <n>           Pagination offset
-  --namespace <name>     Filter by namespace`,
+  --namespace <name>     Filter by namespace
+  --sort-by <field>      Sort by field (id, importance, created, updated)
+  --reverse              Reverse sort order
+  --columns <cols>       Select columns (id,content,importance,tags,created)`,
 
       export: `${c.bold}memoclaw export${c.reset} [options]
 
@@ -1312,6 +1436,17 @@ Generate shell completion scripts.
   ${c.dim}eval "$(memoclaw completions bash)"${c.reset}
   ${c.dim}eval "$(memoclaw completions zsh)"${c.reset}
   ${c.dim}memoclaw completions fish > ~/.config/fish/completions/memoclaw.fish${c.reset}`,
+
+      namespace: `${c.bold}memoclaw namespace${c.reset} [list|stats]
+
+Manage and view namespaces.
+
+Subcommands:
+  list       List all unique namespaces (default)
+  stats      Show memory counts per namespace
+
+  ${c.dim}memoclaw namespace list${c.reset}
+  ${c.dim}memoclaw namespace stats${c.reset}`,
     };
 
     if (subHelp[command]) {
@@ -1348,6 +1483,7 @@ ${c.bold}Commands:${c.reset}
   ${c.cyan}config${c.reset} [show|check]    Show or validate configuration
   ${c.cyan}graph${c.reset} <id>             ASCII visualization of memory relations
   ${c.cyan}purge${c.reset}                  Delete ALL memories (requires --force or confirm)
+  ${c.cyan}namespace${c.reset} [list|stats] Manage and view namespaces
   ${c.cyan}count${c.reset}                  Quick memory count
 
 ${c.bold}Global Options:${c.reset}
@@ -1525,6 +1661,9 @@ try {
       break;
     case 'count':
       await cmdCount(args);
+      break;
+    case 'namespace':
+      await cmdNamespace(rest[0], rest.slice(1), args);
       break;
     case 'help':
       printHelp(rest[0]);
