@@ -23,7 +23,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 
-const VERSION = '1.9.0';
+const VERSION = '1.8.3';
 const CONFIG_DIR = path.join(os.homedir(), '.memoclaw');
 const CONFIG_FILE_JSON = path.join(CONFIG_DIR, 'config.json');
 const CONFIG_FILE_YAML = path.join(CONFIG_DIR, 'config');
@@ -1172,13 +1172,23 @@ async function cmdMigrate(targetPath: string, opts: ParsedArgs) {
   const mdFiles: { filepath: string; filename: string }[] = [];
   const stat = fs.statSync(resolvedPath);
   
+  const IGNORED_DIRS = new Set([
+    'node_modules', '.git', '.next', '.nuxt', 'dist', 'build', '.output',
+    '__pycache__', '.venv', 'venv', 'env', '.env', '.tox',
+    '.cache', '.tmp', 'tmp', 'coverage', '.nyc_output',
+    'vendor', 'target', '.gradle', '.mvn',
+    'skills', '.openclaw', '.clawd',
+  ]);
+
   if (stat.isDirectory()) {
     const walk = (dir: string) => {
       const entries = fs.readdirSync(dir, { withFileTypes: true });
       for (const entry of entries) {
         const full = path.join(dir, entry.name);
         if (entry.isDirectory()) {
-          walk(full);
+          if (!IGNORED_DIRS.has(entry.name)) {
+            walk(full);
+          }
         } else if (entry.name.endsWith('.md')) {
           mdFiles.push({ filepath: full, filename: path.relative(resolvedPath, full) });
         }
@@ -1200,7 +1210,7 @@ async function cmdMigrate(targetPath: string, opts: ParsedArgs) {
   }
 
   // Send in batches of up to 50 files
-  const BATCH_SIZE = 50;
+  const BATCH_SIZE = 5;
   let totalCreated = 0;
   let totalDeduplicated = 0;
   let totalErrors = 0;
