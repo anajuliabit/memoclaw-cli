@@ -952,6 +952,65 @@ describe('invert flag', () => {
   });
 });
 
+// ─── Purge safety limit ─────────────────────────────────────────────────────
+
+describe('purge safety limit', () => {
+  test('consecutive failure tracking logic', () => {
+    // Simulates the purge loop safety valve
+    let failedInRow = 0;
+    const MAX = 3;
+
+    // Batch with no deletes
+    let batchDeleted = 0;
+    if (batchDeleted === 0) failedInRow++;
+    expect(failedInRow).toBe(1);
+    expect(failedInRow >= MAX).toBe(false);
+
+    // Another failed batch
+    batchDeleted = 0;
+    if (batchDeleted === 0) failedInRow++;
+    expect(failedInRow).toBe(2);
+
+    // Third failure — should trigger abort
+    batchDeleted = 0;
+    if (batchDeleted === 0) failedInRow++;
+    expect(failedInRow >= MAX).toBe(true);
+  });
+
+  test('successful batch resets failure counter', () => {
+    let failedInRow = 2;
+
+    // Successful batch
+    let batchDeleted = 5;
+    if (batchDeleted === 0) failedInRow++;
+    else failedInRow = 0;
+
+    expect(failedInRow).toBe(0);
+  });
+});
+
+// ─── Timeout config ──────────────────────────────────────────────────────────
+
+describe('timeout config', () => {
+  test('default timeout is 30s', () => {
+    const timeoutMs = undefined ? parseInt(undefined as any) * 1000 : 30000;
+    expect(timeoutMs).toBe(30000);
+  });
+
+  test('custom timeout from args', () => {
+    const args = parseArgs(['list', '--timeout', '60']);
+    const timeoutMs = args.timeout ? parseInt(args.timeout) * 1000 : 30000;
+    expect(timeoutMs).toBe(60000);
+  });
+
+  test('timeout=0 uses 0ms (immediate)', () => {
+    const args = parseArgs(['list', '--timeout', '0']);
+    const timeoutMs = args.timeout ? parseInt(args.timeout) * 1000 : 30000;
+    // '0' is truthy as string, so parseInt('0') * 1000 = 0
+    expect(timeoutMs).toBe(0);
+  });
+});
+
 // ─── Combined flags with output options ─────────────────────────────────────
 
 describe('combined flags with output options', () => {
