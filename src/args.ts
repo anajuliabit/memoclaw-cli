@@ -10,7 +10,7 @@ export interface ParsedArgs {
 /** Boolean-only flags that never take a value */
 export const BOOLEAN_FLAGS = new Set([
   'help', 'version', 'raw', 'json', 'quiet', 'dryRun', 'verbose', 'noColor',
-  'force', 'count', 'wide',
+  'force', 'count', 'wide', 'pretty', 'watch', 'interactive', 'yes', 'reverse',
 ]);
 
 /** Short flag aliases */
@@ -22,7 +22,24 @@ const SHORT_FLAGS: Record<string, string> = {
   '-n': 'namespace',
   '-l': 'limit',
   '-t': 'tags',
-  '-o': 'output',
+  '-o': 'offset',
+  '-f': 'format',
+  '-p': 'pretty',
+  '-i': 'interactive',
+  '-w': 'watch',
+  '-d': 'dryRun',
+  '-c': 'concurrency',
+  '-s': 'truncate',
+  '-y': 'yes',
+  '-T': 'timeout',
+  '-x': 'text',
+  '-e': 'expiresAt',
+  '-C': 'category',
+  '-S': 'sessionId',
+  '-A': 'agentId',
+  '-r': 'reverse',
+  '-m': 'sortBy',
+  '-k': 'columns',
 };
 
 export function parseArgs(args: string[]): ParsedArgs {
@@ -33,6 +50,19 @@ export function parseArgs(args: string[]): ParsedArgs {
 
     // Short flags (single like -j or combined like -jq)
     if (arg[0] === '-' && arg[1] !== '-' && arg.length >= 2) {
+      // Check for -X=value syntax first
+      const eqIdx = arg.indexOf('=');
+      if (eqIdx !== -1) {
+        const flagPart = arg.slice(0, eqIdx);
+        const valuePart = arg.slice(eqIdx + 1);
+        if (SHORT_FLAGS[flagPart]) {
+          const key = SHORT_FLAGS[flagPart];
+          result[key] = valuePart;
+          i++;
+          continue;
+        }
+      }
+      
       // Check if it's a known single short flag first
       if (arg.length === 2 && SHORT_FLAGS[arg]) {
         const key = SHORT_FLAGS[arg];

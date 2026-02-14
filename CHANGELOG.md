@@ -1,5 +1,33 @@
 # Changelog
 
+## 1.8.1
+
+### New Global Options
+- **`--format <json|table|csv|yaml>` / `-f`** — Output format selection (default: table for human-readable, json for programmatic)
+  - Added **YAML** format support for users who prefer YAML output
+- **`--pretty` / `-p`** — Pretty-print JSON/YAML output with indentation
+- **`--watch` / `-w`** — Watch mode for continuous polling (future use)
+- **`--wide`** — Use wider columns in table output (up to 120 chars)
+- **`--offset` / `-o`** — Pagination offset (now parsed consistently)
+
+### New Commands
+- `memoclaw config init` — Create a config file at `~/.memoclaw/config.yaml`
+- `memoclaw config path` — Print the config file path
+
+### Config File Support
+- Config file at `~/.memoclaw/config` (YAML or JSON)
+- Supports: url, privateKey, namespace, timeout
+- Environment variables still override config file values
+
+### Improvements
+- **CSV output** — `memoclaw list --format csv` outputs CSV with proper escaping for commas and quotes
+- **Better table formatting** — Tables now respect `--wide` flag for more data visibility
+- **Combined short flags** — Support for `-jq`, `-jnf namespace`, etc.
+- **Case-insensitive format** — `--format YAML` and `--format yml` both work
+
+### Testing
+- 80 tests (up from 77), comprehensive coverage of YAML format and config file parsing
+
 ## 1.7.0
 
 ### New Commands

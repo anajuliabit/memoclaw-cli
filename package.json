@@ -1,6 +1,6 @@
 {
   "name": "memoclaw",
-  "version": "1.7.0",
+  "version": "1.8.1",
   "description": "MemoClaw CLI - Memory-as-a-Service for AI agents. 1000 free calls, then x402 micropayments.",
   "type": "module",
   "bin": {
@@ -39,6 +39,7 @@
   "dependencies": {
     "@x402/core": "^2.3.0",
     "@x402/evm": "^2.3.0",
+    "js-yaml": "^4.1.1",
     "viem": "^2.45.2"
   }
 }
