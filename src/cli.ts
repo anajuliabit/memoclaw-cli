@@ -23,7 +23,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 
-const VERSION = '1.7.0';
+const VERSION = '1.8.0';
 const API_URL = process.env.MEMOCLAW_URL || 'https://api.memoclaw.com';
 const PRIVATE_KEY = process.env.MEMOCLAW_PRIVATE_KEY as `0x${string}`;
 const CONFIG_DIR = path.join(os.homedir(), '.memoclaw');
@@ -105,51 +105,73 @@ let outputQuiet = false;
 let outputPretty = false;
 let outputFormat: 'json' | 'table' | 'csv' | 'yaml' = 'table';
 let outputTruncate = 0; // 0 = no truncation
+let outputFile: string | null = null; // File path for output
+let noTruncate = false; // --no-truncate flag
+
+/** Write to file or stdout */
+function outputWrite(...parts: string[]) {
+  const line = parts.join(' ');
+  if (outputFile) {
+    fs.appendFileSync(outputFile, line + '\n');
+  } else {
+    console.log(line);
+  }
+}
+
+/** Write error to file or stderr */
+function outputError(...parts: string[]) {
+  const line = parts.join(' ');
+  if (outputFile) {
+    fs.appendFileSync(outputFile, line + '\n');
+  } else {
+    console.error(line);
+  }
+}
 
 function out(data: any) {
   if (outputQuiet) return;
   if (outputJson || outputFormat === 'json') {
-    console.log(JSON.stringify(data, outputPretty ? null : undefined, outputPretty ? 2 : undefined));
+    outputWrite(JSON.stringify(data, outputPretty ? null : undefined, outputPretty ? 2 : undefined));
   } else if (outputFormat === 'yaml') {
-    console.log(yaml.dump(data, { indent: 2, lineWidth: 120 }));
+    outputWrite(yaml.dump(data, { indent: 2, lineWidth: 120 }));
   } else if (outputFormat === 'csv') {
     if (Array.isArray(data)) {
       if (data.length === 0) return;
       const headers = Object.keys(data[0]);
-      console.log(headers.join(','));
+      outputWrite(headers.join(','));
       for (const row of data) {
-        console.log(headers.map(h => {
+        outputWrite(headers.map(h => {
           const val = row[h];
           const str = val === null || val === undefined ? '' : String(val);
           return str.includes(',') || str.includes('"') ? `"${str.replace(/"/g, '""')}"` : str;
         }).join(','));
       }
     } else if (typeof data === 'string') {
-      console.log(data);
+      outputWrite(data);
     } else {
-      console.log(JSON.stringify(data, null, 2));
+      outputWrite(JSON.stringify(data, null, 2));
     }
   } else if (typeof data === 'string') {
-    console.log(data);
+    outputWrite(data);
   } else {
-    console.log(JSON.stringify(data, null, 2));
+    outputWrite(JSON.stringify(data, null, 2));
   }
 }
 
 function success(msg: string) {
   if (outputQuiet) return;
   if (outputJson) return; // JSON mode suppresses decorative output
-  console.log(`${c.green}✓${c.reset} ${msg}`);
+  outputWrite(`${c.green}✓${c.reset} ${msg}`);
 }
 
 function warn(msg: string) {
-  console.error(`${c.yellow}⚠${c.reset} ${msg}`);
+  outputError(`${c.yellow}⚠${c.reset} ${msg}`);
 }
 
 function info(msg: string) {
   if (outputQuiet) return;
   if (outputJson) return;
-  console.error(`${c.blue}ℹ${c.reset} ${msg}`);
+  outputError(`${c.blue}ℹ${c.reset} ${msg}`);
 }
 
 /** Print a simple table */
@@ -157,12 +179,12 @@ function table(rows: Record<string, any>[], columns?: { key: string; label: stri
   if (rows.length === 0) return;
   
   if (outputJson || outputFormat === 'json') {
-    console.log(JSON.stringify(rows, null, 2));
+    outputWrite(JSON.stringify(rows, null, 2));
     return;
   }
 
   if (outputFormat === 'yaml') {
-    console.log(yaml.dump(rows, { indent: 2, lineWidth: 120 }));
+    outputWrite(yaml.dump(rows, { indent: 2, lineWidth: 120 }));
     return;
   }
 
@@ -190,8 +212,8 @@ function table(rows: Record<string, any>[], columns?: { key: string; label: stri
 
   // Header
   const header = columns.map(col => col.label.padEnd(col.width!)).join('  ');
-  console.log(`${c.bold}${header}${c.reset}`);
-  console.log(`${c.dim}${columns.map(col => '─'.repeat(col.width!)).join('──')}${c.reset}`);
+  outputWrite(`${c.bold}${header}${c.reset}`);
+  outputWrite(`${c.dim}${columns.map(col => '─'.repeat(col.width!)).join('──')}${c.reset}`);
 
   // Rows
   for (const row of rows) {
@@ -199,7 +221,7 @@ function table(rows: Record<string, any>[], columns?: { key: string; label: stri
       const val = String(row[col.key] ?? '');
       return val.length > col.width! ? val.slice(0, col.width! - 1) + '…' : val.padEnd(col.width!);
     }).join('  ');
-    console.log(line);
+    outputWrite(line);
   }
 }
 
@@ -1500,12 +1522,20 @@ ${c.bold}Global Options:${c.reset}
   -w, --watch            Watch for changes (continuous polling)
   --watch-interval <ms>  Polling interval for watch mode (default: 5000)
   -s, --truncate <n>     Truncate output to n characters
+  --no-truncate         Disable truncation in output
   -c, --concurrency <n>  Number of parallel imports (default: 1)
   -y, --yes              Skip confirmation prompts (alias for --force)
+  -O, --output <file>    Write output to file instead of stdout
+  -F, --field <name>     Extract specific field from output
+  -r, --reverse          Reverse sort order
+  -a, --ascending        Sort in ascending order
+  -I, --invert           Invert output
+  -m, --sort-by <field>  Sort by field (id, importance, created, updated)
+  -k, --columns <cols>   Select columns (id,content,importance,tags,created)
   --raw                  Raw output (content only, for piping)
   --wide                 Use wider columns in table output
   --force                Skip confirmation prompts
-  --timeout <seconds>   Request timeout (default: 30)
+  -T, --timeout <sec>    Request timeout (default: 30)
 
 ${c.bold}Environment:${c.reset}
   MEMOCLAW_PRIVATE_KEY   Wallet private key for auth + payments
@@ -1554,6 +1584,19 @@ if (args.truncate != null && args.truncate !== true) {
   outputTruncate = parseInt(args.truncate);
 } else if (args.truncate === true) {
   outputTruncate = 80; // default truncate width
+}
+
+// Parse no-truncate option (disables truncation)
+noTruncate = !!args.noTruncate;
+if (noTruncate) {
+  outputTruncate = 0;
+}
+
+// Parse output file
+if (args.output) {
+  outputFile = String(args.output);
+  // Clear the file first
+  fs.writeFileSync(outputFile, '');
 }
 
 if (args.version) {

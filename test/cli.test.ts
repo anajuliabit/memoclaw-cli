@@ -836,3 +836,117 @@ describe('client-side sorting logic', () => {
     expect(sorted[2].id).toBe('2');
   });
 });
+
+// ─── New flags: output file ─────────────────────────────────────────────────
+
+describe('output file flag', () => {
+  test('--output parses with value', () => {
+    const result = parseArgs(['list', '--output', 'out.txt']);
+    expect(result.output).toBe('out.txt');
+    expect(result._).toEqual(['list']);
+  });
+
+  test('-O short flag for output', () => {
+    const result = parseArgs(['list', '-O', 'data.json']);
+    expect(result.output).toBe('data.json');
+    expect(result._).toEqual(['list']);
+  });
+
+  test('--output=value syntax', () => {
+    const result = parseArgs(['list', '--output=results.csv']);
+    expect(result.output).toBe('results.csv');
+  });
+});
+
+// ─── New flags: no-truncate ─────────────────────────────────────────────────
+
+describe('no-truncate flag', () => {
+  test('--no-truncate is boolean', () => {
+    const result = parseArgs(['list', '--no-truncate']);
+    expect(result.noTruncate).toBe(true);
+    expect(result._).toEqual(['list']);
+  });
+
+  test('no-truncate does not consume next arg', () => {
+    const result = parseArgs(['list', '--no-truncate', '--json']);
+    expect(result.noTruncate).toBe(true);
+    expect(result.json).toBe(true);
+    expect(result._).toEqual(['list']);
+  });
+});
+
+// ─── New flags: field selection ────────────────────────────────────────────
+
+describe('field selection flag', () => {
+  test('--field parses with value', () => {
+    const result = parseArgs(['get', 'abc123', '--field', 'content']);
+    expect(result.field).toBe('content');
+    expect(result._).toEqual(['get', 'abc123']);
+  });
+
+  test('-F short flag for field', () => {
+    const result = parseArgs(['get', 'abc123', '-F', 'id']);
+    expect(result.field).toBe('id');
+    expect(result._).toEqual(['get', 'abc123']);
+  });
+
+  test('--field=value syntax', () => {
+    const result = parseArgs(['get', 'abc', '--field=importance']);
+    expect(result.field).toBe('importance');
+  });
+});
+
+// ─── New flags: ascending ───────────────────────────────────────────────────
+
+describe('ascending flag', () => {
+  test('--ascending is boolean', () => {
+    const result = parseArgs(['list', '--ascending']);
+    expect(result.ascending).toBe(true);
+    expect(result._).toEqual(['list']);
+  });
+
+  test('-a short flag for ascending', () => {
+    const result = parseArgs(['list', '-a']);
+    expect(result.ascending).toBe(true);
+  });
+});
+
+// ─── New flags: invert ─────────────────────────────────────────────────────
+
+describe('invert flag', () => {
+  test('--invert is boolean', () => {
+    const result = parseArgs(['list', '--invert']);
+    expect(result.invert).toBe(true);
+    expect(result._).toEqual(['list']);
+  });
+
+  test('-I short flag for invert', () => {
+    const result = parseArgs(['list', '-I']);
+    expect(result.invert).toBe(true);
+  });
+});
+
+// ─── Combined flags with output options ─────────────────────────────────────
+
+describe('combined flags with output options', () => {
+  test('--json --output works together', () => {
+    const result = parseArgs(['--json', '--output', 'data.json', 'list']);
+    expect(result.json).toBe(true);
+    expect(result.output).toBe('data.json');
+    expect(result._).toEqual(['list']);
+  });
+
+  test('-jqO combo with output', () => {
+    const result = parseArgs(['-jqO', 'out.txt', 'list']);
+    expect(result.json).toBe(true);
+    expect(result.quiet).toBe(true);
+    expect(result.output).toBe('out.txt');
+    expect(result._).toEqual(['list']);
+  });
+
+  test('--format with output file', () => {
+    const result = parseArgs(['--format', 'csv', '--output', 'data.csv', 'list']);
+    expect(result.format).toBe('csv');
+    expect(result.output).toBe('data.csv');
+  });
+});
