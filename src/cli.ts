@@ -23,7 +23,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 
-const VERSION = '1.8.3';
+const VERSION = "1.8.4";
 const CONFIG_DIR = path.join(os.homedir(), '.memoclaw');
 const CONFIG_FILE_JSON = path.join(CONFIG_DIR, 'config.json');
 const CONFIG_FILE_YAML = path.join(CONFIG_DIR, 'config');
