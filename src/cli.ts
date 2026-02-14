@@ -23,11 +23,26 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 
-const VERSION = '1.7.0';
-const API_URL = process.env.MEMOCLAW_URL || 'https://api.memoclaw.com';
-const PRIVATE_KEY = process.env.MEMOCLAW_PRIVATE_KEY as `0x${string}`;
+const VERSION = '1.9.0';
 const CONFIG_DIR = path.join(os.homedir(), '.memoclaw');
-const CONFIG_FILE = path.join(CONFIG_DIR, 'config');
+const CONFIG_FILE_JSON = path.join(CONFIG_DIR, 'config.json');
+const CONFIG_FILE_YAML = path.join(CONFIG_DIR, 'config');
+
+// Load persisted config early
+function loadPersistedConfig(): { url?: string; privateKey?: string; namespace?: string } {
+  try {
+    if (fs.existsSync(CONFIG_FILE_JSON)) {
+      return JSON.parse(fs.readFileSync(CONFIG_FILE_JSON, 'utf-8'));
+    }
+  } catch {}
+  return {};
+}
+const _persistedConfig = loadPersistedConfig();
+
+const API_URL = process.env.MEMOCLAW_URL || _persistedConfig.url || 'https://api.memoclaw.com';
+const PRIVATE_KEY = (process.env.MEMOCLAW_PRIVATE_KEY || _persistedConfig.privateKey) as `0x${string}`;
+const CONFIG_DIR_PATH = CONFIG_DIR;
+const CONFIG_FILE = CONFIG_FILE_YAML;
 
 // ─── Colors ──────────────────────────────────────────────────────────────────
 
@@ -105,51 +120,73 @@ let outputQuiet = false;
 let outputPretty = false;
 let outputFormat: 'json' | 'table' | 'csv' | 'yaml' = 'table';
 let outputTruncate = 0; // 0 = no truncation
+let outputFile: string | null = null; // File path for output
+let noTruncate = false; // --no-truncate flag
+
+/** Write to file or stdout */
+function outputWrite(...parts: string[]) {
+  const line = parts.join(' ');
+  if (outputFile) {
+    fs.appendFileSync(outputFile, line + '\n');
+  } else {
+    console.log(line);
+  }
+}
+
+/** Write error to file or stderr */
+function outputError(...parts: string[]) {
+  const line = parts.join(' ');
+  if (outputFile) {
+    fs.appendFileSync(outputFile, line + '\n');
+  } else {
+    console.error(line);
+  }
+}
 
 function out(data: any) {
   if (outputQuiet) return;
   if (outputJson || outputFormat === 'json') {
-    console.log(JSON.stringify(data, outputPretty ? null : undefined, outputPretty ? 2 : undefined));
+    outputWrite(JSON.stringify(data, outputPretty ? null : undefined, outputPretty ? 2 : undefined));
   } else if (outputFormat === 'yaml') {
-    console.log(yaml.dump(data, { indent: 2, lineWidth: 120 }));
+    outputWrite(yaml.dump(data, { indent: 2, lineWidth: 120 }));
   } else if (outputFormat === 'csv') {
     if (Array.isArray(data)) {
       if (data.length === 0) return;
       const headers = Object.keys(data[0]);
-      console.log(headers.join(','));
+      outputWrite(headers.join(','));
       for (const row of data) {
-        console.log(headers.map(h => {
+        outputWrite(headers.map(h => {
           const val = row[h];
           const str = val === null || val === undefined ? '' : String(val);
           return str.includes(',') || str.includes('"') ? `"${str.replace(/"/g, '""')}"` : str;
         }).join(','));
       }
     } else if (typeof data === 'string') {
-      console.log(data);
+      outputWrite(data);
     } else {
-      console.log(JSON.stringify(data, null, 2));
+      outputWrite(JSON.stringify(data, null, 2));
     }
   } else if (typeof data === 'string') {
-    console.log(data);
+    outputWrite(data);
   } else {
-    console.log(JSON.stringify(data, null, 2));
+    outputWrite(JSON.stringify(data, null, 2));
   }
 }
 
 function success(msg: string) {
   if (outputQuiet) return;
   if (outputJson) return; // JSON mode suppresses decorative output
-  console.log(`${c.green}✓${c.reset} ${msg}`);
+  outputWrite(`${c.green}✓${c.reset} ${msg}`);
 }
 
 function warn(msg: string) {
-  console.error(`${c.yellow}⚠${c.reset} ${msg}`);
+  outputError(`${c.yellow}⚠${c.reset} ${msg}`);
 }
 
 function info(msg: string) {
   if (outputQuiet) return;
   if (outputJson) return;
-  console.error(`${c.blue}ℹ${c.reset} ${msg}`);
+  outputError(`${c.blue}ℹ${c.reset} ${msg}`);
 }
 
 /** Print a simple table */
@@ -157,12 +194,12 @@ function table(rows: Record<string, any>[], columns?: { key: string; label: stri
   if (rows.length === 0) return;
   
   if (outputJson || outputFormat === 'json') {
-    console.log(JSON.stringify(rows, null, 2));
+    outputWrite(JSON.stringify(rows, null, 2));
     return;
   }
 
   if (outputFormat === 'yaml') {
-    console.log(yaml.dump(rows, { indent: 2, lineWidth: 120 }));
+    outputWrite(yaml.dump(rows, { indent: 2, lineWidth: 120 }));
     return;
   }
 
@@ -190,8 +227,8 @@ function table(rows: Record<string, any>[], columns?: { key: string; label: stri
 
   // Header
   const header = columns.map(col => col.label.padEnd(col.width!)).join('  ');
-  console.log(`${c.bold}${header}${c.reset}`);
-  console.log(`${c.dim}${columns.map(col => '─'.repeat(col.width!)).join('──')}${c.reset}`);
+  outputWrite(`${c.bold}${header}${c.reset}`);
+  outputWrite(`${c.dim}${columns.map(col => '─'.repeat(col.width!)).join('──')}${c.reset}`);
 
   // Rows
   for (const row of rows) {
@@ -199,7 +236,7 @@ function table(rows: Record<string, any>[], columns?: { key: string; label: stri
       const val = String(row[col.key] ?? '');
       return val.length > col.width! ? val.slice(0, col.width! - 1) + '…' : val.padEnd(col.width!);
     }).join('  ');
-    console.log(line);
+    outputWrite(line);
   }
 }
 
@@ -1059,8 +1096,151 @@ async function cmdCount(opts: ParsedArgs) {
   }
 }
 
+// ─── Init Command ────────────────────────────────────────────────────────────
+
+async function cmdInit(opts: ParsedArgs) {
+  const configPath = CONFIG_FILE_JSON;
+  
+  // Check if config already exists
+  if (fs.existsSync(configPath) && !opts.force) {
+    const existing = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    console.error(`${c.yellow}⚠${c.reset} Config already exists at ${c.cyan}${configPath}${c.reset}`);
+    console.error(`  Wallet: ${c.dim}${existing.address || '(unknown)'}${c.reset}`);
+    console.error(`  Use ${c.bold}--force${c.reset} to overwrite.`);
+    process.exit(1);
+  }
+
+  // Generate new wallet using viem
+  const { generatePrivateKey } = await import('viem/accounts');
+  const privateKey = generatePrivateKey();
+  const newAccount = privateKeyToAccount(privateKey);
+
+  const apiUrl = opts.url || 'https://api.memoclaw.com';
+
+  // Ensure config directory exists
+  if (!fs.existsSync(CONFIG_DIR_PATH)) {
+    fs.mkdirSync(CONFIG_DIR_PATH, { recursive: true });
+  }
+
+  // Save config
+  const config = {
+    privateKey: privateKey,
+    address: newAccount.address,
+    url: apiUrl,
+  };
+  fs.writeFileSync(configPath, JSON.stringify(config, null, 2), { mode: 0o600 });
+
+  if (outputJson) {
+    out({ address: newAccount.address, url: apiUrl, configPath });
+  } else {
+    console.log();
+    console.log(`${c.green}✓${c.reset} ${c.bold}MemoClaw initialized!${c.reset}`);
+    console.log();
+    console.log(`  ${c.bold}Wallet:${c.reset}  ${c.cyan}${newAccount.address}${c.reset}`);
+    console.log(`  ${c.bold}API:${c.reset}     ${c.dim}${apiUrl}${c.reset}`);
+    console.log(`  ${c.bold}Config:${c.reset}  ${c.dim}${configPath}${c.reset}`);
+    console.log();
+    console.log(`  Your wallet is your identity. No signup needed.`);
+    console.log(`  You get ${c.bold}1000 free API calls${c.reset}, then x402 micropayments.`);
+    console.log();
+    console.log(`  ${c.dim}Try: memoclaw store "Hello, MemoClaw!"${c.reset}`);
+  }
+}
+
+// ─── Migrate Command ─────────────────────────────────────────────────────────
+
+async function cmdMigrate(targetPath: string, opts: ParsedArgs) {
+  if (!targetPath) {
+    throw new Error('Path required. Usage: memoclaw migrate <path-to-file-or-directory>');
+  }
+
+  const resolvedPath = path.resolve(targetPath);
+  
+  if (!fs.existsSync(resolvedPath)) {
+    throw new Error(`Path not found: ${resolvedPath}`);
+  }
+
+  // Collect all .md files
+  const mdFiles: { filepath: string; filename: string }[] = [];
+  const stat = fs.statSync(resolvedPath);
+  
+  if (stat.isDirectory()) {
+    const walk = (dir: string) => {
+      const entries = fs.readdirSync(dir, { withFileTypes: true });
+      for (const entry of entries) {
+        const full = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          walk(full);
+        } else if (entry.name.endsWith('.md')) {
+          mdFiles.push({ filepath: full, filename: path.relative(resolvedPath, full) });
+        }
+      }
+    };
+    walk(resolvedPath);
+  } else if (resolvedPath.endsWith('.md')) {
+    mdFiles.push({ filepath: resolvedPath, filename: path.basename(resolvedPath) });
+  } else {
+    throw new Error('Path must be a .md file or a directory containing .md files');
+  }
+
+  if (mdFiles.length === 0) {
+    throw new Error('No .md files found');
+  }
+
+  if (!outputQuiet) {
+    console.log(`${c.blue}ℹ${c.reset} Found ${c.bold}${mdFiles.length}${c.reset} markdown file${mdFiles.length !== 1 ? 's' : ''}`);
+  }
+
+  // Send in batches of up to 50 files
+  const BATCH_SIZE = 50;
+  let totalCreated = 0;
+  let totalDeduplicated = 0;
+  let totalErrors = 0;
+  let filesProcessed = 0;
+
+  for (let i = 0; i < mdFiles.length; i += BATCH_SIZE) {
+    const batch = mdFiles.slice(i, i + BATCH_SIZE);
+    const files = batch.map(f => ({
+      filename: f.filename,
+      content: fs.readFileSync(f.filepath, 'utf-8'),
+    }));
+
+    try {
+      const result = await request('POST', '/v1/migrate', { files }) as any;
+      totalCreated += result.memories_created || 0;
+      totalDeduplicated += result.memories_deduplicated || 0;
+      filesProcessed += result.files_processed || 0;
+      if (result.errors) totalErrors += result.errors.length;
+
+      if (!outputQuiet && !outputJson) {
+        process.stderr.write(`\r  ${progressBar(Math.min(i + BATCH_SIZE, mdFiles.length), mdFiles.length)}`);
+      }
+    } catch (e: any) {
+      totalErrors += batch.length;
+      if (!outputQuiet) {
+        console.error(`\n${c.red}Error:${c.reset} Batch failed: ${e.message}`);
+      }
+    }
+  }
+
+  if (!outputQuiet && !outputJson) process.stderr.write('\n');
+
+  if (outputJson) {
+    out({ files_found: mdFiles.length, files_processed: filesProcessed, memories_created: totalCreated, memories_deduplicated: totalDeduplicated, errors: totalErrors });
+  } else {
+    console.log();
+    success(`Migration complete!`);
+    console.log(`  Files processed:      ${c.cyan}${filesProcessed}${c.reset}`);
+    console.log(`  Memories created:     ${c.green}${totalCreated}${c.reset}`);
+    console.log(`  Deduplicated:         ${c.dim}${totalDeduplicated}${c.reset}`);
+    if (totalErrors > 0) {
+      console.log(`  Errors:               ${c.red}${totalErrors}${c.reset}`);
+    }
+  }
+}
+
 async function cmdCompletions(shell: string) {
-  const commands = ['store', 'recall', 'list', 'get', 'update', 'delete', 'ingest', 'extract',
+  const commands = ['init', 'migrate', 'store', 'recall', 'list', 'get', 'update', 'delete', 'ingest', 'extract',
     'consolidate', 'relations', 'suggested', 'status', 'export', 'import', 'stats', 'browse',
     'completions', 'config', 'graph', 'purge', 'count', 'namespace'];
   
@@ -1463,6 +1643,8 @@ ${c.bold}Usage:${c.reset}
   memoclaw <command> [options]
 
 ${c.bold}Commands:${c.reset}
+  ${c.cyan}init${c.reset}                   Generate wallet & initialize config
+  ${c.cyan}migrate${c.reset} <path>          Import .md files from OpenClaw/local
   ${c.cyan}store${c.reset} "content"        Store a memory (also accepts stdin)
   ${c.cyan}recall${c.reset} "query"         Search memories by similarity
   ${c.cyan}list${c.reset}                   List memories in a table
@@ -1500,12 +1682,20 @@ ${c.bold}Global Options:${c.reset}
   -w, --watch            Watch for changes (continuous polling)
   --watch-interval <ms>  Polling interval for watch mode (default: 5000)
   -s, --truncate <n>     Truncate output to n characters
+  --no-truncate         Disable truncation in output
   -c, --concurrency <n>  Number of parallel imports (default: 1)
   -y, --yes              Skip confirmation prompts (alias for --force)
+  -O, --output <file>    Write output to file instead of stdout
+  -F, --field <name>     Extract specific field from output
+  -r, --reverse          Reverse sort order
+  -a, --ascending        Sort in ascending order
+  -I, --invert           Invert output
+  -m, --sort-by <field>  Sort by field (id, importance, created, updated)
+  -k, --columns <cols>   Select columns (id,content,importance,tags,created)
   --raw                  Raw output (content only, for piping)
   --wide                 Use wider columns in table output
   --force                Skip confirmation prompts
-  --timeout <seconds>   Request timeout (default: 30)
+  -T, --timeout <sec>    Request timeout (default: 30)
 
 ${c.bold}Environment:${c.reset}
   MEMOCLAW_PRIVATE_KEY   Wallet private key for auth + payments
@@ -1554,6 +1744,19 @@ if (args.truncate != null && args.truncate !== true) {
   outputTruncate = parseInt(args.truncate);
 } else if (args.truncate === true) {
   outputTruncate = 80; // default truncate width
+}
+
+// Parse no-truncate option (disables truncation)
+noTruncate = !!args.noTruncate;
+if (noTruncate) {
+  outputTruncate = 0;
+}
+
+// Parse output file
+if (args.output) {
+  outputFile = String(args.output);
+  // Clear the file first
+  fs.writeFileSync(outputFile, '');
 }
 
 if (args.version) {
@@ -1665,6 +1868,14 @@ try {
     case 'namespace':
       await cmdNamespace(rest[0], rest.slice(1), args);
       break;
+    case 'init':
+      await cmdInit(args);
+      break;
+    case 'migrate': {
+      if (!rest[0]) throw new Error('Path required. Usage: memoclaw migrate <path>');
+      await cmdMigrate(rest[0], args);
+      break;
+    }
     case 'help':
       printHelp(rest[0]);
       break;
