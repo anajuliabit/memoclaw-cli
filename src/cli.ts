@@ -256,32 +256,40 @@ async function request(method: string, path: string, body: any = null) {
       console.error('Body:', JSON.stringify(errorBody, null, 2));
     }
     
-    const client = getX402Client();
-    const paymentRequired = client.getPaymentRequiredResponse(
-      (name: string) => res.headers.get(name),
-      errorBody
-    );
-    if (process.env.DEBUG) console.error('Payment required parsed:', JSON.stringify(paymentRequired, null, 2));
-    
-    const paymentPayload = await client.createPaymentPayload(paymentRequired);
-    if (process.env.DEBUG) console.error('Payment payload created');
-    
-    const paymentHeaders = client.encodePaymentSignatureHeader(paymentPayload);
-    if (process.env.DEBUG) console.error('Payment headers:', paymentHeaders);
-    
-    res = await fetch(url, {
-      method,
-      headers: { 'Content-Type': 'application/json', ...paymentHeaders },
-      body: body ? JSON.stringify(body) : undefined,
-    });
-    
-    if (process.env.DEBUG) {
-      console.error('=== Retry Response ===');
-      console.error('Status:', res.status);
-      if (res.status !== 200) {
-        const retryBody = await res.clone().text();
-        console.error('Body:', retryBody);
+    try {
+      const client = getX402Client();
+      const paymentRequired = client.getPaymentRequiredResponse(
+        (name: string) => res.headers.get(name),
+        errorBody
+      );
+      if (process.env.DEBUG) console.error('Payment required parsed:', JSON.stringify(paymentRequired, null, 2));
+      
+      const paymentPayload = await client.createPaymentPayload(paymentRequired);
+      if (process.env.DEBUG) console.error('Payment payload created');
+      
+      const paymentHeaders = client.encodePaymentSignatureHeader(paymentPayload);
+      if (process.env.DEBUG) console.error('Payment headers:', paymentHeaders);
+      
+      res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json', ...paymentHeaders },
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      
+      if (process.env.DEBUG) {
+        console.error('=== Retry Response ===');
+        console.error('Status:', res.status);
+        if (res.status !== 200) {
+          const retryBody = await res.clone().text();
+          console.error('Body:', retryBody);
+        }
       }
+    } catch (paymentError: any) {
+      if (process.env.DEBUG) console.error('x402 payment failed:', paymentError);
+      throw new Error(
+        `Free tier exhausted. Run \`memoclaw status\` to check usage, or visit memoclaw.com/pricing for paid plans.\n` +
+        `${c.dim}(x402 payment failed: ${paymentError.message})${c.reset}`
+      );
     }
   }
 
