@@ -280,12 +280,12 @@ describe('export format', () => {
 // ─── Completions ─────────────────────────────────────────────────────────────
 
 describe('completions', () => {
-  const commands = ['store', 'recall', 'list', 'get', 'update', 'delete', 'ingest', 'extract',
+  const commands = ['init', 'migrate', 'store', 'recall', 'list', 'get', 'update', 'delete', 'ingest', 'extract',
     'consolidate', 'relations', 'suggested', 'status', 'export', 'import', 'stats', 'browse',
-    'completions', 'config', 'graph', 'purge', 'count'];
+    'completions', 'config', 'graph', 'purge', 'count', 'namespace', 'help'];
 
   test('all commands present', () => {
-    expect(commands.length).toBe(21);
+    expect(commands.length).toBe(25);
     expect(commands).toContain('store');
     expect(commands).toContain('get');
     expect(commands).toContain('export');
@@ -297,6 +297,10 @@ describe('completions', () => {
     expect(commands).toContain('graph');
     expect(commands).toContain('purge');
     expect(commands).toContain('count');
+    expect(commands).toContain('init');
+    expect(commands).toContain('migrate');
+    expect(commands).toContain('namespace');
+    expect(commands).toContain('help');
   });
 });
 
@@ -396,6 +400,28 @@ describe('new command routing', () => {
   test('timeout flag parsed as value', () => {
     const args = parseArgs(['list', '--timeout', '60']);
     expect(args.timeout).toBe('60');
+  });
+
+  test('init command with --force', () => {
+    const args = parseArgs(['init', '--force']);
+    const [cmd] = args._;
+    expect(cmd).toBe('init');
+    expect(args.force).toBe(true);
+  });
+
+  test('migrate command with path', () => {
+    const args = parseArgs(['migrate', '/path/to/dir', '--namespace', 'imported']);
+    const [cmd, ...rest] = args._;
+    expect(cmd).toBe('migrate');
+    expect(rest[0]).toBe('/path/to/dir');
+    expect(args.namespace).toBe('imported');
+  });
+
+  test('help command with subcommand', () => {
+    const args = parseArgs(['help', 'store']);
+    const [cmd, ...rest] = args._;
+    expect(cmd).toBe('help');
+    expect(rest[0]).toBe('store');
   });
 });
 
