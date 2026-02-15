@@ -23,7 +23,9 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 
-const VERSION = "1.8.5";
+import { createRequire } from 'module';
+const _require = createRequire(import.meta.url);
+const { version: VERSION } = _require('../package.json');
 const CONFIG_DIR = path.join(os.homedir(), '.memoclaw');
 const CONFIG_FILE_JSON = path.join(CONFIG_DIR, 'config.json');
 const CONFIG_FILE_YAML = path.join(CONFIG_DIR, 'config');
@@ -143,8 +145,33 @@ function outputError(...parts: string[]) {
   }
 }
 
+/** Global field extraction flag */
+let outputField: string | null = null;
+
+/** Extract a field from data using dot notation (e.g. "memory.content") */
+function extractField(data: any, field: string): any {
+  const parts = field.split('.');
+  let val = data;
+  for (const p of parts) {
+    if (val == null) return undefined;
+    val = val[p];
+  }
+  return val;
+}
+
 function out(data: any) {
   if (outputQuiet) return;
+  // --field extraction: pull a single field and print it
+  if (outputField) {
+    const val = extractField(data, outputField);
+    if (val === undefined) return;
+    if (typeof val === 'object') {
+      outputWrite(JSON.stringify(val, outputPretty ? null : undefined, outputPretty ? 2 : undefined));
+    } else {
+      outputWrite(String(val));
+    }
+    return;
+  }
   if (outputJson || outputFormat === 'json') {
     outputWrite(JSON.stringify(data, outputPretty ? null : undefined, outputPretty ? 2 : undefined));
   } else if (outputFormat === 'yaml') {
@@ -1813,6 +1840,12 @@ const [cmd, ...rest] = args._;
 outputJson = !!args.json;
 outputQuiet = !!args.quiet;
 outputPretty = !!args.pretty;
+
+// Parse field extraction (--field implies --json to ensure structured output)
+if (args.field && args.field !== true) {
+  outputField = String(args.field);
+  outputJson = true;
+}
 
 // Parse output format
 if (args.format) {
