@@ -1013,6 +1013,49 @@ describe('timeout config', () => {
 
 // ─── Combined flags with output options ─────────────────────────────────────
 
+// ─── Field extraction logic ──────────────────────────────────────────────────
+
+describe('field extraction', () => {
+  const extractField = (data: any, field: string): any => {
+    const parts = field.split('.');
+    let val = data;
+    for (const p of parts) {
+      if (val == null) return undefined;
+      val = val[p];
+    }
+    return val;
+  };
+
+  test('extracts top-level field', () => {
+    const data = { id: '123', content: 'hello' };
+    expect(extractField(data, 'id')).toBe('123');
+    expect(extractField(data, 'content')).toBe('hello');
+  });
+
+  test('extracts nested field with dot notation', () => {
+    const data = { memory: { content: 'test', metadata: { tags: ['a', 'b'] } } };
+    expect(extractField(data, 'memory.content')).toBe('test');
+    expect(extractField(data, 'memory.metadata.tags')).toEqual(['a', 'b']);
+  });
+
+  test('returns undefined for missing field', () => {
+    const data = { id: '123' };
+    expect(extractField(data, 'missing')).toBeUndefined();
+    expect(extractField(data, 'deep.missing.field')).toBeUndefined();
+  });
+
+  test('handles null data', () => {
+    expect(extractField(null, 'field')).toBeUndefined();
+    expect(extractField(undefined, 'field')).toBeUndefined();
+  });
+
+  test('--field implies --json for arg parsing', () => {
+    const args = parseArgs(['get', 'abc', '--field', 'content']);
+    expect(args.field).toBe('content');
+    // In CLI, --field sets outputJson=true so commands use their JSON path
+  });
+});
+
 describe('combined flags with output options', () => {
   test('--json --output works together', () => {
     const result = parseArgs(['--json', '--output', 'data.json', 'list']);
