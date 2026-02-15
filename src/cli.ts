@@ -1616,9 +1616,15 @@ function printHelp(command?: string) {
     const subHelp: Record<string, string> = {
       store: `${c.bold}memoclaw store${c.reset} "content" [options]
 
-Store a memory. Supports piping: ${c.dim}echo "content" | memoclaw store${c.reset}
+Store a memory. Content can be provided as a positional argument,
+via --content flag, or piped via stdin.
+
+  ${c.dim}memoclaw store "Hello world"${c.reset}
+  ${c.dim}memoclaw store --content "Hello world"${c.reset}
+  ${c.dim}echo "Hello world" | memoclaw store${c.reset}
 
 Options:
+  --content <text>       Memory content (alternative to positional arg)
   --importance <0-1>     Importance score (default: 0.5)
   --tags <tag1,tag2>     Comma-separated tags
   --namespace <name>     Memory namespace`,
@@ -1902,12 +1908,12 @@ const TIMEOUT_MS = args.timeout ? parseInt(args.timeout) * 1000 : 30000;
 try {
   switch (cmd) {
     case 'store': {
-      let content = rest[0];
+      let content = rest[0] || (args.content && args.content !== true ? args.content : undefined);
       if (!content) {
         const stdin = await readStdin();
         if (stdin) content = stdin;
       }
-      if (!content) throw new Error('Content required. Provide as argument or pipe via stdin.');
+      if (!content) throw new Error('Content required. Provide as argument, --content flag, or pipe via stdin.');
       await cmdStore(content, args);
       break;
     }

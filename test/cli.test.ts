@@ -1078,3 +1078,32 @@ describe('combined flags with output options', () => {
     expect(result.output).toBe('data.csv');
   });
 });
+
+// ─── Store --content flag ────────────────────────────────────────────────────
+
+describe('store --content flag', () => {
+  test('--content flag is parsed as value', () => {
+    const result = parseArgs(['store', '--content', 'Hello world']);
+    expect(result.content).toBe('Hello world');
+    expect(result._).toEqual(['store']);
+  });
+
+  test('--content=value syntax works', () => {
+    const result = parseArgs(['store', '--content=Hello world']);
+    expect(result.content).toBe('Hello world');
+  });
+
+  test('positional content takes precedence over --content', () => {
+    const result = parseArgs(['store', 'positional content', '--content', 'flag content']);
+    const [cmd, ...rest] = result._;
+    const content = rest[0] || (result.content && result.content !== true ? result.content : undefined);
+    expect(content).toBe('positional content');
+  });
+
+  test('--content is used when no positional arg', () => {
+    const result = parseArgs(['store', '--content', 'flag content', '--tags', 'test']);
+    const [cmd, ...rest] = result._;
+    const content = rest[0] || (result.content && result.content !== true ? result.content : undefined);
+    expect(content).toBe('flag content');
+  });
+});
