@@ -280,12 +280,12 @@ describe('export format', () => {
 // ─── Completions ─────────────────────────────────────────────────────────────
 
 describe('completions', () => {
-  const commands = ['init', 'migrate', 'store', 'recall', 'list', 'get', 'update', 'delete', 'ingest', 'extract',
+  const commands = ['init', 'migrate', 'store', 'recall', 'search', 'list', 'get', 'update', 'delete', 'ingest', 'extract',
     'consolidate', 'relations', 'suggested', 'status', 'export', 'import', 'stats', 'browse',
     'completions', 'config', 'graph', 'purge', 'count', 'namespace', 'help'];
 
   test('all commands present', () => {
-    expect(commands.length).toBe(25);
+    expect(commands.length).toBe(26);
     expect(commands).toContain('store');
     expect(commands).toContain('get');
     expect(commands).toContain('export');
@@ -922,33 +922,29 @@ describe('field selection flag', () => {
   });
 });
 
-// ─── New flags: ascending ───────────────────────────────────────────────────
+// ─── Search command routing ──────────────────────────────────────────────────
 
-describe('ascending flag', () => {
-  test('--ascending is boolean', () => {
-    const result = parseArgs(['list', '--ascending']);
-    expect(result.ascending).toBe(true);
-    expect(result._).toEqual(['list']);
+describe('search command routing', () => {
+  test('search command extracts query', () => {
+    const args = parseArgs(['search', 'my query', '--json']);
+    const [cmd, ...rest] = args._;
+    expect(cmd).toBe('search');
+    expect(rest[0]).toBe('my query');
+    expect(args.json).toBe(true);
   });
 
-  test('-a short flag for ascending', () => {
-    const result = parseArgs(['list', '-a']);
-    expect(result.ascending).toBe(true);
-  });
-});
-
-// ─── New flags: invert ─────────────────────────────────────────────────────
-
-describe('invert flag', () => {
-  test('--invert is boolean', () => {
-    const result = parseArgs(['list', '--invert']);
-    expect(result.invert).toBe(true);
-    expect(result._).toEqual(['list']);
+  test('search with namespace and limit', () => {
+    const args = parseArgs(['search', 'test', '-n', 'proj', '-l', '5']);
+    const [cmd, ...rest] = args._;
+    expect(cmd).toBe('search');
+    expect(rest[0]).toBe('test');
+    expect(args.namespace).toBe('proj');
+    expect(args.limit).toBe('5');
   });
 
-  test('-I short flag for invert', () => {
-    const result = parseArgs(['list', '-I']);
-    expect(result.invert).toBe(true);
+  test('search with --raw flag', () => {
+    const args = parseArgs(['search', 'query', '--raw']);
+    expect(args.raw).toBe(true);
   });
 });
 

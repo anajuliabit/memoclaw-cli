@@ -747,6 +747,39 @@ async function cmdExtract(text: string, opts: ParsedArgs) {
   out(result);
 }
 
+async function cmdSearch(query: string, opts: ParsedArgs) {
+  const params = new URLSearchParams({ q: query });
+  if (opts.limit != null && opts.limit !== true) params.set('limit', opts.limit);
+  if (opts.namespace) params.set('namespace', opts.namespace);
+  if (opts.tags) params.set('tags', opts.tags);
+
+  const result = await request('GET', `/v1/memories/search?${params}`) as any;
+
+  if (outputJson) {
+    out(result);
+  } else if (opts.raw) {
+    const memories = result.memories || result.data || [];
+    for (const mem of memories) {
+      console.log(mem.content);
+    }
+  } else {
+    const memories = result.memories || result.data || [];
+    if (memories.length === 0) {
+      console.log(`${c.dim}No memories found.${c.reset}`);
+    } else {
+      const truncateWidth = outputTruncate || 80;
+      for (const mem of memories) {
+        const content = noTruncate ? mem.content : truncate(mem.content || '', truncateWidth);
+        console.log(`${c.cyan}${(mem.id || '?').slice(0, 8)}${c.reset}  ${content}`);
+        if (mem.metadata?.tags?.length) {
+          console.log(`  ${c.dim}tags: ${mem.metadata.tags.join(', ')}${c.reset}`);
+        }
+      }
+      console.log(`${c.dim}─ ${memories.length} result${memories.length !== 1 ? 's' : ''} (text search, free)${c.reset}`);
+    }
+  }
+}
+
 async function cmdConsolidate(opts: ParsedArgs) {
   const body: Record<string, any> = {};
   if (opts.namespace) body.namespace = opts.namespace;
@@ -1310,7 +1343,7 @@ async function cmdMigrate(targetPath: string, opts: ParsedArgs) {
 }
 
 async function cmdCompletions(shell: string) {
-  const commands = ['init', 'migrate', 'store', 'recall', 'list', 'get', 'update', 'delete', 'ingest', 'extract',
+  const commands = ['init', 'migrate', 'store', 'recall', 'search', 'list', 'get', 'update', 'delete', 'ingest', 'extract',
     'consolidate', 'relations', 'suggested', 'status', 'export', 'import', 'stats', 'browse',
     'completions', 'config', 'graph', 'purge', 'count', 'namespace', 'help'];
   
@@ -1629,6 +1662,17 @@ Options:
   --tags <tag1,tag2>     Comma-separated tags
   --namespace <name>     Memory namespace`,
 
+      search: `${c.bold}memoclaw search${c.reset} "query" [options]
+
+Free text search (no embeddings cost). Use this for exact/keyword matching.
+For semantic similarity search, use \`recall\` instead.
+
+Options:
+  --limit <n>            Max results (default: 10)
+  --namespace <name>     Filter by namespace
+  --tags <tag1,tag2>     Filter by tags
+  --raw                  Output content only (for piping)`,
+
       recall: `${c.bold}memoclaw recall${c.reset} "query" [options]
 
 Search memories by semantic similarity.
@@ -1768,6 +1812,7 @@ ${c.bold}Commands:${c.reset}
   ${c.cyan}migrate${c.reset} <path>          Import .md files from OpenClaw/local
   ${c.cyan}store${c.reset} "content"        Store a memory (also accepts stdin)
   ${c.cyan}recall${c.reset} "query"         Search memories by similarity
+  ${c.cyan}search${c.reset} "query"         Text search (free, no embeddings cost)
   ${c.cyan}list${c.reset}                   List memories in a table
   ${c.cyan}get${c.reset} <id>               Get a single memory by ID
   ${c.cyan}update${c.reset} <id>            Update a memory
@@ -1810,8 +1855,6 @@ ${c.bold}Global Options:${c.reset}
   -O, --output <file>    Write output to file instead of stdout
   -F, --field <name>     Extract specific field from output
   -r, --reverse          Reverse sort order
-  -a, --ascending        Sort in ascending order
-  -I, --invert           Invert output
   -m, --sort-by <field>  Sort by field (id, importance, created, updated)
   -k, --columns <cols>   Select columns (id,content,importance,tags,created)
   --raw                  Raw output (content only, for piping)
@@ -1949,6 +1992,10 @@ try {
       await cmdExtract(text, args);
       break;
     }
+    case 'search':
+      if (!rest[0]) throw new Error('Query required');
+      await cmdSearch(rest[0], args);
+      break;
     case 'consolidate':
       await cmdConsolidate(args);
       break;
