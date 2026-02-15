@@ -11,7 +11,7 @@ export interface ParsedArgs {
 export const BOOLEAN_FLAGS = new Set([
   'help', 'version', 'raw', 'json', 'quiet', 'dryRun', 'verbose', 'noColor',
   'force', 'count', 'wide', 'pretty', 'watch', 'interactive', 'yes', 'reverse',
-  'noTruncate', 'invert', 'ascending',
+  'noTruncate',
 ]);
 
 /** Short flag aliases */
@@ -43,8 +43,6 @@ const SHORT_FLAGS: Record<string, string> = {
   '-k': 'columns',
   '-O': 'output',
   '-F': 'field',
-  '-a': 'ascending',
-  '-I': 'invert',
 };
 
 export function parseArgs(args: string[]): ParsedArgs {
