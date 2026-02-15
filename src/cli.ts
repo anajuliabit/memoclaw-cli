@@ -780,6 +780,26 @@ async function cmdSearch(query: string, opts: ParsedArgs) {
   }
 }
 
+async function cmdContext(query: string, opts: ParsedArgs) {
+  const body: Record<string, any> = { query };
+  if (opts.namespace) body.namespace = opts.namespace;
+  if (opts.limit != null && opts.limit !== true) body.limit = parseInt(opts.limit);
+
+  const result = await request('POST', '/v1/context', body) as any;
+
+  if (outputJson) {
+    out(result);
+  } else {
+    const context = result.context || result.text || result.content;
+    if (context) {
+      console.log(context);
+    } else {
+      // Fallback: print the whole result
+      out(result);
+    }
+  }
+}
+
 async function cmdConsolidate(opts: ParsedArgs) {
   const body: Record<string, any> = {};
   if (opts.namespace) body.namespace = opts.namespace;
@@ -1344,7 +1364,7 @@ async function cmdMigrate(targetPath: string, opts: ParsedArgs) {
 
 async function cmdCompletions(shell: string) {
   const commands = ['init', 'migrate', 'store', 'recall', 'search', 'list', 'get', 'update', 'delete', 'ingest', 'extract',
-    'consolidate', 'relations', 'suggested', 'status', 'export', 'import', 'stats', 'browse',
+    'context', 'consolidate', 'relations', 'suggested', 'status', 'export', 'import', 'stats', 'browse',
     'completions', 'config', 'graph', 'purge', 'count', 'namespace', 'help'];
   
   const globalFlags = ['--help', '--version', '--json', '--quiet', '--namespace', '--limit', '--offset',
@@ -1673,6 +1693,17 @@ Options:
   --tags <tag1,tag2>     Filter by tags
   --raw                  Output content only (for piping)`,
 
+      context: `${c.bold}memoclaw context${c.reset} "query" [options]
+
+Get a GPT-powered contextual summary from your memories.
+Uses GPT-4o-mini + embeddings. Costs $0.01 per call.
+
+  ${c.dim}memoclaw context "What do I know about project X?"${c.reset}
+
+Options:
+  --namespace <name>     Filter by namespace
+  --limit <n>            Max memories to consider`,
+
       recall: `${c.bold}memoclaw recall${c.reset} "query" [options]
 
 Search memories by semantic similarity.
@@ -1819,6 +1850,7 @@ ${c.bold}Commands:${c.reset}
   ${c.cyan}delete${c.reset} <id>            Delete a memory
   ${c.cyan}ingest${c.reset}                 Ingest raw text into memories
   ${c.cyan}extract${c.reset} "text"         Extract memories from text
+  ${c.cyan}context${c.reset} "query"        Get GPT-powered contextual summary ($0.01/call)
   ${c.cyan}consolidate${c.reset}            Merge similar memories
   ${c.cyan}relations${c.reset} <sub>        Manage memory relations
   ${c.cyan}suggested${c.reset}              Get suggested memories for review
@@ -1995,6 +2027,10 @@ try {
     case 'search':
       if (!rest[0]) throw new Error('Query required');
       await cmdSearch(rest[0], args);
+      break;
+    case 'context':
+      if (!rest[0]) throw new Error('Query required');
+      await cmdContext(rest[0], args);
       break;
     case 'consolidate':
       await cmdConsolidate(args);
