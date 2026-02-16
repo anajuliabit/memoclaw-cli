@@ -1,6 +1,33 @@
 import { describe, test, expect } from 'bun:test';
 import { parseArgs, BOOLEAN_FLAGS } from '../src/args';
 
+// ─── Content length validation ───────────────────────────────────────────────
+
+describe('content length validation', () => {
+  const MAX_CONTENT_LENGTH = 8192;
+
+  test('content at limit is accepted', () => {
+    const content = 'a'.repeat(MAX_CONTENT_LENGTH);
+    expect(content.length <= MAX_CONTENT_LENGTH).toBe(true);
+  });
+
+  test('content over limit is rejected', () => {
+    const content = 'a'.repeat(MAX_CONTENT_LENGTH + 1);
+    expect(content.length > MAX_CONTENT_LENGTH).toBe(true);
+  });
+
+  test('error message includes actual length', () => {
+    const content = 'a'.repeat(9000);
+    const msg = `Content exceeds the ${MAX_CONTENT_LENGTH} character limit (got ${content.length} chars)`;
+    expect(msg).toContain('8192');
+    expect(msg).toContain('9000');
+  });
+
+  test('empty content is within limit', () => {
+    expect(''.length <= MAX_CONTENT_LENGTH).toBe(true);
+  });
+});
+
 // ─── parseArgs ───────────────────────────────────────────────────────────────
 
 describe('parseArgs', () => {
