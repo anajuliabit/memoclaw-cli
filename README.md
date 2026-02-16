@@ -1,6 +1,6 @@
 # MemoClaw CLI
 
-Memory-as-a-Service for AI agents. 1000 free calls per wallet, then x402 micropayments ($0.001/call USDC on Base).
+Memory-as-a-Service for AI agents. 100 free calls per wallet, then x402 micropayments (USDC on Base).
 
 ## Install
 
@@ -140,7 +140,7 @@ memoclaw count  # outputs just the number
 
 ## Free Tier
 
-Every wallet gets **1000 free API calls**. After that, x402 micropayments kick in automatically — $0.001/call in USDC on Base. No signup, no API keys, just your wallet.
+Every wallet gets **100 free API calls**. After that, x402 micropayments kick in automatically (USDC on Base). No signup, no API keys, just your wallet. See [memoclaw.com](https://memoclaw.com) for pricing details.
 
 ## Links
 
