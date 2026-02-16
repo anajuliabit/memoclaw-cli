@@ -33,19 +33,22 @@ export function loadPersistedConfig(): { url?: string; privateKey?: string; name
   return {};
 }
 
-/** Load YAML/JSON config file */
+/** Load YAML/JSON config file (tries ~/.memoclaw/config, then .yaml/.yml) */
 export function loadConfigFile(): ConfigFile {
-  try {
-    if (fs.existsSync(CONFIG_FILE)) {
-      const content = fs.readFileSync(CONFIG_FILE, 'utf-8');
-      if (CONFIG_FILE.endsWith('.json')) {
-        return JSON.parse(content);
+  const candidates = [CONFIG_FILE, CONFIG_FILE + '.yaml', CONFIG_FILE + '.yml'];
+  for (const candidate of candidates) {
+    try {
+      if (fs.existsSync(candidate)) {
+        const content = fs.readFileSync(candidate, 'utf-8');
+        if (candidate.endsWith('.json')) {
+          return JSON.parse(content);
+        }
+        return (yaml.load(content) as ConfigFile) || {};
       }
-      return yaml.load(content) as ConfigFile;
-    }
-  } catch (e: any) {
-    if (process.env.DEBUG) {
-      console.error(`Failed to load config: ${e.message}`);
+    } catch (e: any) {
+      if (process.env.DEBUG) {
+        console.error(`Failed to load config from ${candidate}: ${e.message}`);
+      }
     }
   }
   return {};
@@ -58,6 +61,7 @@ export function ensureConfigDir() {
 }
 
 const _persistedConfig = loadPersistedConfig();
+const _fileConfig = loadConfigFile();
 
-export const API_URL = process.env.MEMOCLAW_URL || _persistedConfig.url || 'https://api.memoclaw.com';
-export const PRIVATE_KEY = (process.env.MEMOCLAW_PRIVATE_KEY || _persistedConfig.privateKey) as `0x${string}`;
+export const API_URL = process.env.MEMOCLAW_URL || _persistedConfig.url || _fileConfig.url || 'https://api.memoclaw.com';
+export const PRIVATE_KEY = (process.env.MEMOCLAW_PRIVATE_KEY || _persistedConfig.privateKey || _fileConfig.privateKey) as `0x${string}`;

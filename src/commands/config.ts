@@ -65,9 +65,7 @@ export async function cmdConfig(subcmd: string, rest: string[]) {
       timeout: process.env.MEMOCLAW_TIMEOUT ? parseInt(process.env.MEMOCLAW_TIMEOUT) : 30,
     };
 
-    const configPath = CONFIG_FILE.endsWith('.yaml') || CONFIG_FILE.endsWith('.yml')
-      ? CONFIG_FILE
-      : CONFIG_FILE + '.yaml';
+    const configPath = CONFIG_FILE;
 
     fs.writeFileSync(configPath, yaml.dump(sampleConfig, { indent: 2 }));
     success(`Config file created at ${c.cyan}${configPath}${c.reset}`);
