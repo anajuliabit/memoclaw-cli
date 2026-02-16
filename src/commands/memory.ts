@@ -23,6 +23,7 @@ export async function cmdGet(id: string) {
     if (mem.memory_type) console.log(`${c.bold}Type:${c.reset}       ${mem.memory_type}`);
     if (mem.created_at) console.log(`${c.bold}Created:${c.reset}    ${new Date(mem.created_at).toLocaleString()}`);
     if (mem.updated_at) console.log(`${c.bold}Updated:${c.reset}    ${new Date(mem.updated_at).toLocaleString()}`);
+    if (mem.immutable) console.log(`${c.bold}Immutable:${c.reset}  ${c.yellow}yes${c.reset}`);
     if (mem.pinned) console.log(`${c.bold}Pinned:${c.reset}     ${c.green}yes${c.reset}`);
   }
 }
