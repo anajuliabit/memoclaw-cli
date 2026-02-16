@@ -3,11 +3,27 @@ import { request } from '../http.js';
 import { c } from '../colors.js';
 import { outputJson, out, table } from '../output.js';
 
-export async function cmdNamespace(subcmd: string, rest: string[], opts: ParsedArgs) {
-  if (subcmd === 'list' || !subcmd) {
-    const params = new URLSearchParams({ limit: '1000' });
+/** Fetch all memories with pagination */
+async function fetchAllMemories(): Promise<any[]> {
+  const allMemories: any[] = [];
+  const pageSize = 1000;
+  let offset = 0;
+
+  while (true) {
+    const params = new URLSearchParams({ limit: String(pageSize), offset: String(offset) });
     const result = await request('GET', `/v1/memories?${params}`) as any;
     const memories = result.memories || result.data || [];
+    allMemories.push(...memories);
+    if (memories.length < pageSize) break;
+    offset += pageSize;
+  }
+
+  return allMemories;
+}
+
+export async function cmdNamespace(subcmd: string, rest: string[], opts: ParsedArgs) {
+  if (subcmd === 'list' || !subcmd) {
+    const memories = await fetchAllMemories();
 
     const nsSet = new Set<string>();
     for (const mem of memories) {
@@ -24,9 +40,7 @@ export async function cmdNamespace(subcmd: string, rest: string[], opts: ParsedA
       console.log(`${c.dim}─ ${namespaces.length} namespace${namespaces.length !== 1 ? 's' : ''}${c.reset}`);
     }
   } else if (subcmd === 'stats') {
-    const params = new URLSearchParams({ limit: '1000' });
-    const result = await request('GET', `/v1/memories?${params}`) as any;
-    const memories = result.memories || result.data || [];
+    const memories = await fetchAllMemories();
 
     const nsCounts: Record<string, number> = { '': 0 };
     for (const mem of memories) {
