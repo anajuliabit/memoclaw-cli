@@ -50,7 +50,7 @@ export async function cmdInit(opts: ParsedArgs) {
     console.log(`  ${c.bold}Config:${c.reset}  ${c.dim}${configPath}${c.reset}`);
     console.log();
     console.log(`  Your wallet is your identity. No signup needed.`);
-    console.log(`  You get ${c.bold}1000 free API calls${c.reset}, then x402 micropayments.`);
+    console.log(`  You get ${c.bold}100 free API calls${c.reset}, then x402 micropayments.`);
     console.log();
     console.log(`  ${c.dim}Try: memoclaw store "Hello, MemoClaw!"${c.reset}`);
   }
