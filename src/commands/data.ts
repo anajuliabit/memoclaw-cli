@@ -121,6 +121,7 @@ export async function cmdPurge(opts: ParsedArgs) {
   let deleted = 0;
   let failedInRow = 0;
   const MAX_CONSECUTIVE_FAILURES = 3;
+  let useBulk = true;
 
   while (true) {
     params.set('offset', '0');
@@ -128,16 +129,33 @@ export async function cmdPurge(opts: ParsedArgs) {
     const memories = result.memories || result.data || [];
     if (memories.length === 0) break;
 
+    const ids = memories.map((m: any) => m.id);
     let batchDeleted = 0;
-    for (const mem of memories) {
+
+    if (useBulk) {
       try {
-        await request('DELETE', `/v1/memories/${mem.id}`);
-        deleted++;
-        batchDeleted++;
+        const bulkResult = await request('POST', '/v1/memories/bulk-delete', { ids }) as any;
+        batchDeleted = bulkResult.deleted ?? ids.length;
+        deleted += batchDeleted;
         failedInRow = 0;
         if (!outputQuiet) process.stderr.write(`\r  ${progressBar(deleted, result.total || deleted)}`);
-      } catch (e: any) {
-        if (process.env.DEBUG) console.error(`\nFailed to delete ${mem.id}: ${e.message}`);
+      } catch {
+        // Bulk delete not available, fall back to one-by-one
+        useBulk = false;
+      }
+    }
+
+    if (!useBulk) {
+      for (const mem of memories) {
+        try {
+          await request('DELETE', `/v1/memories/${mem.id}`);
+          deleted++;
+          batchDeleted++;
+          failedInRow = 0;
+          if (!outputQuiet) process.stderr.write(`\r  ${progressBar(deleted, result.total || deleted)}`);
+        } catch (e: any) {
+          if (process.env.DEBUG) console.error(`\nFailed to delete ${mem.id}: ${e.message}`);
+        }
       }
     }
 

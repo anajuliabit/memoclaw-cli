@@ -3,9 +3,23 @@ import { request } from '../http.js';
 import { c } from '../colors.js';
 import { outputJson, out, table } from '../output.js';
 
-/** Fetch all memories with pagination */
-async function fetchAllMemories(): Promise<any[]> {
-  const allMemories: any[] = [];
+/** Try /v1/namespaces endpoint, fall back to client-side pagination */
+async function fetchNamespaces(): Promise<{ name: string; count?: number }[]> {
+  try {
+    const result = await request('GET', '/v1/namespaces') as any;
+    const namespaces = result.namespaces || result.data || [];
+    return namespaces.map((ns: any) =>
+      typeof ns === 'string' ? { name: ns } : { name: ns.name || ns.namespace, count: ns.count ?? ns.memoryCount }
+    );
+  } catch {
+    // Endpoint not available, fall back to client-side pagination
+    return fetchNamespacesFromMemories();
+  }
+}
+
+/** Fallback: fetch all memories and compute namespaces client-side */
+async function fetchNamespacesFromMemories(): Promise<{ name: string; count: number }[]> {
+  const nsCounts: Record<string, number> = {};
   const pageSize = 1000;
   let offset = 0;
 
@@ -13,44 +27,53 @@ async function fetchAllMemories(): Promise<any[]> {
     const params = new URLSearchParams({ limit: String(pageSize), offset: String(offset) });
     const result = await request('GET', `/v1/memories?${params}`) as any;
     const memories = result.memories || result.data || [];
-    allMemories.push(...memories);
-    if (memories.length < pageSize) break;
-    offset += pageSize;
-  }
-
-  return allMemories;
-}
-
-export async function cmdNamespace(subcmd: string, rest: string[], opts: ParsedArgs) {
-  if (subcmd === 'list' || !subcmd) {
-    const memories = await fetchAllMemories();
-
-    const nsSet = new Set<string>();
-    for (const mem of memories) {
-      if (mem.namespace) nsSet.add(mem.namespace);
-    }
-    const namespaces = Array.from(nsSet).sort();
-
-    if (outputJson) {
-      out({ namespaces, count: namespaces.length });
-    } else if (namespaces.length === 0) {
-      console.log(`${c.dim}No namespaces found.${c.reset}`);
-    } else {
-      table(namespaces.map(ns => ({ namespace: ns })), [{ key: 'namespace', label: 'NAMESPACE', width: 30 }]);
-      console.log(`${c.dim}─ ${namespaces.length} namespace${namespaces.length !== 1 ? 's' : ''}${c.reset}`);
-    }
-  } else if (subcmd === 'stats') {
-    const memories = await fetchAllMemories();
-
-    const nsCounts: Record<string, number> = { '': 0 };
     for (const mem of memories) {
       const ns = mem.namespace || '';
       nsCounts[ns] = (nsCounts[ns] || 0) + 1;
     }
+    if (memories.length < pageSize) break;
+    offset += pageSize;
+  }
 
-    const rows = Object.entries(nsCounts)
-      .sort((a, b) => b[1] - a[1])
-      .map(([ns, count]) => ({ namespace: ns || '(default)', count: String(count) }));
+  return Object.entries(nsCounts)
+    .filter(([ns]) => ns !== '')
+    .map(([ns, count]) => ({ name: ns, count }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+export async function cmdNamespace(subcmd: string, rest: string[], opts: ParsedArgs) {
+  if (subcmd === 'list' || !subcmd) {
+    const namespaces = await fetchNamespaces();
+
+    if (outputJson) {
+      out({ namespaces: namespaces.map(ns => ns.name), count: namespaces.length });
+    } else if (namespaces.length === 0) {
+      console.log(`${c.dim}No namespaces found.${c.reset}`);
+    } else {
+      table(namespaces.map(ns => ({ namespace: ns.name })), [{ key: 'namespace', label: 'NAMESPACE', width: 30 }]);
+      console.log(`${c.dim}─ ${namespaces.length} namespace${namespaces.length !== 1 ? 's' : ''}${c.reset}`);
+    }
+  } else if (subcmd === 'stats') {
+    const namespaces = await fetchNamespaces();
+
+    // If we got counts from the API, use them; otherwise we already have counts from fallback
+    const hasNoCounts = namespaces.some(ns => ns.count === undefined);
+    let rows: { namespace: string; count: string }[];
+
+    if (hasNoCounts) {
+      // API returned names only, need to fetch memories for counts
+      const fallback = await fetchNamespacesFromMemories();
+      const countMap = new Map(fallback.map(ns => [ns.name, ns.count]));
+      // Include default namespace count
+      const allNs = await fetchNamespacesFromMemories();
+      rows = [
+        ...allNs.map(ns => ({ namespace: ns.name || '(default)', count: String(ns.count) }))
+      ];
+    } else {
+      rows = namespaces.map(ns => ({ namespace: ns.name || '(default)', count: String(ns.count) }));
+    }
+
+    rows.sort((a, b) => Number(b.count) - Number(a.count));
 
     if (outputJson) {
       out({ namespaces: rows });
