@@ -281,11 +281,11 @@ describe('export format', () => {
 
 describe('completions', () => {
   const commands = ['init', 'migrate', 'store', 'recall', 'search', 'list', 'get', 'update', 'delete', 'ingest', 'extract',
-    'consolidate', 'relations', 'suggested', 'status', 'export', 'import', 'stats', 'browse',
+    'context', 'consolidate', 'relations', 'suggested', 'status', 'export', 'import', 'stats', 'browse',
     'completions', 'config', 'graph', 'purge', 'count', 'namespace', 'help'];
 
   test('all commands present', () => {
-    expect(commands.length).toBe(26);
+    expect(commands.length).toBe(27);
     expect(commands).toContain('store');
     expect(commands).toContain('get');
     expect(commands).toContain('export');
