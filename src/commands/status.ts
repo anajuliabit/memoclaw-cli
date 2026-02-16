@@ -7,11 +7,35 @@ import { request } from '../http.js';
 import { c } from '../colors.js';
 import { API_URL } from '../config.js';
 import { getAccount, getWalletAuthHeader } from '../auth.js';
+import { getRequestTimeout } from '../http.js';
 import { outputJson, outputTruncate, out, success, info, table } from '../output.js';
+
+async function fetchWithTimeout(url: string, options: RequestInit = {}): Promise<Response> {
+  const timeoutMs = getRequestTimeout();
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { ...options, signal: controller.signal });
+    return res;
+  } catch (e: any) {
+    if (e.name === 'AbortError') {
+      throw new Error(`Request timed out after ${timeoutMs / 1000}s`);
+    }
+    if (e.code === 'ECONNREFUSED' || e.cause?.code === 'ECONNREFUSED') {
+      throw new Error(`Cannot connect to ${API_URL} — is the server running?`);
+    }
+    if (e.code === 'ENOTFOUND' || e.cause?.code === 'ENOTFOUND') {
+      throw new Error(`DNS lookup failed for ${API_URL} — check your internet connection`);
+    }
+    throw new Error(`Network error: ${e.message}`);
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
 
 export async function cmdStatus() {
   const walletAuth = await getWalletAuthHeader();
-  const res = await fetch(`${API_URL}/v1/free-tier/status`, {
+  const res = await fetchWithTimeout(`${API_URL}/v1/free-tier/status`, {
     headers: { 'x-wallet-auth': walletAuth }
   });
 
@@ -48,7 +72,7 @@ export async function cmdStats(opts: ParsedArgs) {
   const total = result.total ?? '?';
 
   const walletAuth = await getWalletAuthHeader();
-  const statusRes = await fetch(`${API_URL}/v1/free-tier/status`, {
+  const statusRes = await fetchWithTimeout(`${API_URL}/v1/free-tier/status`, {
     headers: { 'x-wallet-auth': walletAuth }
   });
 

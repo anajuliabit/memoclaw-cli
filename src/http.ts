@@ -12,6 +12,10 @@ export function setRequestTimeout(ms: number) {
   _timeoutMs = ms;
 }
 
+export function getRequestTimeout(): number {
+  return _timeoutMs;
+}
+
 export async function request(method: string, path: string, body: any = null) {
   const url = `${API_URL}${path}`;
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
