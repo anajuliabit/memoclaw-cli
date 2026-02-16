@@ -21,7 +21,9 @@ Options:
   --content <text>       Memory content (alternative to positional arg)
   --importance <0-1>     Importance score (default: 0.5)
   --tags <tag1,tag2>     Comma-separated tags
-  --namespace <name>     Memory namespace`,
+  --namespace <name>     Memory namespace
+  --immutable            Lock memory from future modifications
+  --pinned               Pin the memory`,
 
       search: `${c.bold}memoclaw search${c.reset} "query" [options]
 

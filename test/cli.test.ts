@@ -395,6 +395,8 @@ describe('BOOLEAN_FLAGS', () => {
     expect(BOOLEAN_FLAGS.has('pretty')).toBe(true);
     expect(BOOLEAN_FLAGS.has('watch')).toBe(true);
     expect(BOOLEAN_FLAGS.has('interactive')).toBe(true);
+    expect(BOOLEAN_FLAGS.has('immutable')).toBe(true);
+    expect(BOOLEAN_FLAGS.has('pinned')).toBe(true);
   });
 });
 
@@ -1132,6 +1134,25 @@ describe('store --content flag', () => {
     const [cmd, ...rest] = result._;
     const content = rest[0] || (result.content && result.content !== true ? result.content : undefined);
     expect(content).toBe('positional content');
+  });
+
+  test('--immutable flag is parsed as boolean', () => {
+    const result = parseArgs(['store', 'content', '--immutable']);
+    expect(result.immutable).toBe(true);
+    expect(result._).toEqual(['store', 'content']);
+  });
+
+  test('--pinned flag is parsed as boolean', () => {
+    const result = parseArgs(['store', 'content', '--pinned']);
+    expect(result.pinned).toBe(true);
+    expect(result._).toEqual(['store', 'content']);
+  });
+
+  test('--immutable and --pinned together', () => {
+    const result = parseArgs(['store', 'content', '--immutable', '--pinned', '--importance', '0.9']);
+    expect(result.immutable).toBe(true);
+    expect(result.pinned).toBe(true);
+    expect(result.importance).toBe('0.9');
   });
 
   test('--content is used when no positional arg', () => {

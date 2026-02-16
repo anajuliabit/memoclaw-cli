@@ -17,6 +17,8 @@ export async function cmdStore(content: string, opts: ParsedArgs) {
   if (opts.importance != null && opts.importance !== true) body.importance = parseFloat(opts.importance);
   if (opts.tags) body.metadata = { tags: opts.tags.split(',').map((t: string) => t.trim()) };
   if (opts.namespace) body.namespace = opts.namespace;
+  if (opts.immutable) body.immutable = true;
+  if (opts.pinned) body.pinned = true;
 
   const result = await request('POST', '/v1/store', body);
   if (outputJson) {
