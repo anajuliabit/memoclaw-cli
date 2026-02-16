@@ -22,7 +22,7 @@ export async function cmdStatus() {
     } else {
       console.log(`${c.bold}Wallet:${c.reset}     ${data.wallet}`);
       const remaining = data.free_tier_remaining ?? 0;
-      const total = data.free_tier_total ?? 1000;
+      const total = data.free_tier_total ?? 100;
       const pct = Math.round((remaining / total) * 100);
       const barLen = 20;
       const filled = Math.round((remaining / total) * barLen);
@@ -30,7 +30,7 @@ export async function cmdStatus() {
       console.log(`${c.bold}Free tier:${c.reset}  ${remaining}/${total} calls remaining`);
       console.log(`            ${bar} ${pct}%`);
       if (remaining === 0) {
-        console.log(`${c.yellow}→ Next calls will use x402 payment ($0.001/call)${c.reset}`);
+        console.log(`${c.yellow}→ Next calls will use x402 payment (pay-per-use USDC on Base)${c.reset}`);
       }
     }
   } else {

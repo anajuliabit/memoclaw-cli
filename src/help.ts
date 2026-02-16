@@ -76,7 +76,7 @@ Export all memories as JSON. Useful for backups.
 
 Options:
   --namespace <name>     Filter by namespace
-  --limit <n>            Max per page (default: 1000)`,
+  --limit <n>            Max per page (default: 100)`,
 
       import: `${c.bold}memoclaw import${c.reset} [options]
 
@@ -107,6 +107,113 @@ Show or validate your MemoClaw configuration.
 Subcommands:
   show       Display current configuration (default)
   check      Validate configuration and test connectivity`,
+
+      update: `${c.bold}memoclaw update${c.reset} <id> [options]
+
+Update a memory by ID.
+
+  ${c.dim}memoclaw update abc123 --content "New content"${c.reset}
+  ${c.dim}memoclaw update abc123 --importance 0.9 --tags "urgent,fix"${c.reset}
+
+Options:
+  --content <text>       New content
+  --importance <0-1>     New importance score
+  --tags <tag1,tag2>     New tags
+  --memory-type <type>   Memory type
+  --namespace <name>     Move to namespace
+  --expires-at <date>    Expiration date
+  --pinned <true|false>  Pin/unpin memory`,
+
+      delete: `${c.bold}memoclaw delete${c.reset} <id>
+
+Delete a memory by ID.
+
+  ${c.dim}memoclaw delete abc123${c.reset}`,
+
+      ingest: `${c.bold}memoclaw ingest${c.reset} [options]
+
+Ingest raw text and automatically extract memories from it.
+Uses GPT-4o-mini + embeddings. Costs $0.01 per call.
+
+  ${c.dim}echo "Meeting notes..." | memoclaw ingest${c.reset}
+  ${c.dim}memoclaw ingest --text "Long text to extract memories from"${c.reset}
+
+Options:
+  --text <text>          Text to ingest (or pipe via stdin)
+  --namespace <name>     Target namespace
+  --session-id <id>      Session identifier
+  --agent-id <id>        Agent identifier
+  --auto-relate          Auto-create relations (default: true)`,
+
+      extract: `${c.bold}memoclaw extract${c.reset} "text" [options]
+
+Extract memories from text without storing them.
+Uses GPT-4o-mini + embeddings. Costs $0.01 per call.
+
+  ${c.dim}memoclaw extract "User prefers dark mode and uses vim"${c.reset}
+  ${c.dim}echo "conversation..." | memoclaw extract${c.reset}
+
+Options:
+  --namespace <name>     Target namespace
+  --session-id <id>      Session identifier
+  --agent-id <id>        Agent identifier`,
+
+      consolidate: `${c.bold}memoclaw consolidate${c.reset} [options]
+
+Merge similar/duplicate memories. Costs $0.01 per call.
+
+  ${c.dim}memoclaw consolidate${c.reset}
+  ${c.dim}memoclaw consolidate --dry-run${c.reset}
+  ${c.dim}memoclaw consolidate --min-similarity 0.9${c.reset}
+
+Options:
+  --namespace <name>     Filter by namespace
+  --min-similarity <0-1> Similarity threshold for merging
+  --mode <mode>          Consolidation mode
+  --dry-run              Preview without applying changes`,
+
+      relations: `${c.bold}memoclaw relations${c.reset} <list|create|delete> [args]
+
+Manage memory relations.
+
+  ${c.dim}memoclaw relations list <memory-id>${c.reset}
+  ${c.dim}memoclaw relations create <memory-id> <target-id> <type>${c.reset}
+  ${c.dim}memoclaw relations delete <memory-id> <relation-id>${c.reset}
+
+Relation types: related_to, derived_from, contradicts, supersedes, supports`,
+
+      suggested: `${c.bold}memoclaw suggested${c.reset} [options]
+
+Get memories suggested for review (stale, decaying, etc.).
+
+Options:
+  --limit <n>            Max results
+  --namespace <name>     Filter by namespace
+  --category <name>      Filter by category (stale, fresh, hot, decaying)`,
+
+      migrate: `${c.bold}memoclaw migrate${c.reset} <path>
+
+Import .md files as memories. Useful for migrating from MEMORY.md
+or other markdown-based memory systems.
+
+  ${c.dim}memoclaw migrate ~/notes/${c.reset}
+  ${c.dim}memoclaw migrate MEMORY.md${c.reset}
+  ${c.dim}memoclaw migrate . --namespace imported${c.reset}
+
+Automatically skips node_modules, .git, and other common directories.`,
+
+      init: `${c.bold}memoclaw init${c.reset} [options]
+
+Generate a new wallet and initialize MemoClaw config.
+Creates ~/.memoclaw/config.json with a fresh private key.
+
+  ${c.dim}memoclaw init${c.reset}
+  ${c.dim}memoclaw init --force${c.reset}
+  ${c.dim}memoclaw init --url https://custom-api.example.com${c.reset}
+
+Options:
+  --force                Overwrite existing config
+  --url <url>            Custom API URL`,
 
       browse: `${c.bold}memoclaw browse${c.reset} [options]
 
@@ -248,8 +355,8 @@ ${c.bold}Piping:${c.reset}
   cat backup.json | memoclaw import
 
 ${c.bold}Free Tier:${c.reset}
-  Every wallet gets 1000 free API calls. After that, x402
-  micropayments kick in automatically ($0.001/call USDC on Base).
+  Every wallet gets 100 free API calls. After that, x402
+  micropayments kick in automatically (pay-per-use USDC on Base).
 
 ${c.dim}API: https://api.memoclaw.com${c.reset}`);
 }
