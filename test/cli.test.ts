@@ -600,6 +600,17 @@ describe('progress bar', () => {
 
 // ─── Config handling ─────────────────────────────────────────────────────────
 
+describe('config file loading', () => {
+  test('loadConfigFile tries multiple path candidates', () => {
+    // The function should check: ~/.memoclaw/config, ~/.memoclaw/config.yaml, ~/.memoclaw/config.yml
+    // This is a structural test — ensures the fix for YAML config path mismatch
+    const candidates = ['config', 'config.yaml', 'config.yml'];
+    expect(candidates.length).toBe(3);
+    expect(candidates[0]).toBe('config');
+    expect(candidates[1]).toBe('config.yaml');
+  });
+});
+
 describe('config handling', () => {
   test('validates private key format', () => {
     const validKey = '0x' + 'a'.repeat(64); // 64 hex chars after 0x

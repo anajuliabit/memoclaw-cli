@@ -54,7 +54,7 @@ export async function cmdImport(opts: ParsedArgs) {
   const memories = data.memories || data;
   if (!Array.isArray(memories)) throw new Error('Invalid format: expected { memories: [...] } or [...]');
 
-  const concurrency = opts.concurrency ? parseInt(opts.concurrency) : 5;
+  const concurrency = opts.concurrency ? parseInt(opts.concurrency) : 1;
   const batchSize = Math.min(concurrency, memories.length);
 
   let imported = 0;
