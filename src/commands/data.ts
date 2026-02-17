@@ -54,36 +54,51 @@ export async function cmdImport(opts: ParsedArgs) {
   const memories = data.memories || data;
   if (!Array.isArray(memories)) throw new Error('Invalid format: expected { memories: [...] } or [...]');
 
-  const concurrency = opts.concurrency ? parseInt(opts.concurrency) : 1;
-  const batchSize = Math.min(concurrency, memories.length);
+  const BATCH_SIZE = 100; // API max per batch request
 
   let imported = 0;
   let failed = 0;
 
-  for (let i = 0; i < memories.length; i += batchSize) {
-    const batch = memories.slice(i, i + batchSize);
+  for (let i = 0; i < memories.length; i += BATCH_SIZE) {
+    const chunk = memories.slice(i, i + BATCH_SIZE);
 
-    const results = await Promise.allSettled(
-      batch.map(async (mem: any) => {
-        const body: Record<string, any> = { content: mem.content };
-        if (mem.importance !== undefined) body.importance = mem.importance;
-        if (mem.metadata) body.metadata = mem.metadata;
-        if (mem.namespace || opts.namespace) body.namespace = mem.namespace || opts.namespace;
-        await request('POST', '/v1/store', body);
-        return true;
-      })
-    );
+    const batchBody = chunk.map((mem: any) => {
+      const entry: Record<string, any> = { content: mem.content };
+      if (mem.importance !== undefined) entry.importance = mem.importance;
+      if (mem.metadata) entry.metadata = mem.metadata;
+      if (mem.namespace || opts.namespace) entry.namespace = mem.namespace || opts.namespace;
+      if (mem.memory_type) entry.memory_type = mem.memory_type;
+      if (mem.session_id) entry.session_id = mem.session_id;
+      if (mem.agent_id) entry.agent_id = mem.agent_id;
+      if (mem.expires_at) entry.expires_at = mem.expires_at;
+      if (mem.pinned !== undefined) entry.pinned = mem.pinned;
+      if (mem.immutable !== undefined) entry.immutable = mem.immutable;
+      return entry;
+    });
 
-    for (const result of results) {
-      if (result.status === 'fulfilled') imported++;
-      else {
-        failed++;
-        if (process.env.DEBUG) console.error(`Failed to import: ${result.reason}`);
+    try {
+      await request('POST', '/v1/store/batch', { memories: batchBody });
+      imported += chunk.length;
+    } catch (e: any) {
+      // Fall back to individual stores if batch endpoint fails
+      if (process.env.DEBUG) console.error(`\nBatch failed, falling back to individual stores: ${e.message}`);
+      for (const mem of chunk) {
+        try {
+          const body: Record<string, any> = { content: mem.content };
+          if (mem.importance !== undefined) body.importance = mem.importance;
+          if (mem.metadata) body.metadata = mem.metadata;
+          if (mem.namespace || opts.namespace) body.namespace = mem.namespace || opts.namespace;
+          await request('POST', '/v1/store', body);
+          imported++;
+        } catch (innerErr: any) {
+          failed++;
+          if (process.env.DEBUG) console.error(`Failed to import: ${innerErr.message}`);
+        }
       }
     }
 
     if (!outputQuiet) {
-      process.stderr.write(`\r  ${progressBar(imported, memories.length)}`);
+      process.stderr.write(`\r  ${progressBar(imported + failed, memories.length)}`);
     }
   }
 
