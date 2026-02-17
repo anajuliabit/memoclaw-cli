@@ -11,10 +11,18 @@ function validateContentLength(content: string, label = 'Content') {
   }
 }
 
+function validateImportance(value: string): number {
+  const n = parseFloat(value);
+  if (isNaN(n) || n < 0 || n > 1) {
+    throw new Error(`Importance must be a number between 0 and 1 (got "${value}")`);
+  }
+  return n;
+}
+
 export async function cmdStore(content: string, opts: ParsedArgs) {
   validateContentLength(content);
   const body: Record<string, any> = { content };
-  if (opts.importance != null && opts.importance !== true) body.importance = parseFloat(opts.importance);
+  if (opts.importance != null && opts.importance !== true) body.importance = validateImportance(opts.importance);
   if (opts.tags) body.metadata = { tags: opts.tags.split(',').map((t: string) => t.trim()) };
   if (opts.namespace) body.namespace = opts.namespace;
   if (opts.immutable) body.immutable = true;
