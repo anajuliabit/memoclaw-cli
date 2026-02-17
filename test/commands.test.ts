@@ -19,6 +19,12 @@ process.env.MEMOCLAW_URL = 'http://localhost:99999'; // won't connect, we mock f
 // Prevent readStdin from blocking (it checks isTTY)
 (process.stdin as any).isTTY = true;
 
+// Prevent process.exit from killing test runner
+const originalExit = process.exit;
+process.exit = ((code?: number) => {
+  throw new Error(`process.exit(${code}) called`);
+}) as any;
+
 // ─── Mock fetch globally ─────────────────────────────────────────────────────
 
 let mockFetchResponse: any = {};
@@ -57,6 +63,8 @@ function setupMockFetch() {
 
 afterAll(() => {
   globalThis.fetch = originalFetch;
+  process.exit = originalExit;
+  restoreConsole();
 });
 
 // ─── Capture console output ─────────────────────────────────────────────────
