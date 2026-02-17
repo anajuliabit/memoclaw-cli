@@ -32,6 +32,7 @@ import { cmdInit, cmdConfig } from './commands/config.js';
 import { cmdMigrate } from './commands/migrate.js';
 import { cmdBrowse } from './commands/browse.js';
 import { cmdCompletions } from './commands/completions.js';
+import { cmdHistory } from './commands/history.js';
 
 // ─── Main ────────────────────────────────────────────────────────────────────
 
@@ -161,6 +162,10 @@ try {
       break;
     case 'init':
       await cmdInit(args);
+      break;
+    case 'history':
+      if (!rest[0]) throw new Error('Memory ID required');
+      await cmdHistory(rest[0]);
       break;
     case 'migrate': {
       if (!rest[0]) throw new Error('Path required. Usage: memoclaw migrate <path>');

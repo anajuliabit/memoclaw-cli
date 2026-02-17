@@ -263,6 +263,13 @@ Generate shell completion scripts.
   ${c.dim}eval "$(memoclaw completions zsh)"${c.reset}
   ${c.dim}memoclaw completions fish > ~/.config/fish/completions/memoclaw.fish${c.reset}`,
 
+      history: `${c.bold}memoclaw history${c.reset} <id>
+
+View the change history for a memory (FREE).
+
+  ${c.dim}memoclaw history 550e8400-e29b-41d4-a716-446655440000${c.reset}
+  ${c.dim}memoclaw history abc123 --json${c.reset}`,
+
       namespace: `${c.bold}memoclaw namespace${c.reset} [list|stats]
 
 Manage and view namespaces.
@@ -311,6 +318,7 @@ ${c.bold}Commands:${c.reset}
   ${c.cyan}completions${c.reset} <shell>    Generate shell completions
   ${c.cyan}browse${c.reset}                 Interactive memory browser (REPL)
   ${c.cyan}config${c.reset} [show|check]    Show or validate configuration
+  ${c.cyan}history${c.reset} <id>           View change history for a memory
   ${c.cyan}graph${c.reset} <id>             ASCII visualization of memory relations
   ${c.cyan}purge${c.reset}                  Delete ALL memories (requires --force or confirm)
   ${c.cyan}namespace${c.reset} [list|stats] Manage and view namespaces

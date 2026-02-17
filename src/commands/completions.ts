@@ -1,7 +1,7 @@
 export async function cmdCompletions(shell: string) {
   const commands = ['init', 'migrate', 'store', 'recall', 'search', 'list', 'get', 'update', 'delete', 'ingest', 'extract',
     'context', 'consolidate', 'relations', 'suggested', 'status', 'export', 'import', 'stats', 'browse',
-    'completions', 'config', 'graph', 'purge', 'count', 'namespace', 'help'];
+    'completions', 'config', 'graph', 'history', 'purge', 'count', 'namespace', 'help'];
 
   const globalFlags = ['--help', '--version', '--json', '--quiet', '--namespace', '--limit', '--offset',
     '--tags', '--format', '--pretty', '--watch', '--raw', '--force', '--output', '--truncate',

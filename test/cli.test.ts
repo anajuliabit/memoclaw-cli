@@ -309,10 +309,10 @@ describe('export format', () => {
 describe('completions', () => {
   const commands = ['init', 'migrate', 'store', 'recall', 'search', 'list', 'get', 'update', 'delete', 'ingest', 'extract',
     'context', 'consolidate', 'relations', 'suggested', 'status', 'export', 'import', 'stats', 'browse',
-    'completions', 'config', 'graph', 'purge', 'count', 'namespace', 'help'];
+    'completions', 'config', 'graph', 'history', 'purge', 'count', 'namespace', 'help'];
 
   test('all commands present', () => {
-    expect(commands.length).toBe(27);
+    expect(commands.length).toBe(28);
     expect(commands).toContain('store');
     expect(commands).toContain('get');
     expect(commands).toContain('export');
@@ -403,6 +403,14 @@ describe('BOOLEAN_FLAGS', () => {
 // ─── New commands routing ────────────────────────────────────────────────────
 
 describe('new command routing', () => {
+  test('history command extracts ID', () => {
+    const args = parseArgs(['history', 'abc-123', '--json']);
+    const [cmd, ...rest] = args._;
+    expect(cmd).toBe('history');
+    expect(rest[0]).toBe('abc-123');
+    expect(args.json).toBe(true);
+  });
+
   test('graph command extracts ID', () => {
     const args = parseArgs(['graph', 'abc-123', '--json']);
     const [cmd, ...rest] = args._;
