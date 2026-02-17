@@ -6,8 +6,7 @@ import type { ParsedArgs } from '../args.js';
 import { request } from '../http.js';
 import { c } from '../colors.js';
 import { outputJson, out, success, readStdin } from '../output.js';
-
-const MAX_CONTENT_LENGTH = 8192;
+import { MAX_CONTENT_LENGTH, validateImportance } from '../validate.js';
 
 export async function cmdGet(id: string) {
   const result = await request('GET', `/v1/memories/${id}`) as any;
@@ -39,18 +38,19 @@ export async function cmdDelete(id: string) {
 
 export async function cmdUpdate(id: string, opts: ParsedArgs) {
   const body: Record<string, any> = {};
-  if (opts.content) {
-    if (String(opts.content).length > MAX_CONTENT_LENGTH) {
-      throw new Error(`Content exceeds the ${MAX_CONTENT_LENGTH} character limit (got ${String(opts.content).length} chars)`);
+  let content = opts.content && opts.content !== true ? String(opts.content) : undefined;
+  if (!content) {
+    const stdin = await readStdin();
+    if (stdin) content = stdin;
+  }
+  if (content) {
+    if (content.length > MAX_CONTENT_LENGTH) {
+      throw new Error(`Content exceeds the ${MAX_CONTENT_LENGTH} character limit (got ${content.length} chars)`);
     }
-    body.content = opts.content;
+    body.content = content;
   }
   if (opts.importance != null && opts.importance !== true) {
-    const n = parseFloat(opts.importance);
-    if (isNaN(n) || n < 0 || n > 1) {
-      throw new Error(`Importance must be a number between 0 and 1 (got "${opts.importance}")`);
-    }
-    body.importance = n;
+    body.importance = validateImportance(opts.importance);
   }
   if (opts.memoryType) body.memory_type = opts.memoryType;
   if (opts.namespace) body.namespace = opts.namespace;
