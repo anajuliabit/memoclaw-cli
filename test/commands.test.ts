@@ -12,18 +12,10 @@
 
 import { describe, test, expect, beforeEach, afterAll } from 'bun:test';
 
-// Set env before any imports that use it
-process.env.MEMOCLAW_PRIVATE_KEY = '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'; // hardhat #0
-process.env.MEMOCLAW_URL = 'http://localhost:99999'; // won't connect, we mock fetch
+// Env vars are set in test/setup.ts via bunfig.toml preload
 
 // Prevent readStdin from blocking (it checks isTTY)
 (process.stdin as any).isTTY = true;
-
-// Prevent process.exit from killing test runner
-const originalExit = process.exit;
-process.exit = ((code?: number) => {
-  throw new Error(`process.exit(${code}) called`);
-}) as any;
 
 // ─── Mock fetch globally ─────────────────────────────────────────────────────
 
@@ -63,7 +55,6 @@ function setupMockFetch() {
 
 afterAll(() => {
   globalThis.fetch = originalFetch;
-  process.exit = originalExit;
   restoreConsole();
 });
 
