@@ -1162,3 +1162,43 @@ describe('store --content flag', () => {
     expect(content).toBe('flag content');
   });
 });
+
+// ─── Importance validation ───────────────────────────────────────────────────
+
+describe('importance validation', () => {
+  function validateImportance(value: string): number {
+    const n = parseFloat(value);
+    if (isNaN(n) || n < 0 || n > 1) {
+      throw new Error(`Importance must be a number between 0 and 1 (got "${value}")`);
+    }
+    return n;
+  }
+
+  test('accepts 0', () => {
+    expect(validateImportance('0')).toBe(0);
+  });
+
+  test('accepts 1', () => {
+    expect(validateImportance('1')).toBe(1);
+  });
+
+  test('accepts 0.5', () => {
+    expect(validateImportance('0.5')).toBe(0.5);
+  });
+
+  test('rejects negative values', () => {
+    expect(() => validateImportance('-0.1')).toThrow('between 0 and 1');
+  });
+
+  test('rejects values above 1', () => {
+    expect(() => validateImportance('1.5')).toThrow('between 0 and 1');
+  });
+
+  test('rejects non-numeric values', () => {
+    expect(() => validateImportance('abc')).toThrow('between 0 and 1');
+  });
+
+  test('rejects empty string', () => {
+    expect(() => validateImportance('')).toThrow('between 0 and 1');
+  });
+});

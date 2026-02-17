@@ -45,7 +45,13 @@ export async function cmdUpdate(id: string, opts: ParsedArgs) {
     }
     body.content = opts.content;
   }
-  if (opts.importance != null && opts.importance !== true) body.importance = parseFloat(opts.importance);
+  if (opts.importance != null && opts.importance !== true) {
+    const n = parseFloat(opts.importance);
+    if (isNaN(n) || n < 0 || n > 1) {
+      throw new Error(`Importance must be a number between 0 and 1 (got "${opts.importance}")`);
+    }
+    body.importance = n;
+  }
   if (opts.memoryType) body.memory_type = opts.memoryType;
   if (opts.namespace) body.namespace = opts.namespace;
   if (opts.tags) body.metadata = { tags: opts.tags.split(',').map((t: string) => t.trim()) };
