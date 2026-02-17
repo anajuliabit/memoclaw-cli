@@ -1174,13 +1174,7 @@ describe('store --content flag', () => {
 // ─── Importance validation ───────────────────────────────────────────────────
 
 describe('importance validation', () => {
-  function validateImportance(value: string): number {
-    const n = parseFloat(value);
-    if (isNaN(n) || n < 0 || n > 1) {
-      throw new Error(`Importance must be a number between 0 and 1 (got "${value}")`);
-    }
-    return n;
-  }
+  const { validateImportance } = require('../src/validate.js') as { validateImportance: (v: string) => number };
 
   test('accepts 0', () => {
     expect(validateImportance('0')).toBe(0);
