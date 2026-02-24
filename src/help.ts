@@ -55,7 +55,10 @@ Options:
   --limit <n>            Max results (default: 10)
   --min-similarity <0-1> Similarity threshold (default: 0.5)
   --namespace <name>     Filter by namespace
-  --tags <tag1,tag2>     Filter by tags`,
+  --tags <tag1,tag2>     Filter by tags
+  --raw                  Output content only (for piping)
+  --watch                Watch for changes (continuous polling)
+  --watch-interval <ms>  Polling interval (default: 5000)`,
 
       list: `${c.bold}memoclaw list${c.reset} [options]
 
@@ -67,7 +70,10 @@ Options:
   --namespace <name>     Filter by namespace
   --sort-by <field>      Sort by field (id, importance, created, updated)
   --reverse              Reverse sort order
-  --columns <cols>       Select columns (id,content,importance,tags,created)`,
+  --columns <cols>       Select columns (id,content,importance,tags,created)
+  --wide                 Use wider columns in table output
+  --watch                Watch for changes (continuous polling)
+  --watch-interval <ms>  Polling interval (default: 5000)`,
 
       export: `${c.bold}memoclaw export${c.reset} [options]
 
@@ -102,13 +108,15 @@ Options:
 
 Retrieve a single memory by its ID.`,
 
-      config: `${c.bold}memoclaw config${c.reset} [show|check]
+      config: `${c.bold}memoclaw config${c.reset} [show|check|init|path]
 
 Show or validate your MemoClaw configuration.
 
 Subcommands:
   show       Display current configuration (default)
-  check      Validate configuration and test connectivity`,
+  check      Validate configuration and test connectivity
+  init       Create a sample YAML config file at ~/.memoclaw/config
+  path       Print the config file path`,
 
       update: `${c.bold}memoclaw update${c.reset} <id> [options]
 
