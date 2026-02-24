@@ -74,22 +74,22 @@ try {
       break;
     }
     case 'recall':
-      if (!rest[0]) throw new Error('Query required');
+      if (!rest[0]) throw new Error('Query required. Usage: memoclaw recall "search query"');
       await cmdRecall(rest[0], args);
       break;
     case 'list':
       await cmdList(args);
       break;
     case 'get':
-      if (!rest[0]) throw new Error('Memory ID required');
+      if (!rest[0]) throw new Error('Memory ID required. Usage: memoclaw get <id>');
       await cmdGet(rest[0]);
       break;
     case 'update':
-      if (!rest[0]) throw new Error('Memory ID required');
+      if (!rest[0]) throw new Error('Memory ID required. Usage: memoclaw update <id> --content "new text"');
       await cmdUpdate(rest[0], args);
       break;
     case 'delete':
-      if (!rest[0]) throw new Error('Memory ID required');
+      if (!rest[0]) throw new Error('Memory ID required. Usage: memoclaw delete <id>');
       await cmdDelete(rest[0]);
       break;
     case 'ingest':
@@ -106,11 +106,11 @@ try {
       break;
     }
     case 'search':
-      if (!rest[0]) throw new Error('Query required');
+      if (!rest[0]) throw new Error('Query required. Usage: memoclaw search "keyword"');
       await cmdSearch(rest[0], args);
       break;
     case 'context':
-      if (!rest[0]) throw new Error('Query required');
+      if (!rest[0]) throw new Error('Query required. Usage: memoclaw context "what do I know about X?"');
       await cmdContext(rest[0], args);
       break;
     case 'consolidate':
@@ -118,7 +118,7 @@ try {
       break;
     case 'relations': {
       const subcmd = rest[0];
-      if (!subcmd) throw new Error('Usage: relations [list|create|delete]');
+      if (!subcmd) throw new Error('Subcommand required. Usage: memoclaw relations <list|create|delete> <memory-id>');
       await cmdRelations(subcmd, rest.slice(1), args);
       break;
     }
@@ -138,7 +138,7 @@ try {
       await cmdStats(args);
       break;
     case 'completions':
-      if (!rest[0]) throw new Error('Shell required: bash, zsh, or fish');
+      if (!rest[0]) throw new Error('Shell required. Usage: memoclaw completions <bash|zsh|fish>');
       await cmdCompletions(rest[0]);
       break;
     case 'browse':
@@ -148,7 +148,7 @@ try {
       await cmdConfig(rest[0], rest.slice(1));
       break;
     case 'graph':
-      if (!rest[0]) throw new Error('Memory ID required');
+      if (!rest[0]) throw new Error('Memory ID required. Usage: memoclaw graph <id>');
       await cmdGraph(rest[0], args);
       break;
     case 'purge':
@@ -164,7 +164,7 @@ try {
       await cmdInit(args);
       break;
     case 'history':
-      if (!rest[0]) throw new Error('Memory ID required');
+      if (!rest[0]) throw new Error('Memory ID required. Usage: memoclaw history <id>');
       await cmdHistory(rest[0]);
       break;
     case 'migrate': {
