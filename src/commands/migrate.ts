@@ -55,34 +55,52 @@ export async function cmdMigrate(targetPath: string, opts: ParsedArgs) {
   }
 
   const BATCH_SIZE = 5;
+  const concurrency = Math.max(1, parseInt(opts.concurrency || '1'));
   let totalCreated = 0;
   let totalDeduplicated = 0;
   let totalErrors = 0;
   let filesProcessed = 0;
+  let batchesCompleted = 0;
 
+  // Build all batches
+  const allBatches: typeof mdFiles[] = [];
   for (let i = 0; i < mdFiles.length; i += BATCH_SIZE) {
-    const batch = mdFiles.slice(i, i + BATCH_SIZE);
+    allBatches.push(mdFiles.slice(i, i + BATCH_SIZE));
+  }
+
+  const processBatch = async (batch: typeof mdFiles) => {
     const files = batch.map(f => ({
       filename: f.filename,
       content: fs.readFileSync(f.filepath, 'utf-8'),
     }));
 
+    const body: Record<string, any> = { files };
+    if (opts.namespace) body.namespace = opts.namespace;
+
     try {
-      const result = await request('POST', '/v1/migrate', { files }) as any;
+      const result = await request('POST', '/v1/migrate', body) as any;
       totalCreated += result.memories_created || 0;
       totalDeduplicated += result.memories_deduplicated || 0;
       filesProcessed += result.files_processed || 0;
       if (result.errors) totalErrors += result.errors.length;
-
-      if (!outputQuiet && !outputJson) {
-        process.stderr.write(`\r  ${progressBar(Math.min(i + BATCH_SIZE, mdFiles.length), mdFiles.length)}`);
-      }
     } catch (e: any) {
       totalErrors += batch.length;
       if (!outputQuiet) {
         console.error(`\n${c.red}Error:${c.reset} Batch failed: ${e.message}`);
       }
     }
+
+    batchesCompleted++;
+    if (!outputQuiet && !outputJson) {
+      const filesComplete = Math.min(batchesCompleted * BATCH_SIZE, mdFiles.length);
+      process.stderr.write(`\r  ${progressBar(filesComplete, mdFiles.length)}`);
+    }
+  };
+
+  // Process batches with concurrency
+  for (let i = 0; i < allBatches.length; i += concurrency) {
+    const concurrent = allBatches.slice(i, i + concurrency);
+    await Promise.all(concurrent.map(processBatch));
   }
 
   if (!outputQuiet && !outputJson) process.stderr.write('\n');
