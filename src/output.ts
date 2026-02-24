@@ -13,7 +13,7 @@ import { c } from './colors.js';
 export let outputJson = false;
 export let outputQuiet = false;
 export let outputPretty = false;
-export let outputFormat: 'json' | 'table' | 'csv' | 'yaml' = 'table';
+export let outputFormat: 'json' | 'table' | 'csv' | 'tsv' | 'yaml' = 'table';
 export let outputTruncate = 0;
 export let outputFile: string | null = null;
 export let noTruncate = false;
@@ -33,7 +33,7 @@ export function configureOutput(args: any) {
   if (args.format) {
     let fmt = String(args.format).toLowerCase();
     if (fmt === 'yml') fmt = 'yaml';
-    if (fmt === 'json' || fmt === 'table' || fmt === 'csv' || fmt === 'yaml') {
+    if (fmt === 'json' || fmt === 'table' || fmt === 'csv' || fmt === 'tsv' || fmt === 'yaml') {
       outputFormat = fmt as typeof outputFormat;
     }
   }
@@ -100,17 +100,21 @@ export function out(data: any) {
     outputWrite(JSON.stringify(data, outputPretty ? null : undefined, outputPretty ? 2 : undefined));
   } else if (outputFormat === 'yaml') {
     outputWrite(yaml.dump(data, { indent: 2, lineWidth: 120 }));
-  } else if (outputFormat === 'csv') {
+  } else if (outputFormat === 'csv' || outputFormat === 'tsv') {
+    const sep = outputFormat === 'tsv' ? '\t' : ',';
     if (Array.isArray(data)) {
       if (data.length === 0) return;
       const headers = Object.keys(data[0]);
-      outputWrite(headers.join(','));
+      outputWrite(headers.join(sep));
       for (const row of data) {
         outputWrite(headers.map(h => {
           const val = row[h];
           const str = val === null || val === undefined ? '' : String(val);
-          return str.includes(',') || str.includes('"') ? `"${str.replace(/"/g, '""')}"` : str;
-        }).join(','));
+          if (outputFormat === 'csv') {
+            return str.includes(',') || str.includes('"') ? `"${str.replace(/"/g, '""')}"` : str;
+          }
+          return str.replace(/\t/g, ' ').replace(/\n/g, ' ');
+        }).join(sep));
       }
     } else if (typeof data === 'string') {
       outputWrite(data);
@@ -153,7 +157,7 @@ export function table(rows: Record<string, any>[], columns?: { key: string; labe
     return;
   }
 
-  if (outputFormat === 'csv') {
+  if (outputFormat === 'csv' || outputFormat === 'tsv') {
     out(rows);
     return;
   }

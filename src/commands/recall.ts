@@ -1,7 +1,7 @@
 import type { ParsedArgs } from '../args.js';
 import { request } from '../http.js';
 import { c } from '../colors.js';
-import { outputJson, outputTruncate, out, truncate } from '../output.js';
+import { outputJson, outputTruncate, outputFormat, out, truncate } from '../output.js';
 
 export async function cmdRecall(query: string, opts: ParsedArgs) {
   const body: Record<string, any> = { query };
@@ -54,6 +54,16 @@ export async function cmdRecall(query: string, opts: ParsedArgs) {
 
   if (outputJson) {
     out(result);
+  } else if (outputFormat === 'csv' || outputFormat === 'tsv' || outputFormat === 'yaml') {
+    const memories = result.memories || [];
+    const rows = memories.map((m: any) => ({
+      id: m.id || '',
+      similarity: m.similarity?.toFixed(3) || '',
+      content: m.content || '',
+      importance: m.importance?.toFixed(2) || '',
+      tags: m.metadata?.tags?.join(', ') || '',
+    }));
+    out(rows);
   } else if (opts.raw) {
     const memories = result.memories || [];
     for (const mem of memories) {
