@@ -55,13 +55,18 @@ export async function cmdImport(opts: ParsedArgs) {
   if (!Array.isArray(memories)) throw new Error('Invalid format: expected { memories: [...] } or [...]');
 
   const BATCH_SIZE = 100; // API max per batch request
+  const concurrency = Math.max(1, parseInt(opts.concurrency || '1'));
 
   let imported = 0;
   let failed = 0;
 
+  // Build all batches
+  const batches: any[][] = [];
   for (let i = 0; i < memories.length; i += BATCH_SIZE) {
-    const chunk = memories.slice(i, i + BATCH_SIZE);
+    batches.push(memories.slice(i, i + BATCH_SIZE));
+  }
 
+  const processBatch = async (chunk: any[]) => {
     const batchBody = chunk.map((mem: any) => {
       const entry: Record<string, any> = { content: mem.content };
       if (mem.importance !== undefined) entry.importance = mem.importance;
@@ -100,6 +105,12 @@ export async function cmdImport(opts: ParsedArgs) {
     if (!outputQuiet) {
       process.stderr.write(`\r  ${progressBar(imported + failed, memories.length)}`);
     }
+  };
+
+  // Process batches with concurrency
+  for (let i = 0; i < batches.length; i += concurrency) {
+    const concurrent = batches.slice(i, i + concurrency);
+    await Promise.all(concurrent.map(processBatch));
   }
 
   if (!outputQuiet) process.stderr.write('\n');
