@@ -3,6 +3,27 @@ import { request } from '../http.js';
 import { c } from '../colors.js';
 import { outputJson, outputTruncate, outputFormat, out, truncate } from '../output.js';
 
+/** Render a list of recall memories to stdout (shared between normal and watch mode) */
+function renderMemories(memories: any[], opts: { showId?: boolean } = {}) {
+  if (memories.length === 0) {
+    console.log(`${c.dim}No memories found.${c.reset}`);
+    return;
+  }
+  for (const mem of memories) {
+    const sim = mem.similarity?.toFixed(3) || '???';
+    const simColor = (mem.similarity || 0) > 0.8 ? c.green : (mem.similarity || 0) > 0.5 ? c.yellow : c.red;
+    const content = outputTruncate ? truncate(mem.content, outputTruncate) : mem.content;
+    console.log(`${simColor}[${sim}]${c.reset} ${content}`);
+    if (mem.metadata?.tags?.length) {
+      console.log(`  ${c.dim}tags: ${mem.metadata.tags.join(', ')}${c.reset}`);
+    }
+    if (opts.showId && mem.id) {
+      console.log(`  ${c.dim}id: ${mem.id}${c.reset}`);
+    }
+  }
+  console.log(`${c.dim}─ ${memories.length} result${memories.length !== 1 ? 's' : ''}${c.reset}`);
+}
+
 export async function cmdRecall(query: string, opts: ParsedArgs) {
   const body: Record<string, any> = { query };
   if (opts.limit != null && opts.limit !== true) body.limit = parseInt(opts.limit);
@@ -25,21 +46,7 @@ export async function cmdRecall(query: string, opts: ParsedArgs) {
         if (memories.length !== lastCount) {
           if (lastCount >= 0) console.log(`${c.dim}${'─'.repeat(40)}${c.reset}`);
           lastCount = memories.length;
-
-          if (memories.length === 0) {
-            console.log(`${c.dim}No memories found.${c.reset}`);
-          } else {
-            for (const mem of memories) {
-              const sim = mem.similarity?.toFixed(3) || '???';
-              const simColor = (mem.similarity || 0) > 0.8 ? c.green : (mem.similarity || 0) > 0.5 ? c.yellow : c.red;
-              const content = outputTruncate ? truncate(mem.content, outputTruncate) : mem.content;
-              console.log(`${simColor}[${sim}]${c.reset} ${content}`);
-              if (mem.metadata?.tags?.length) {
-                console.log(`  ${c.dim}tags: ${mem.metadata.tags.join(', ')}${c.reset}`);
-              }
-            }
-            console.log(`${c.dim}─ ${memories.length} result${memories.length !== 1 ? 's' : ''}${c.reset}`);
-          }
+          renderMemories(memories);
         }
 
         await new Promise(r => setTimeout(r, pollInterval));
@@ -70,23 +77,6 @@ export async function cmdRecall(query: string, opts: ParsedArgs) {
       console.log(mem.content);
     }
   } else {
-    const memories = result.memories || [];
-    if (memories.length === 0) {
-      console.log(`${c.dim}No memories found.${c.reset}`);
-    } else {
-      for (const mem of memories) {
-        const sim = mem.similarity?.toFixed(3) || '???';
-        const simColor = (mem.similarity || 0) > 0.8 ? c.green : (mem.similarity || 0) > 0.5 ? c.yellow : c.red;
-        const content = outputTruncate ? truncate(mem.content, outputTruncate) : mem.content;
-        console.log(`${simColor}[${sim}]${c.reset} ${content}`);
-        if (mem.metadata?.tags?.length) {
-          console.log(`  ${c.dim}tags: ${mem.metadata.tags.join(', ')}${c.reset}`);
-        }
-        if (mem.id) {
-          console.log(`  ${c.dim}id: ${mem.id}${c.reset}`);
-        }
-      }
-      console.log(`${c.dim}─ ${memories.length} result${memories.length !== 1 ? 's' : ''}${c.reset}`);
-    }
+    renderMemories(result.memories || [], { showId: true });
   }
 }
