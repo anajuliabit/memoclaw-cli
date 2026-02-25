@@ -36,6 +36,16 @@ export async function cmdDelete(id: string) {
   }
 }
 
+export async function cmdBulkDelete(ids: string[], opts: ParsedArgs) {
+  const result = await request('POST', '/v1/memories/bulk-delete', { ids }) as any;
+  if (outputJson) {
+    out(result);
+  } else {
+    const deleted = result.deleted ?? ids.length;
+    success(`Deleted ${c.cyan}${deleted}${c.reset} memories`);
+  }
+}
+
 export async function cmdUpdate(id: string, opts: ParsedArgs) {
   const body: Record<string, any> = {};
   let content = opts.content && opts.content !== true ? String(opts.content) : undefined;
