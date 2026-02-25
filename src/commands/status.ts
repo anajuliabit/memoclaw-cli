@@ -47,9 +47,9 @@ export async function cmdStatus() {
       console.log(`${c.bold}Wallet:${c.reset}     ${data.wallet}`);
       const remaining = data.free_tier_remaining ?? 0;
       const total = data.free_tier_total ?? 100;
-      const pct = Math.round((remaining / total) * 100);
+      const pct = Math.max(0, Math.min(100, Math.round((remaining / total) * 100)));
       const barLen = 20;
-      const filled = Math.round((remaining / total) * barLen);
+      const filled = Math.max(0, Math.min(barLen, Math.round((remaining / total) * barLen)));
       const bar = `${c.green}${'█'.repeat(filled)}${c.dim}${'░'.repeat(barLen - filled)}${c.reset}`;
       console.log(`${c.bold}Free tier:${c.reset}  ${remaining}/${total} calls remaining`);
       console.log(`            ${bar} ${pct}%`);
