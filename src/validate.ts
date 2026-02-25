@@ -5,6 +5,9 @@
 export const MAX_CONTENT_LENGTH = 8192;
 
 export function validateContentLength(content: string, label = 'Content') {
+  if (!content.trim()) {
+    throw new Error(`${label} cannot be empty or whitespace-only`);
+  }
   if (content.length > MAX_CONTENT_LENGTH) {
     throw new Error(`${label} exceeds the ${MAX_CONTENT_LENGTH} character limit (got ${content.length} chars)`);
   }
