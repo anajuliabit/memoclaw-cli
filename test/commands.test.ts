@@ -201,6 +201,16 @@ describe('cmdStore', () => {
     expect(body.namespace).toBeUndefined();
     restoreConsole();
   });
+
+  test('passes session-id, agent-id, and expires-at', async () => {
+    mockFetchResponse = { id: 'abc-123' };
+    await cmdStore('test', { _: [], sessionId: 'sess-1', agentId: 'agent-1', expiresAt: '2026-12-31T00:00:00Z' } as any);
+    const body = getLastBody();
+    expect(body.session_id).toBe('sess-1');
+    expect(body.agent_id).toBe('agent-1');
+    expect(body.expires_at).toBe('2026-12-31T00:00:00Z');
+    restoreConsole();
+  });
 });
 
 // ─── Recall ──────────────────────────────────────────────────────────────────
