@@ -6,6 +6,7 @@ import type { ParsedArgs } from '../args.js';
 import { request } from '../http.js';
 import { c } from '../colors.js';
 import { outputJson, outputTruncate, noTruncate, out, success, info, truncate, readStdin } from '../output.js';
+import { validateContentLength } from '../validate.js';
 
 export async function cmdSearch(query: string, opts: ParsedArgs) {
   const params = new URLSearchParams({ q: query });
@@ -60,6 +61,7 @@ export async function cmdContext(query: string, opts: ParsedArgs) {
 }
 
 export async function cmdExtract(text: string, opts: ParsedArgs) {
+  validateContentLength(text, 'Extract text');
   const body: Record<string, any> = { text };
   if (opts.namespace) body.namespace = opts.namespace;
   if (opts.sessionId) body.session_id = opts.sessionId;
@@ -90,6 +92,7 @@ export async function cmdIngest(opts: ParsedArgs) {
   }
 
   if (!body.text) throw new Error('Text required (use --text, --file, or pipe via stdin)');
+  validateContentLength(body.text, 'Ingest text');
 
   const result = await request('POST', '/v1/ingest', body) as any;
   if (outputJson) {

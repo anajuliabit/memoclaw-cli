@@ -741,6 +741,16 @@ describe('cmdExtract', () => {
     expect(body.agent_id).toBe('agent');
     restoreConsole();
   });
+
+  test('rejects empty text', async () => {
+    await expect(cmdExtract('', { _: [] } as any)).rejects.toThrow('empty');
+    restoreConsole();
+  });
+
+  test('rejects whitespace-only text', async () => {
+    await expect(cmdExtract('   \n\t  ', { _: [] } as any)).rejects.toThrow('empty');
+    restoreConsole();
+  });
 });
 
 // ─── Ingest ──────────────────────────────────────────────────────────────────
@@ -763,6 +773,11 @@ describe('cmdIngest', () => {
 
   test('throws without text and no stdin', async () => {
     await expect(cmdIngest({ _: [] } as any)).rejects.toThrow('Text required');
+    restoreConsole();
+  });
+
+  test('rejects whitespace-only text', async () => {
+    await expect(cmdIngest({ _: [], text: '   \n  ' } as any)).rejects.toThrow('empty');
     restoreConsole();
   });
 
@@ -970,8 +985,12 @@ describe('validateContentLength', () => {
     expect(() => validateContentLength('x'.repeat(8193), 'Update')).toThrow('Update');
   });
 
-  test('allows empty content', () => {
-    expect(() => validateContentLength('')).not.toThrow();
+  test('rejects empty content', () => {
+    expect(() => validateContentLength('')).toThrow('empty');
+  });
+
+  test('rejects whitespace-only content', () => {
+    expect(() => validateContentLength('   \n\t  ')).toThrow('empty');
   });
 });
 

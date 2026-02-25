@@ -6,7 +6,7 @@ import type { ParsedArgs } from '../args.js';
 import { request } from '../http.js';
 import { c } from '../colors.js';
 import { outputJson, out, success, readStdin } from '../output.js';
-import { MAX_CONTENT_LENGTH, validateImportance } from '../validate.js';
+import { MAX_CONTENT_LENGTH, validateContentLength, validateImportance } from '../validate.js';
 
 export async function cmdGet(id: string) {
   const result = await request('GET', `/v1/memories/${id}`) as any;
@@ -54,9 +54,7 @@ export async function cmdUpdate(id: string, opts: ParsedArgs) {
     if (stdin) content = stdin;
   }
   if (content) {
-    if (content.length > MAX_CONTENT_LENGTH) {
-      throw new Error(`Content exceeds the ${MAX_CONTENT_LENGTH} character limit (got ${content.length} chars)`);
-    }
+    validateContentLength(content);
     body.content = content;
   }
   if (opts.importance != null && opts.importance !== true) {
