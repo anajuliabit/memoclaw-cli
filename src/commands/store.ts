@@ -13,6 +13,9 @@ export async function cmdStore(content: string, opts: ParsedArgs) {
   if (opts.memoryType) body.memory_type = opts.memoryType;
   if (opts.immutable) body.immutable = true;
   if (opts.pinned) body.pinned = true;
+  if (opts.sessionId) body.session_id = opts.sessionId;
+  if (opts.agentId) body.agent_id = opts.agentId;
+  if (opts.expiresAt) body.expires_at = opts.expiresAt;
 
   const result = await request('POST', '/v1/store', body);
   if (outputJson) {

@@ -24,7 +24,10 @@ Options:
   --namespace <name>     Memory namespace
   --memory-type <type>   Memory type (e.g. core, episodic, semantic)
   --immutable            Lock memory from future modifications
-  --pinned               Pin the memory`,
+  --pinned               Pin the memory
+  --session-id <id>      Session identifier for tracking
+  --agent-id <id>        Agent identifier for multi-agent setups
+  --expires-at <date>    Expiration date (ISO 8601)`,
 
       search: `${c.bold}memoclaw search${c.reset} "query" [options]
 
