@@ -970,8 +970,12 @@ describe('validateContentLength', () => {
     expect(() => validateContentLength('x'.repeat(8193), 'Update')).toThrow('Update');
   });
 
-  test('allows empty content', () => {
-    expect(() => validateContentLength('')).not.toThrow();
+  test('rejects empty content', () => {
+    expect(() => validateContentLength('')).toThrow('empty');
+  });
+
+  test('rejects whitespace-only content', () => {
+    expect(() => validateContentLength('   \n\t  ')).toThrow('empty');
   });
 });
 
