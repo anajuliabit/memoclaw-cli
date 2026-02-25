@@ -10,6 +10,7 @@ export async function cmdStore(content: string, opts: ParsedArgs) {
   if (opts.importance != null && opts.importance !== true) body.importance = validateImportance(opts.importance);
   if (opts.tags) body.metadata = { tags: opts.tags.split(',').map((t: string) => t.trim()) };
   if (opts.namespace) body.namespace = opts.namespace;
+  if (opts.memoryType) body.memory_type = opts.memoryType;
   if (opts.immutable) body.immutable = true;
   if (opts.pinned) body.pinned = true;
 

@@ -1,5 +1,5 @@
 export async function cmdCompletions(shell: string) {
-  const commands = ['init', 'migrate', 'store', 'recall', 'search', 'list', 'get', 'update', 'delete', 'ingest', 'extract',
+  const commands = ['init', 'migrate', 'store', 'recall', 'search', 'list', 'get', 'update', 'delete', 'bulk-delete', 'ingest', 'extract',
     'context', 'consolidate', 'relations', 'suggested', 'status', 'export', 'import', 'stats', 'browse',
     'completions', 'config', 'graph', 'history', 'purge', 'count', 'namespace', 'help'];
 

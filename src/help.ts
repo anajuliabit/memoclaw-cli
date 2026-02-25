@@ -22,6 +22,7 @@ Options:
   --importance <0-1>     Importance score (default: 0.5)
   --tags <tag1,tag2>     Comma-separated tags
   --namespace <name>     Memory namespace
+  --memory-type <type>   Memory type (e.g. core, episodic, semantic)
   --immutable            Lock memory from future modifications
   --pinned               Pin the memory`,
 
@@ -140,6 +141,15 @@ Delete a memory by ID.
 
   ${c.dim}memoclaw delete abc123${c.reset}`,
 
+      'bulk-delete': `${c.bold}memoclaw bulk-delete${c.reset} <id1> <id2> ...
+
+Delete multiple memories at once. IDs can be provided as arguments
+or piped via stdin (newline, comma, or space-separated).
+
+  ${c.dim}memoclaw bulk-delete abc123 def456 ghi789${c.reset}
+  ${c.dim}echo "abc123,def456" | memoclaw bulk-delete${c.reset}
+  ${c.dim}memoclaw list --json | jq -r '.memories[].id' | memoclaw bulk-delete${c.reset}`,
+
       ingest: `${c.bold}memoclaw ingest${c.reset} [options]
 
 Ingest raw text and automatically extract memories from it.
@@ -147,9 +157,11 @@ Uses GPT-4o-mini + embeddings. Costs $0.01 per call.
 
   ${c.dim}echo "Meeting notes..." | memoclaw ingest${c.reset}
   ${c.dim}memoclaw ingest --text "Long text to extract memories from"${c.reset}
+  ${c.dim}memoclaw ingest --file meeting-notes.txt${c.reset}
 
 Options:
   --text <text>          Text to ingest (or pipe via stdin)
+  --file <path>          Read text from a file
   --namespace <name>     Target namespace
   --session-id <id>      Session identifier
   --agent-id <id>        Agent identifier
@@ -313,6 +325,7 @@ ${c.bold}Commands:${c.reset}
   ${c.cyan}get${c.reset} <id>               Get a single memory by ID
   ${c.cyan}update${c.reset} <id>            Update a memory
   ${c.cyan}delete${c.reset} <id>            Delete a memory
+  ${c.cyan}bulk-delete${c.reset} <ids>       Delete multiple memories at once
   ${c.cyan}ingest${c.reset}                 Ingest raw text into memories
   ${c.cyan}extract${c.reset} "text"         Extract memories from text
   ${c.cyan}context${c.reset} "query"        Get GPT-powered contextual summary ($0.01/call)

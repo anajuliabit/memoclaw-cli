@@ -78,12 +78,18 @@ export async function cmdIngest(opts: ParsedArgs) {
   if (opts.autoRelate !== undefined) body.auto_relate = opts.autoRelate !== 'false';
   else body.auto_relate = true;
 
+  if (!body.text && opts.file) {
+    const fs = await import('fs');
+    if (!fs.existsSync(opts.file)) throw new Error(`File not found: ${opts.file}`);
+    body.text = fs.readFileSync(opts.file, 'utf-8');
+  }
+
   if (!body.text) {
     const stdin = await readStdin();
     if (stdin) body.text = stdin;
   }
 
-  if (!body.text) throw new Error('Text required (use --text or pipe via stdin)');
+  if (!body.text) throw new Error('Text required (use --text, --file, or pipe via stdin)');
 
   const result = await request('POST', '/v1/ingest', body) as any;
   if (outputJson) {
