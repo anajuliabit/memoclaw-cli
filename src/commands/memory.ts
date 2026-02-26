@@ -24,6 +24,9 @@ export async function cmdGet(id: string) {
     if (mem.updated_at) console.log(`${c.bold}Updated:${c.reset}    ${new Date(mem.updated_at).toLocaleString()}`);
     if (mem.immutable) console.log(`${c.bold}Immutable:${c.reset}  ${c.yellow}yes${c.reset}`);
     if (mem.pinned) console.log(`${c.bold}Pinned:${c.reset}     ${c.green}yes${c.reset}`);
+    if (mem.expires_at) console.log(`${c.bold}Expires:${c.reset}    ${new Date(mem.expires_at).toLocaleString()}`);
+    if (mem.session_id) console.log(`${c.bold}Session:${c.reset}    ${mem.session_id}`);
+    if (mem.agent_id) console.log(`${c.bold}Agent:${c.reset}      ${mem.agent_id}`);
   }
 }
 
