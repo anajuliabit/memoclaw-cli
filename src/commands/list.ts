@@ -9,6 +9,9 @@ export async function cmdList(opts: ParsedArgs) {
   if (opts.offset != null && opts.offset !== true) params.set('offset', opts.offset);
   if (opts.namespace) params.set('namespace', opts.namespace);
   if (opts.tags) params.set('tags', opts.tags);
+  if (opts.memoryType) params.set('memory_type', opts.memoryType);
+  if (opts.agentId) params.set('agent_id', opts.agentId);
+  if (opts.sessionId) params.set('session_id', opts.sessionId);
 
   // Watch mode
   if (opts.watch) {

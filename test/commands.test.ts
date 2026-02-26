@@ -418,6 +418,28 @@ describe('cmdList', () => {
     expect(highIdx).toBeLessThan(lowIdx);
     restoreConsole();
   });
+
+  test('passes tags query param', async () => {
+    mockFetchResponse = { memories: [], total: 0 };
+    await cmdList({ _: [], tags: 'foo,bar' } as any);
+    expect(lastFetchUrl).toContain('tags=foo');
+    restoreConsole();
+  });
+
+  test('passes memory_type query param', async () => {
+    mockFetchResponse = { memories: [], total: 0 };
+    await cmdList({ _: [], memoryType: 'core' } as any);
+    expect(lastFetchUrl).toContain('memory_type=core');
+    restoreConsole();
+  });
+
+  test('passes agent_id and session_id query params', async () => {
+    mockFetchResponse = { memories: [], total: 0 };
+    await cmdList({ _: [], agentId: 'agent-1', sessionId: 'sess-1' } as any);
+    expect(lastFetchUrl).toContain('agent_id=agent-1');
+    expect(lastFetchUrl).toContain('session_id=sess-1');
+    restoreConsole();
+  });
 });
 
 // ─── Search ──────────────────────────────────────────────────────────────────
@@ -488,6 +510,21 @@ describe('cmdGet', () => {
     expect(output).toContain('episodic');
     expect(output).toContain('Immutable');
     expect(output).toContain('Pinned');
+    restoreConsole();
+  });
+
+  test('displays expires_at, session_id, agent_id', async () => {
+    mockFetchResponse = {
+      id: 'abc-123', content: 'hello',
+      expires_at: '2026-12-31T00:00:00Z',
+      session_id: 'sess-42',
+      agent_id: 'agent-7',
+    };
+    await cmdGet('abc-123');
+    const output = consoleOutput.join('\n');
+    expect(output).toContain('Expires');
+    expect(output).toContain('sess-42');
+    expect(output).toContain('agent-7');
     restoreConsole();
   });
 

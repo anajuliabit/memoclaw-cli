@@ -80,6 +80,9 @@ Options:
   --namespace <name>     Filter by namespace
   --sort-by <field>      Sort by field (id, importance, created, updated)
   --reverse              Reverse sort order
+  --memory-type <type>   Filter by memory type
+  --agent-id <id>        Filter by agent ID
+  --session-id <id>      Filter by session ID
   --columns <cols>       Select columns (id,content,importance,tags,created)
   --wide                 Use wider columns in table output
   --watch                Watch for changes (continuous polling)
@@ -116,7 +119,8 @@ Options:
 
       get: `${c.bold}memoclaw get${c.reset} <id>
 
-Retrieve a single memory by its ID.`,
+Retrieve a single memory by its ID.
+Shows all fields including importance, tags, type, expiry, session/agent IDs.`,
 
       config: `${c.bold}memoclaw config${c.reset} [show|check|init|path]
 

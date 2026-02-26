@@ -8,7 +8,7 @@ import { c } from '../colors.js';
 import { API_URL } from '../config.js';
 import { getAccount, getWalletAuthHeader } from '../auth.js';
 import { getRequestTimeout } from '../http.js';
-import { outputJson, outputTruncate, out, success, info, table } from '../output.js';
+import { outputJson, outputTruncate, noTruncate, out, success, info, table, truncate } from '../output.js';
 
 async function fetchWithTimeout(url: string, options: RequestInit = {}): Promise<Response> {
   const timeoutMs = getRequestTimeout();
@@ -142,7 +142,8 @@ export async function cmdSuggested(opts: ParsedArgs) {
       for (const mem of suggestions) {
         const cat = mem.category?.toUpperCase() || '???';
         const catColor = { STALE: c.red, FRESH: c.green, HOT: c.yellow, DECAYING: c.magenta }[cat] || c.gray;
-        const text = mem.content.length > 100 ? mem.content.slice(0, 100) + '…' : mem.content;
+        const maxLen = noTruncate ? Infinity : (outputTruncate || 100);
+        const text = truncate(mem.content || '', maxLen);
         console.log(`${catColor}[${cat}]${c.reset} ${c.dim}(${mem.review_score?.toFixed(2) || '?'})${c.reset} ${text}`);
         if (mem.metadata?.tags?.length) {
           console.log(`  ${c.dim}tags: ${mem.metadata.tags.join(', ')}${c.reset}`);
