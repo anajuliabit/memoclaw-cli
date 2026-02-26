@@ -65,6 +65,7 @@ export async function cmdUpdate(id: string, opts: ParsedArgs) {
   if (opts.tags) body.metadata = { tags: opts.tags.split(',').map((t: string) => t.trim()) };
   if (opts.expiresAt) body.expires_at = opts.expiresAt;
   if (opts.pinned !== undefined) body.pinned = opts.pinned === 'true' || opts.pinned === true;
+  if (opts.immutable !== undefined) body.immutable = opts.immutable === 'true' || opts.immutable === true;
 
   if (Object.keys(body).length === 0) {
     throw new Error('No fields to update. Use --content, --importance, --tags, etc.');

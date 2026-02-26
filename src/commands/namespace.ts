@@ -62,13 +62,8 @@ export async function cmdNamespace(subcmd: string, rest: string[], opts: ParsedA
 
     if (hasNoCounts) {
       // API returned names only, need to fetch memories for counts
-      const fallback = await fetchNamespacesFromMemories();
-      const countMap = new Map(fallback.map(ns => [ns.name, ns.count]));
-      // Include default namespace count
-      const allNs = await fetchNamespacesFromMemories();
-      rows = [
-        ...allNs.map(ns => ({ namespace: ns.name || '(default)', count: String(ns.count) }))
-      ];
+      const withCounts = await fetchNamespacesFromMemories();
+      rows = withCounts.map(ns => ({ namespace: ns.name || '(default)', count: String(ns.count) }));
     } else {
       rows = namespaces.map(ns => ({ namespace: ns.name || '(default)', count: String(ns.count) }));
     }
