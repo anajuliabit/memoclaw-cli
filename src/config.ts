@@ -65,3 +65,5 @@ const _fileConfig = loadConfigFile();
 
 export const API_URL = process.env.MEMOCLAW_URL || _persistedConfig.url || _fileConfig.url || 'https://api.memoclaw.com';
 export const PRIVATE_KEY = (process.env.MEMOCLAW_PRIVATE_KEY || _persistedConfig.privateKey || _fileConfig.privateKey) as `0x${string}`;
+export const DEFAULT_NAMESPACE: string | undefined = process.env.MEMOCLAW_NAMESPACE || _fileConfig.namespace || undefined;
+export const DEFAULT_TIMEOUT: number = process.env.MEMOCLAW_TIMEOUT ? parseInt(process.env.MEMOCLAW_TIMEOUT) : (_fileConfig.timeout ?? 30);

@@ -7,7 +7,7 @@ import yaml from 'js-yaml';
 import { privateKeyToAccount } from 'viem/accounts';
 import type { ParsedArgs } from '../args.js';
 import { c } from '../colors.js';
-import { API_URL, PRIVATE_KEY, CONFIG_DIR, CONFIG_FILE, CONFIG_FILE_JSON, ensureConfigDir } from '../config.js';
+import { API_URL, PRIVATE_KEY, DEFAULT_NAMESPACE, DEFAULT_TIMEOUT, CONFIG_DIR, CONFIG_FILE, CONFIG_FILE_JSON, ensureConfigDir } from '../config.js';
 import { getAccount } from '../auth.js';
 import { outputJson, out, success, info } from '../output.js';
 
@@ -82,6 +82,8 @@ export async function cmdConfig(subcmd: string, rest: string[]) {
     const config: Record<string, string> = {
       MEMOCLAW_URL: API_URL,
       MEMOCLAW_PRIVATE_KEY: PRIVATE_KEY ? `${PRIVATE_KEY.slice(0, 6)}…${PRIVATE_KEY.slice(-4)}` : '(not set)',
+      MEMOCLAW_NAMESPACE: DEFAULT_NAMESPACE || '(not set)',
+      MEMOCLAW_TIMEOUT: `${DEFAULT_TIMEOUT}s`,
       NO_COLOR: process.env.NO_COLOR || '(not set)',
       DEBUG: process.env.DEBUG || '(not set)',
     };
