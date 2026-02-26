@@ -2,7 +2,7 @@
  * Integration tests for command handlers with mocked HTTP layer.
  * Covers: store, recall, list, search, get, delete, update, count,
  *         history, relations, consolidate, context, extract, ingest,
- *         suggested, namespace, graph, validate.
+ *         suggested, namespace, graph, export, purge, validate.
  *
  * MEM-159: Expand CLI test coverage beyond parseArgs
  *
@@ -106,6 +106,7 @@ const { cmdCount, cmdSuggested, cmdGraph } = await import('../src/commands/statu
 const { cmdHistory } = await import('../src/commands/history.js');
 const { cmdRelations } = await import('../src/commands/relations.js');
 const { cmdNamespace } = await import('../src/commands/namespace.js');
+const { cmdExport, cmdPurge } = await import('../src/commands/data.js');
 const { validateContentLength, validateImportance } = await import('../src/validate.js');
 
 // ─── Setup ───────────────────────────────────────────────────────────────────
@@ -1011,6 +1012,121 @@ describe('cmdNamespace', () => {
     const parsed = JSON.parse(consoleOutput.join(''));
     expect(parsed.namespaces).toEqual(['ns1', 'ns2']);
     expect(parsed.count).toBe(2);
+    restoreConsole();
+  });
+});
+
+// ─── Export ──────────────────────────────────────────────────────────────────
+
+describe('cmdExport', () => {
+  test('fetches all memories and outputs JSON', async () => {
+    mockFetchResponse = { memories: [{ id: 'a', content: 'hello' }], total: 1 };
+    await cmdExport({ _: [] } as any);
+    const output = consoleOutput.join('\n');
+    const parsed = JSON.parse(output);
+    expect(parsed.version).toBe(1);
+    expect(parsed.count).toBe(1);
+    expect(parsed.memories[0].id).toBe('a');
+    expect(parsed.exported_at).toBeDefined();
+    restoreConsole();
+  });
+
+  test('paginates through all pages', async () => {
+    let callCount = 0;
+    mockFetchResponse = () => {
+      callCount++;
+      if (callCount === 1) {
+        // Return full page (limit=1000 by default)
+        return { memories: Array(1000).fill({ id: 'x', content: 'mem' }), total: 1500 };
+      }
+      // Second page: less than limit → stops
+      return { memories: Array(500).fill({ id: 'y', content: 'mem2' }), total: 1500 };
+    };
+    await cmdExport({ _: [] } as any);
+    const output = consoleOutput.join('\n');
+    const parsed = JSON.parse(output);
+    expect(parsed.count).toBe(1500);
+    expect(callCount).toBe(2);
+    restoreConsole();
+  });
+
+  test('passes namespace filter', async () => {
+    mockFetchResponse = { memories: [], total: 0 };
+    await cmdExport({ _: [], namespace: 'proj1' } as any);
+    expect(lastFetchUrl).toContain('namespace=proj1');
+    restoreConsole();
+  });
+
+  test('passes custom limit', async () => {
+    mockFetchResponse = { memories: [], total: 0 };
+    await cmdExport({ _: [], limit: '50' } as any);
+    expect(lastFetchUrl).toContain('limit=50');
+    restoreConsole();
+  });
+});
+
+// ─── Purge ───────────────────────────────────────────────────────────────────
+
+describe('cmdPurge', () => {
+  test('deletes all memories with --force', async () => {
+    let callCount = 0;
+    mockFetchResponse = (url: string, init: any) => {
+      if (init?.method === 'POST' && url.includes('bulk-delete')) {
+        return { deleted: 2 };
+      }
+      callCount++;
+      if (callCount === 1) return { memories: [{ id: 'a' }, { id: 'b' }], total: 2 };
+      return { memories: [], total: 0 };
+    };
+    await cmdPurge({ _: [], force: true } as any);
+    // Should have called bulk-delete
+    const bulkCall = allFetches.find(f => f.url.includes('bulk-delete'));
+    expect(bulkCall).toBeDefined();
+    restoreConsole();
+  });
+
+  test('passes namespace to list query', async () => {
+    mockFetchResponse = { memories: [], total: 0 };
+    await cmdPurge({ _: [], force: true, namespace: 'old' } as any);
+    expect(lastFetchUrl).toContain('namespace=old');
+    restoreConsole();
+  });
+
+  test('throws without --force in non-TTY', async () => {
+    const origIsTTY = (process.stdin as any).isTTY;
+    (process.stdin as any).isTTY = false;
+    await expect(cmdPurge({ _: [] } as any)).rejects.toThrow('--force');
+    (process.stdin as any).isTTY = origIsTTY;
+    restoreConsole();
+  });
+
+  test('JSON mode outputs deleted count', async () => {
+    resetOutputState({ json: true });
+    mockFetchResponse = (url: string, init: any) => {
+      if (init?.method === 'POST') return { deleted: 3 };
+      return { memories: [{ id: 'a' }, { id: 'b' }, { id: 'c' }], total: 3 };
+    };
+    // Need two calls: first returns memories, second returns empty
+    let listCallCount = 0;
+    mockFetchResponse = (url: string, init: any) => {
+      if (init?.method === 'POST') return { deleted: 3 };
+      listCallCount++;
+      if (listCallCount === 1) return { memories: [{ id: 'a' }, { id: 'b' }, { id: 'c' }], total: 3 };
+      return { memories: [], total: 0 };
+    };
+    await cmdPurge({ _: [], force: true } as any);
+    const parsed = JSON.parse(consoleOutput.join(''));
+    expect(parsed.deleted).toBe(3);
+    restoreConsole();
+  });
+
+  test('--yes works as alias for --force', async () => {
+    mockFetchResponse = (url: string, init: any) => {
+      if (init?.method === 'POST') return { deleted: 1 };
+      return { memories: [], total: 0 };
+    };
+    await cmdPurge({ _: [], yes: true } as any);
+    // No throw means it accepted --yes
     restoreConsole();
   });
 });
