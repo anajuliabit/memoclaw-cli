@@ -19,7 +19,7 @@ import { setRequestTimeout } from './http.js';
 import { printHelp } from './help.js';
 
 // Commands
-import { cmdStore } from './commands/store.js';
+import { cmdStore, cmdStoreBatch } from './commands/store.js';
 import { cmdRecall } from './commands/recall.js';
 import { cmdList } from './commands/list.js';
 import { cmdGet, cmdDelete, cmdUpdate, cmdBulkDelete } from './commands/memory.js';
@@ -67,6 +67,12 @@ setRequestTimeout(TIMEOUT_MS);
 try {
   switch (cmd) {
     case 'store': {
+      if (args.batch) {
+        const stdin = await readStdin();
+        const lines = stdin ? stdin.split('\n') : [];
+        await cmdStoreBatch(args, lines);
+        break;
+      }
       let content = rest[0] || (args.content && args.content !== true ? args.content : undefined);
       if (!content) {
         const stdin = await readStdin();
