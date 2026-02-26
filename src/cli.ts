@@ -12,7 +12,7 @@
  */
 
 import { parseArgs } from './args.js';
-import { VERSION } from './config.js';
+import { VERSION, DEFAULT_NAMESPACE, DEFAULT_TIMEOUT } from './config.js';
 import { c } from './colors.js';
 import { configureOutput, outputJson, readStdin } from './output.js';
 import { setRequestTimeout } from './http.js';
@@ -57,8 +57,11 @@ if (args.help) {
   process.exit(0);
 }
 
+// Apply config-file / env-var defaults
+if (!args.namespace && DEFAULT_NAMESPACE) args.namespace = DEFAULT_NAMESPACE;
+
 // Configure request timeout
-const TIMEOUT_MS = args.timeout ? parseInt(args.timeout) * 1000 : 30000;
+const TIMEOUT_MS = args.timeout ? parseInt(args.timeout) * 1000 : DEFAULT_TIMEOUT * 1000;
 setRequestTimeout(TIMEOUT_MS);
 
 try {
