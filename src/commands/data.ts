@@ -5,7 +5,7 @@
 import type { ParsedArgs } from '../args.js';
 import { request } from '../http.js';
 import { c } from '../colors.js';
-import { outputJson, outputQuiet, out, success, warn, progressBar, outputWrite, readStdin } from '../output.js';
+import { outputJson, outputQuiet, outputFormat, out, success, warn, progressBar, outputWrite, readStdin } from '../output.js';
 
 export async function cmdExport(opts: ParsedArgs) {
   const params = new URLSearchParams();
@@ -32,7 +32,36 @@ export async function cmdExport(opts: ParsedArgs) {
     memories: allMemories,
   };
 
-  outputWrite(JSON.stringify(exportData, null, 2));
+  if (outputJson || outputFormat === 'json') {
+    outputWrite(JSON.stringify(exportData, null, 2));
+  } else if (outputFormat === 'csv' || outputFormat === 'tsv') {
+    const sep = outputFormat === 'tsv' ? '\t' : ',';
+    if (allMemories.length > 0) {
+      const headers = ['id', 'content', 'importance', 'namespace', 'tags', 'created_at'];
+      outputWrite(headers.join(sep));
+      for (const m of allMemories) {
+        const row = [
+          m.id || '',
+          m.content || '',
+          m.importance?.toString() || '',
+          m.namespace || '',
+          m.metadata?.tags?.join(';') || '',
+          m.created_at || '',
+        ].map(v => {
+          if (outputFormat === 'csv' && (v.includes(',') || v.includes('"') || v.includes('\n'))) {
+            return `"${v.replace(/"/g, '""')}"`;
+          }
+          return outputFormat === 'tsv' ? v.replace(/[\t\n]/g, ' ') : v;
+        });
+        outputWrite(row.join(sep));
+      }
+    }
+  } else if (outputFormat === 'yaml') {
+    const yamlLib = await import('js-yaml');
+    outputWrite(yamlLib.default.dump(exportData, { indent: 2, lineWidth: 120 }));
+  } else {
+    outputWrite(JSON.stringify(exportData, null, 2));
+  }
   if (!outputQuiet) {
     console.error(`${c.green}✓${c.reset} Exported ${allMemories.length} memories`);
   }

@@ -1159,6 +1159,38 @@ describe('validateContentLength', () => {
   });
 });
 
+describe('store batch flags', () => {
+  test('batch passes session-id, agent-id, expires-at to each memory', async () => {
+    const { cmdStoreBatch } = await import('../src/commands/store.js');
+    mockFetchResponse = { stored: 2 };
+    allFetches.length = 0;
+
+    await cmdStoreBatch(
+      { _: [], sessionId: 'sess-1', agentId: 'agent-1', expiresAt: '2026-12-31', quiet: true, json: false } as any,
+      ['memory one', 'memory two']
+    );
+
+    const body = JSON.parse(allFetches.find(f => f.url.includes('/store/batch'))?.options?.body || '{}');
+    expect(body.memories[0].session_id).toBe('sess-1');
+    expect(body.memories[0].agent_id).toBe('agent-1');
+    expect(body.memories[0].expires_at).toBe('2026-12-31');
+    expect(body.memories[1].session_id).toBe('sess-1');
+  });
+});
+
+describe('list tags filter', () => {
+  test('passes tags to query params', async () => {
+    const { cmdList } = await import('../src/commands/list.js');
+    mockFetchResponse = { memories: [], total: 0 };
+    allFetches.length = 0;
+
+    await cmdList({ _: [], tags: 'urgent,fix' } as any);
+
+    const url = allFetches.find(f => f.url.includes('/v1/memories'))?.url || '';
+    expect(url).toContain('tags=urgent%2Cfix');
+  });
+});
+
 describe('validateImportance', () => {
   test('accepts 0', () => expect(validateImportance('0')).toBe(0));
   test('accepts 1', () => expect(validateImportance('1')).toBe(1));

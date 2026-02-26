@@ -40,6 +40,9 @@ export async function cmdStoreBatch(opts: ParsedArgs, lines: string[]) {
     if (opts.memoryType && !mem.memory_type) mem.memory_type = opts.memoryType;
     if (opts.immutable && mem.immutable === undefined) mem.immutable = true;
     if (opts.pinned && mem.pinned === undefined) mem.pinned = true;
+    if (opts.sessionId && !mem.session_id) mem.session_id = opts.sessionId;
+    if (opts.agentId && !mem.agent_id) mem.agent_id = opts.agentId;
+    if (opts.expiresAt && !mem.expires_at) mem.expires_at = opts.expiresAt;
   }
 
   // Batch in chunks of 100

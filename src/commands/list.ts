@@ -8,6 +8,7 @@ export async function cmdList(opts: ParsedArgs) {
   if (opts.limit != null && opts.limit !== true) params.set('limit', opts.limit);
   if (opts.offset != null && opts.offset !== true) params.set('offset', opts.offset);
   if (opts.namespace) params.set('namespace', opts.namespace);
+  if (opts.tags) params.set('tags', opts.tags);
 
   // Watch mode
   if (opts.watch) {
@@ -98,8 +99,9 @@ export async function cmdList(opts: ParsedArgs) {
     } else {
       const truncateWidth = outputTruncate || 50;
 
+      const idWidth = opts.wide ? 36 : 10;
       let columns = [
-        { key: 'id', label: 'ID', width: 10 },
+        { key: 'id', label: 'ID', width: idWidth },
         { key: 'content', label: 'CONTENT', width: outputTruncate || 52 },
         { key: 'importance', label: 'IMP', width: 5 },
         { key: 'tags', label: 'TAGS', width: 20 },
