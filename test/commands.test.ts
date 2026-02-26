@@ -97,7 +97,7 @@ function resetOutputState(overrides: Record<string, any> = {}) {
 
 // ─── Import commands ─────────────────────────────────────────────────────────
 
-const { cmdStore } = await import('../src/commands/store.js');
+const { cmdStore, cmdStoreBatch } = await import('../src/commands/store.js');
 const { cmdRecall } = await import('../src/commands/recall.js');
 const { cmdList } = await import('../src/commands/list.js');
 const { cmdGet, cmdDelete, cmdUpdate } = await import('../src/commands/memory.js');
@@ -210,6 +210,55 @@ describe('cmdStore', () => {
     expect(body.agent_id).toBe('agent-1');
     expect(body.expires_at).toBe('2026-12-31T00:00:00Z');
     restoreConsole();
+  });
+});
+
+// ─── Store Batch ─────────────────────────────────────────────────────────────
+
+describe('cmdStoreBatch', () => {
+  test('stores line-per-memory from stdin', async () => {
+    mockFetchResponse = { stored: 2 };
+    await cmdStoreBatch({ _: [] } as any, ['memory one', 'memory two']);
+    const body = JSON.parse(lastFetchOptions.body);
+    expect(body.memories).toHaveLength(2);
+    expect(body.memories[0].content).toBe('memory one');
+    expect(body.memories[1].content).toBe('memory two');
+  });
+
+  test('stores from JSON array of strings', async () => {
+    mockFetchResponse = { stored: 2 };
+    await cmdStoreBatch({ _: [] } as any, ['["first","second"]']);
+    const body = JSON.parse(lastFetchOptions.body);
+    expect(body.memories).toHaveLength(2);
+    expect(body.memories[0].content).toBe('first');
+  });
+
+  test('stores from JSON array of objects', async () => {
+    mockFetchResponse = { stored: 1 };
+    await cmdStoreBatch({ _: [] } as any, ['[{"content":"hello","importance":0.9}]']);
+    const body = JSON.parse(lastFetchOptions.body);
+    expect(body.memories[0].content).toBe('hello');
+    expect(body.memories[0].importance).toBe(0.9);
+  });
+
+  test('applies shared opts to each memory', async () => {
+    mockFetchResponse = { stored: 2 };
+    await cmdStoreBatch({ _: [], namespace: 'test-ns', tags: 'a,b', immutable: true } as any, ['one', 'two']);
+    const body = JSON.parse(lastFetchOptions.body);
+    expect(body.memories[0].namespace).toBe('test-ns');
+    expect(body.memories[0].metadata.tags).toEqual(['a', 'b']);
+    expect(body.memories[0].immutable).toBe(true);
+  });
+
+  test('skips empty lines', async () => {
+    mockFetchResponse = { stored: 1 };
+    await cmdStoreBatch({ _: [] } as any, ['hello', '', '  ', 'world']);
+    const body = JSON.parse(lastFetchOptions.body);
+    expect(body.memories).toHaveLength(2);
+  });
+
+  test('throws on empty input', async () => {
+    await expect(cmdStoreBatch({ _: [] } as any, [])).rejects.toThrow('No input');
   });
 });
 
