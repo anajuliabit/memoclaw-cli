@@ -33,7 +33,7 @@ export async function cmdList(opts: ParsedArgs) {
           if (memories.length === 0) {
             console.log(`${c.dim}No memories found.${c.reset}`);
           } else {
-            const truncateWidth = outputTruncate || 50;
+            const truncateWidth = noTruncate ? Infinity : (outputTruncate || 50);
             const rows = memories.map((m: any) => ({
               id: m.id?.slice(0, 8) || '?',
               content: m.content?.length > truncateWidth ? m.content.slice(0, truncateWidth) + '…' : (m.content || ''),
@@ -43,7 +43,7 @@ export async function cmdList(opts: ParsedArgs) {
             }));
             table(rows, [
               { key: 'id', label: 'ID', width: 10 },
-              { key: 'content', label: 'CONTENT', width: outputTruncate || 52 },
+              { key: 'content', label: 'CONTENT', width: noTruncate ? 200 : (outputTruncate || 52) },
               { key: 'importance', label: 'IMP', width: 5 },
               { key: 'tags', label: 'TAGS', width: 20 },
               { key: 'created', label: 'CREATED', width: 12 },
@@ -100,12 +100,10 @@ export async function cmdList(opts: ParsedArgs) {
     if (memories.length === 0) {
       console.log(`${c.dim}No memories found.${c.reset}`);
     } else {
-      const truncateWidth = outputTruncate || 50;
-
       const idWidth = opts.wide ? 36 : 10;
       let columns = [
         { key: 'id', label: 'ID', width: idWidth },
-        { key: 'content', label: 'CONTENT', width: outputTruncate || 52 },
+        { key: 'content', label: 'CONTENT', width: noTruncate ? 200 : (outputTruncate || 52) },
         { key: 'importance', label: 'IMP', width: 5 },
         { key: 'tags', label: 'TAGS', width: 20 },
         { key: 'created', label: 'CREATED', width: 12 },
@@ -115,7 +113,7 @@ export async function cmdList(opts: ParsedArgs) {
         const selected = opts.columns.split(',').map((c: string) => c.trim());
         const colMap: Record<string, { key: string; label: string; width?: number }> = {
           id: { key: 'id', label: 'ID', width: 10 },
-          content: { key: 'content', label: 'CONTENT', width: outputTruncate || 52 },
+          content: { key: 'content', label: 'CONTENT', width: noTruncate ? 200 : (outputTruncate || 52) },
           importance: { key: 'importance', label: 'IMP', width: 5 },
           tags: { key: 'tags', label: 'TAGS', width: 20 },
           created: { key: 'created', label: 'CREATED', width: 12 },
