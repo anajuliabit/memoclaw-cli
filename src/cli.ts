@@ -23,6 +23,7 @@ import { cmdStore, cmdStoreBatch } from './commands/store.js';
 import { cmdRecall } from './commands/recall.js';
 import { cmdList } from './commands/list.js';
 import { cmdGet, cmdDelete, cmdUpdate, cmdBulkDelete } from './commands/memory.js';
+
 import { cmdSearch, cmdContext, cmdExtract, cmdIngest, cmdConsolidate } from './commands/search.js';
 import { cmdRelations } from './commands/relations.js';
 import { cmdStatus, cmdStats, cmdCount, cmdSuggested, cmdGraph } from './commands/status.js';
@@ -91,7 +92,7 @@ try {
       break;
     case 'get':
       if (!rest[0]) throw new Error('Memory ID required. Usage: memoclaw get <id>');
-      await cmdGet(rest[0]);
+      await cmdGet(rest[0], args);
       break;
     case 'update':
       if (!rest[0]) throw new Error('Memory ID required. Usage: memoclaw update <id> --content "new text"');

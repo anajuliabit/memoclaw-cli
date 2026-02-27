@@ -8,10 +8,13 @@ import { c } from '../colors.js';
 import { outputJson, out, success, readStdin } from '../output.js';
 import { MAX_CONTENT_LENGTH, validateContentLength, validateImportance } from '../validate.js';
 
-export async function cmdGet(id: string) {
+export async function cmdGet(id: string, opts?: ParsedArgs) {
   const result = await request('GET', `/v1/memories/${id}`) as any;
   if (outputJson) {
     out(result);
+  } else if (opts?.raw) {
+    const mem = result.memory || result;
+    console.log(mem.content);
   } else {
     const mem = result.memory || result;
     console.log(`${c.bold}ID:${c.reset}         ${mem.id || id}`);

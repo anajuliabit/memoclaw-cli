@@ -528,6 +528,13 @@ describe('cmdGet', () => {
     restoreConsole();
   });
 
+  test('outputs raw content with --raw', async () => {
+    mockFetchResponse = { id: 'abc-123', content: 'just the content' };
+    await cmdGet('abc-123', { _: [], raw: true } as any);
+    expect(consoleOutput).toEqual(['just the content']);
+    restoreConsole();
+  });
+
   test('handles nested memory object', async () => {
     mockFetchResponse = { memory: { id: 'x', content: 'nested' } };
     await cmdGet('x');
