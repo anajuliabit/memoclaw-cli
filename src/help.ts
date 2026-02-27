@@ -117,10 +117,17 @@ Show memory statistics and account info.
 Options:
   --namespace <name>     Filter by namespace`,
 
-      get: `${c.bold}memoclaw get${c.reset} <id>
+      get: `${c.bold}memoclaw get${c.reset} <id> [options]
 
 Retrieve a single memory by its ID.
-Shows all fields including importance, tags, type, expiry, session/agent IDs.`,
+Shows all fields including importance, tags, type, expiry, session/agent IDs.
+
+  ${c.dim}memoclaw get abc123${c.reset}
+  ${c.dim}memoclaw get abc123 --raw | wc -c${c.reset}
+  ${c.dim}memoclaw get abc123 --raw | memoclaw update abc123${c.reset}
+
+Options:
+  --raw                  Output content only (for piping)`,
 
       config: `${c.bold}memoclaw config${c.reset} [show|check|init|path]
 
