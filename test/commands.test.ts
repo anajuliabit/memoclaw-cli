@@ -840,6 +840,14 @@ describe('cmdExtract', () => {
   });
 });
 
+  test('accepts text longer than 8192 chars', async () => {
+    mockFetchResponse = { memories: [] };
+    const longText = 'a'.repeat(10000);
+    await cmdExtract(longText, { _: [] } as any);
+    expect(getLastBody().text).toBe(longText);
+    restoreConsole();
+  });
+
 // ─── Ingest ──────────────────────────────────────────────────────────────────
 
 describe('cmdIngest', () => {
@@ -865,6 +873,14 @@ describe('cmdIngest', () => {
 
   test('rejects whitespace-only text', async () => {
     await expect(cmdIngest({ _: [], text: '   \n  ' } as any)).rejects.toThrow('empty');
+    restoreConsole();
+  });
+
+  test('accepts text longer than 8192 chars', async () => {
+    mockFetchResponse = { memories_created: 2 };
+    const longText = 'a'.repeat(10000);
+    await cmdIngest({ _: [], text: longText } as any);
+    expect(getLastBody().text).toBe(longText);
     restoreConsole();
   });
 
