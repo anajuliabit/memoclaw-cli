@@ -1,7 +1,7 @@
 import type { ParsedArgs } from '../args.js';
 import { request } from '../http.js';
 import { c } from '../colors.js';
-import { outputJson, outputTruncate, noTruncate, out, table } from '../output.js';
+import { outputJson, outputTruncate, noTruncate, out, table, outputWrite } from '../output.js';
 
 export async function cmdList(opts: ParsedArgs) {
   const params = new URLSearchParams();
@@ -64,6 +64,11 @@ export async function cmdList(opts: ParsedArgs) {
 
   if (outputJson) {
     out(result);
+  } else if (opts.raw) {
+    const memories = result.memories || result.data || [];
+    for (const mem of memories) {
+      outputWrite(mem.content || '');
+    }
   } else {
     let memories = result.memories || result.data || [];
 
