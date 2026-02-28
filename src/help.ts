@@ -85,6 +85,7 @@ Options:
   --session-id <id>      Filter by session ID
   --columns <cols>       Select columns (id,content,importance,tags,created)
   --wide                 Use wider columns in table output
+  --raw                  Output content only (for piping)
   --watch                Watch for changes (continuous polling)
   --watch-interval <ms>  Polling interval (default: 5000)`,
 
@@ -135,7 +136,7 @@ Show or validate your MemoClaw configuration.
 
 Subcommands:
   show       Display current configuration (default)
-  check      Validate configuration and test connectivity
+  check      Validate configuration and test API connectivity
   init       Create a sample YAML config file at ~/.memoclaw/config
   path       Print the config file path`,
 

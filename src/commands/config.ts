@@ -104,8 +104,21 @@ export async function cmdConfig(subcmd: string, rest: string[]) {
     else if (!PRIVATE_KEY.startsWith('0x')) issues.push('MEMOCLAW_PRIVATE_KEY should start with 0x');
     else if (PRIVATE_KEY.length !== 66) issues.push(`MEMOCLAW_PRIVATE_KEY has wrong length (${PRIVATE_KEY.length}, expected 66)`);
 
+    // Test API connectivity
+    let apiReachable = false;
+    let apiError = '';
+    try {
+      const res = await fetch(`${API_URL}/health`, { signal: AbortSignal.timeout(5000) });
+      apiReachable = res.ok;
+      if (!res.ok) apiError = `HTTP ${res.status}`;
+    } catch (e: any) {
+      apiError = e.code === 'ECONNREFUSED' || e.cause?.code === 'ECONNREFUSED'
+        ? 'Connection refused' : (e.message || 'Unknown error');
+    }
+    if (!apiReachable) issues.push(`Cannot reach API at ${API_URL} (${apiError})`);
+
     if (outputJson) {
-      out({ valid: issues.length === 0, issues });
+      out({ valid: issues.length === 0, issues, apiReachable });
     } else {
       if (issues.length === 0) {
         success('Configuration looks good!');
@@ -113,6 +126,7 @@ export async function cmdConfig(subcmd: string, rest: string[]) {
           const acct = getAccount();
           info(`Wallet address: ${acct.address}`);
         } catch {}
+        success(`API reachable at ${c.dim}${API_URL}${c.reset}`);
       } else {
         for (const issue of issues) {
           console.log(`${c.red}✗${c.reset} ${issue}`);
