@@ -395,8 +395,9 @@ describe('BOOLEAN_FLAGS', () => {
     expect(BOOLEAN_FLAGS.has('pretty')).toBe(true);
     expect(BOOLEAN_FLAGS.has('watch')).toBe(true);
     expect(BOOLEAN_FLAGS.has('interactive')).toBe(true);
-    expect(BOOLEAN_FLAGS.has('immutable')).toBe(true);
-    expect(BOOLEAN_FLAGS.has('pinned')).toBe(true);
+    // immutable and pinned are value flags (accept true/false) since v1.8.6
+    expect(BOOLEAN_FLAGS.has('immutable')).toBe(false);
+    expect(BOOLEAN_FLAGS.has('pinned')).toBe(false);
   });
 });
 
@@ -1144,16 +1145,28 @@ describe('store --content flag', () => {
     expect(content).toBe('positional content');
   });
 
-  test('--immutable flag is parsed as boolean', () => {
+  test('--immutable flag without value is parsed as true', () => {
     const result = parseArgs(['store', 'content', '--immutable']);
     expect(result.immutable).toBe(true);
     expect(result._).toEqual(['store', 'content']);
   });
 
-  test('--pinned flag is parsed as boolean', () => {
+  test('--pinned flag without value is parsed as true', () => {
     const result = parseArgs(['store', 'content', '--pinned']);
     expect(result.pinned).toBe(true);
     expect(result._).toEqual(['store', 'content']);
+  });
+
+  test('--pinned false sets pinned to "false"', () => {
+    const result = parseArgs(['update', 'abc123', '--pinned', 'false']);
+    expect(result.pinned).toBe('false');
+    expect(result._).toEqual(['update', 'abc123']);
+  });
+
+  test('--immutable false sets immutable to "false"', () => {
+    const result = parseArgs(['update', 'abc123', '--immutable', 'false']);
+    expect(result.immutable).toBe('false');
+    expect(result._).toEqual(['update', 'abc123']);
   });
 
   test('--immutable and --pinned together', () => {

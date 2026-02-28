@@ -38,8 +38,8 @@ export async function cmdStoreBatch(opts: ParsedArgs, lines: string[]) {
       mem.metadata = { tags: opts.tags.split(',').map((t: string) => t.trim()) };
     if (opts.namespace && !mem.namespace) mem.namespace = opts.namespace;
     if (opts.memoryType && !mem.memory_type) mem.memory_type = opts.memoryType;
-    if (opts.immutable && mem.immutable === undefined) mem.immutable = true;
-    if (opts.pinned && mem.pinned === undefined) mem.pinned = true;
+    if (opts.immutable !== undefined && mem.immutable === undefined) mem.immutable = opts.immutable !== 'false' && opts.immutable !== false;
+    if (opts.pinned !== undefined && mem.pinned === undefined) mem.pinned = opts.pinned !== 'false' && opts.pinned !== false;
     if (opts.sessionId && !mem.session_id) mem.session_id = opts.sessionId;
     if (opts.agentId && !mem.agent_id) mem.agent_id = opts.agentId;
     if (opts.expiresAt && !mem.expires_at) mem.expires_at = opts.expiresAt;
@@ -74,8 +74,8 @@ export async function cmdStore(content: string, opts: ParsedArgs) {
   if (opts.tags) body.metadata = { tags: opts.tags.split(',').map((t: string) => t.trim()) };
   if (opts.namespace) body.namespace = opts.namespace;
   if (opts.memoryType) body.memory_type = opts.memoryType;
-  if (opts.immutable) body.immutable = true;
-  if (opts.pinned) body.pinned = true;
+  if (opts.immutable !== undefined) body.immutable = opts.immutable !== 'false' && opts.immutable !== false;
+  if (opts.pinned !== undefined) body.pinned = opts.pinned !== 'false' && opts.pinned !== false;
   if (opts.sessionId) body.session_id = opts.sessionId;
   if (opts.agentId) body.agent_id = opts.agentId;
   if (opts.expiresAt) body.expires_at = opts.expiresAt;
