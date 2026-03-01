@@ -75,12 +75,18 @@ export async function cmdList(opts: ParsedArgs) {
     // Client-side sorting
     if (opts.sortBy && memories.length > 0) {
       const sortKey = opts.sortBy;
+      // Map user-friendly sort keys to actual API field names
+      const sortKeyMap: Record<string, string> = {
+        created: 'created_at',
+        updated: 'updated_at',
+      };
+      const resolvedKey = sortKeyMap[sortKey] || sortKey;
       const reverse = !!opts.reverse;
       memories = [...memories].sort((a: any, b: any) => {
-        let aVal = a[sortKey];
-        let bVal = b[sortKey];
-        if (aVal === undefined && sortKey.includes('.')) {
-          const parts = sortKey.split('.');
+        let aVal = a[resolvedKey];
+        let bVal = b[resolvedKey];
+        if (aVal === undefined && resolvedKey.includes('.')) {
+          const parts = resolvedKey.split('.');
           let obj: any = a;
           for (const p of parts) obj = obj?.[p];
           aVal = obj;
@@ -92,7 +98,7 @@ export async function cmdList(opts: ParsedArgs) {
           aVal = new Date(aVal).getTime();
           bVal = new Date(bVal as string).getTime();
         }
-        if (sortKey === 'importance') {
+        if (resolvedKey === 'importance') {
           aVal = parseFloat(aVal) || 0;
           bVal = parseFloat(bVal) || 0;
         }

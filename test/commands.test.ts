@@ -419,6 +419,38 @@ describe('cmdList', () => {
     restoreConsole();
   });
 
+  test('client-side sorting by created maps to created_at', async () => {
+    mockFetchResponse = {
+      memories: [
+        { id: 'a', content: 'newer', importance: 0.5, metadata: {}, created_at: '2026-03-01T12:00:00Z' },
+        { id: 'b', content: 'older', importance: 0.5, metadata: {}, created_at: '2026-01-01T12:00:00Z' },
+      ],
+      total: 2
+    };
+    await cmdList({ _: [], sortBy: 'created' } as any);
+    const output = consoleOutput.join('\n');
+    const olderIdx = output.indexOf('older');
+    const newerIdx = output.indexOf('newer');
+    expect(olderIdx).toBeLessThan(newerIdx);
+    restoreConsole();
+  });
+
+  test('client-side sorting by updated maps to updated_at', async () => {
+    mockFetchResponse = {
+      memories: [
+        { id: 'a', content: 'recent', importance: 0.5, metadata: {}, updated_at: '2026-03-01T12:00:00Z' },
+        { id: 'b', content: 'stale', importance: 0.5, metadata: {}, updated_at: '2026-01-01T12:00:00Z' },
+      ],
+      total: 2
+    };
+    await cmdList({ _: [], sortBy: 'updated' } as any);
+    const output = consoleOutput.join('\n');
+    const staleIdx = output.indexOf('stale');
+    const recentIdx = output.indexOf('recent');
+    expect(staleIdx).toBeLessThan(recentIdx);
+    restoreConsole();
+  });
+
   test('passes tags query param', async () => {
     mockFetchResponse = { memories: [], total: 0 };
     await cmdList({ _: [], tags: 'foo,bar' } as any);
