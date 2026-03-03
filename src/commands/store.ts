@@ -1,3 +1,4 @@
+import * as fs from 'fs';
 import type { ParsedArgs } from '../args.js';
 import { request } from '../http.js';
 import { c } from '../colors.js';
@@ -80,11 +81,19 @@ export async function cmdStore(content: string, opts: ParsedArgs) {
   if (opts.agentId) body.agent_id = opts.agentId;
   if (opts.expiresAt) body.expires_at = opts.expiresAt;
 
-  const result = await request('POST', '/v1/store', body);
-  if (outputJson) {
+  const result = await request('POST', '/v1/store', body) as any;
+  if (opts.idOnly) {
+    console.log(result.id || '');
+  } else if (outputJson) {
     out(result);
   } else {
     success(`Memory stored${result.id ? ` (${c.cyan}${result.id}${c.reset})` : ''}`);
     if (result.importance !== undefined) info(`Importance: ${result.importance}`);
   }
+}
+
+/** Read content from --file flag */
+export function readFileContent(filePath: string): string {
+  if (!fs.existsSync(filePath)) throw new Error(`File not found: ${filePath}`);
+  return fs.readFileSync(filePath, 'utf-8').trim();
 }

@@ -19,7 +19,7 @@ import { setRequestTimeout } from './http.js';
 import { printHelp } from './help.js';
 
 // Commands
-import { cmdStore, cmdStoreBatch } from './commands/store.js';
+import { cmdStore, cmdStoreBatch, readFileContent } from './commands/store.js';
 import { cmdRecall } from './commands/recall.js';
 import { cmdList } from './commands/list.js';
 import { cmdGet, cmdDelete, cmdUpdate, cmdBulkDelete } from './commands/memory.js';
@@ -76,11 +76,14 @@ try {
         break;
       }
       let content = rest[0] || (args.content && args.content !== true ? args.content : undefined);
+      if (!content && args.file) {
+        content = readFileContent(args.file);
+      }
       if (!content) {
         const stdin = await readStdin();
         if (stdin) content = stdin;
       }
-      if (!content) throw new Error('Content required. Provide as argument, --content flag, or pipe via stdin.');
+      if (!content) throw new Error('Content required. Provide as argument, --content flag, --file flag, or pipe via stdin.');
       await cmdStore(content, args);
       break;
     }
