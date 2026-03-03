@@ -100,7 +100,7 @@ function resetOutputState(overrides: Record<string, any> = {}) {
 const { cmdStore, cmdStoreBatch } = await import('../src/commands/store.js');
 const { cmdRecall } = await import('../src/commands/recall.js');
 const { cmdList } = await import('../src/commands/list.js');
-const { cmdGet, cmdDelete, cmdUpdate } = await import('../src/commands/memory.js');
+const { cmdGet, cmdDelete, cmdUpdate, cmdBulkDelete } = await import('../src/commands/memory.js');
 const { cmdSearch, cmdContext, cmdExtract, cmdIngest, cmdConsolidate } = await import('../src/commands/search.js');
 const { cmdCount, cmdSuggested, cmdGraph } = await import('../src/commands/status.js');
 const { cmdHistory } = await import('../src/commands/history.js');
@@ -1284,6 +1284,7 @@ describe('list tags filter', () => {
   });
 });
 
+
 describe('cmdCore', () => {
   test('displays core memories in table', async () => {
     mockFetchResponse = {
@@ -1340,6 +1341,146 @@ describe('cmdCore', () => {
     await cmdCore({ _: [], raw: true } as any);
     restoreConsole();
     expect(consoleOutput.join('\n')).toContain('raw content here');
+  });
+});
+
+// ─── #43: bulk-delete tests ──────────────────────────────────────────────────
+
+describe('cmdBulkDelete', () => {
+  test('sends POST /v1/memories/bulk-delete with IDs', async () => {
+    mockFetchResponse = { deleted: 3 };
+    allFetches.length = 0;
+    captureConsole();
+    await cmdBulkDelete(['id1', 'id2', 'id3'], { _: [] } as any);
+    restoreConsole();
+    const call = allFetches.find(f => f.url.includes('/bulk-delete'));
+    expect(call).toBeDefined();
+    const body = JSON.parse(call!.options.body);
+    expect(body.ids).toEqual(['id1', 'id2', 'id3']);
+  });
+
+  test('shows success message with count', async () => {
+    mockFetchResponse = { deleted: 2 };
+    captureConsole();
+    await cmdBulkDelete(['a', 'b'], { _: [] } as any);
+    restoreConsole();
+    expect(consoleOutput.join('\n')).toContain('2');
+  });
+
+  test('JSON mode outputs raw response', async () => {
+    mockFetchResponse = { deleted: 1, ids: ['abc'] };
+    resetOutputState();
+    const { configureOutput } = await import('../src/output.js');
+    configureOutput({ json: true });
+    captureConsole();
+    await cmdBulkDelete(['abc'], { _: [], json: true } as any);
+    restoreConsole();
+    resetOutputState();
+    const parsed = JSON.parse(consoleOutput[0]);
+    expect(parsed.deleted).toBe(1);
+  });
+
+  test('uses ids.length as fallback when deleted not in response', async () => {
+    mockFetchResponse = {};
+    captureConsole();
+    await cmdBulkDelete(['x', 'y'], { _: [] } as any);
+    restoreConsole();
+    expect(consoleOutput.join('\n')).toContain('2');
+  });
+});
+
+// ─── #59: store --id-only ────────────────────────────────────────────────────
+
+describe('store --id-only', () => {
+  test('prints only the memory ID', async () => {
+    mockFetchResponse = { id: 'mem-12345678-abcd', importance: 0.5 };
+    captureConsole();
+    await cmdStore('test content', { _: [], idOnly: true } as any);
+    restoreConsole();
+    expect(consoleOutput).toEqual(['mem-12345678-abcd']);
+  });
+
+  test('prints empty string when no ID returned', async () => {
+    mockFetchResponse = { importance: 0.5 };
+    captureConsole();
+    await cmdStore('test', { _: [], idOnly: true } as any);
+    restoreConsole();
+    expect(consoleOutput).toEqual(['']);
+  });
+});
+
+// ─── #58: list --pinned/--immutable filters ──────────────────────────────────
+
+describe('list pinned/immutable filters', () => {
+  test('passes pinned=true to query params', async () => {
+    mockFetchResponse = { memories: [], total: 0 };
+    allFetches.length = 0;
+    captureConsole();
+    await cmdList({ _: [], pinned: true } as any);
+    restoreConsole();
+    const url = allFetches.find(f => f.url.includes('/v1/memories'))?.url || '';
+    expect(url).toContain('pinned=true');
+  });
+
+  test('passes immutable=true to query params', async () => {
+    mockFetchResponse = { memories: [], total: 0 };
+    allFetches.length = 0;
+    captureConsole();
+    await cmdList({ _: [], immutable: true } as any);
+    restoreConsole();
+    const url = allFetches.find(f => f.url.includes('/v1/memories'))?.url || '';
+    expect(url).toContain('immutable=true');
+  });
+
+  test('both filters together', async () => {
+    mockFetchResponse = { memories: [], total: 0 };
+    allFetches.length = 0;
+    captureConsole();
+    await cmdList({ _: [], pinned: true, immutable: true } as any);
+    restoreConsole();
+    const url = allFetches.find(f => f.url.includes('/v1/memories'))?.url || '';
+    expect(url).toContain('pinned=true');
+    expect(url).toContain('immutable=true');
+  });
+});
+
+// ─── #60: search format support ──────────────────────────────────────────────
+
+describe('search csv/yaml format', () => {
+  test('csv format outputs comma-separated values', async () => {
+    mockFetchResponse = {
+      memories: [
+        { id: 'search-1111-2222', content: 'hello world', metadata: { tags: ['tag1'] } },
+      ],
+    };
+    resetOutputState();
+    const { configureOutput } = await import('../src/output.js');
+    configureOutput({ format: 'csv' });
+    captureConsole();
+    await cmdSearch('hello', { _: [] } as any);
+    restoreConsole();
+    resetOutputState();
+    const output = consoleOutput.join('\n');
+    expect(output).toContain('id');
+    expect(output).toContain('content');
+    expect(output).toContain('hello world');
+  });
+
+  test('yaml format outputs yaml', async () => {
+    mockFetchResponse = {
+      memories: [
+        { id: 'yaml-1111-2222', content: 'yaml test', metadata: {} },
+      ],
+    };
+    resetOutputState();
+    const { configureOutput } = await import('../src/output.js');
+    configureOutput({ format: 'yaml' });
+    captureConsole();
+    await cmdSearch('yaml', { _: [] } as any);
+    restoreConsole();
+    resetOutputState();
+    const output = consoleOutput.join('\n');
+    expect(output).toContain('content: yaml test');
   });
 });
 

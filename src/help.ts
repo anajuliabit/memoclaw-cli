@@ -33,7 +33,9 @@ Options:
   --pinned               Pin the memory
   --session-id <id>      Session identifier for tracking
   --agent-id <id>        Agent identifier for multi-agent setups
-  --expires-at <date>    Expiration date (ISO 8601)`,
+  --expires-at <date>    Expiration date (ISO 8601)
+  --file <path>          Read content from a file
+  --id-only              Print only the memory ID (for scripting)`,
 
       search: `${c.bold}memoclaw search${c.reset} "query" [options]
 
@@ -44,6 +46,7 @@ Options:
   --limit <n>            Max results (default: 10)
   --namespace <name>     Filter by namespace
   --tags <tag1,tag2>     Filter by tags
+  --format <fmt>         Output format: json, csv, tsv, yaml
   --raw                  Output content only (for piping)`,
 
       context: `${c.bold}memoclaw context${c.reset} "query" [options]
@@ -85,6 +88,8 @@ Options:
   --session-id <id>      Filter by session ID
   --columns <cols>       Select columns (id,content,importance,tags,created)
   --wide                 Use wider columns in table output
+  --pinned               Filter pinned memories only
+  --immutable            Filter immutable memories only
   --raw                  Output content only (for piping)
   --watch                Watch for changes (continuous polling)
   --watch-interval <ms>  Polling interval (default: 5000)`,

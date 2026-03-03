@@ -12,6 +12,8 @@ export async function cmdList(opts: ParsedArgs) {
   if (opts.memoryType) params.set('memory_type', opts.memoryType);
   if (opts.agentId) params.set('agent_id', opts.agentId);
   if (opts.sessionId) params.set('session_id', opts.sessionId);
+  if (opts.pinned) params.set('pinned', 'true');
+  if (opts.immutable) params.set('immutable', 'true');
 
   // Watch mode
   if (opts.watch) {
@@ -131,6 +133,8 @@ export async function cmdList(opts: ParsedArgs) {
           updated: { key: 'updated', label: 'UPDATED', width: 12 },
           namespace: { key: 'namespace', label: 'NAMESPACE', width: 15 },
           type: { key: 'memory_type', label: 'TYPE', width: 10 },
+          pinned: { key: 'pinned', label: 'PINNED', width: 8 },
+          immutable: { key: 'immutable', label: 'IMMUTABLE', width: 10 },
         };
         columns = selected.map((k: string) => colMap[k] || { key: k, label: k.toUpperCase(), width: 20 });
       }

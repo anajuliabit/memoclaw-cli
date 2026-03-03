@@ -5,7 +5,7 @@
 import type { ParsedArgs } from '../args.js';
 import { request } from '../http.js';
 import { c } from '../colors.js';
-import { outputJson, outputTruncate, noTruncate, out, success, info, truncate, readStdin } from '../output.js';
+import { outputJson, outputFormat, outputTruncate, noTruncate, out, success, info, truncate, table, readStdin } from '../output.js';
 
 export async function cmdSearch(query: string, opts: ParsedArgs) {
   const params = new URLSearchParams({ q: query });
@@ -22,6 +22,14 @@ export async function cmdSearch(query: string, opts: ParsedArgs) {
     for (const mem of memories) {
       console.log(mem.content);
     }
+  } else if (outputFormat === 'csv' || outputFormat === 'tsv' || outputFormat === 'yaml') {
+    const memories = result.memories || result.data || [];
+    const rows = memories.map((m: any) => ({
+      id: m.id?.slice(0, 8) || '?',
+      content: m.content || '',
+      tags: m.metadata?.tags?.join(', ') || '',
+    }));
+    out(rows);
   } else {
     const memories = result.memories || result.data || [];
     if (memories.length === 0) {
