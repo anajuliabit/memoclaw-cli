@@ -304,6 +304,23 @@ Generate shell completion scripts.
   ${c.dim}eval "$(memoclaw completions zsh)"${c.reset}
   ${c.dim}memoclaw completions fish > ~/.config/fish/completions/memoclaw.fish${c.reset}`,
 
+      core: `${c.bold}memoclaw core${c.reset} [options]
+
+List core memories (FREE — no embeddings cost).
+
+Core memories are high-importance, foundational memories that define
+key facts, preferences, or identity. This endpoint is free to call.
+
+  ${c.dim}memoclaw core${c.reset}
+  ${c.dim}memoclaw core --namespace project1${c.reset}
+  ${c.dim}memoclaw core --limit 5 --json${c.reset}
+  ${c.dim}memoclaw core --raw | head -5${c.reset}
+
+Options:
+  --limit <n>            Max results
+  --namespace <name>     Filter by namespace
+  --raw                  Output content only (for piping)`,
+
       history: `${c.bold}memoclaw history${c.reset} <id>
 
 View the change history for a memory (FREE).
@@ -352,6 +369,7 @@ ${c.bold}Commands:${c.reset}
   ${c.cyan}context${c.reset} "query"        Get GPT-powered contextual summary ($0.01/call)
   ${c.cyan}consolidate${c.reset}            Merge similar memories
   ${c.cyan}relations${c.reset} <sub>        Manage memory relations
+  ${c.cyan}core${c.reset}                   List core memories (free)
   ${c.cyan}suggested${c.reset}              Get suggested memories for review
   ${c.cyan}status${c.reset}                 Check account & free tier info
   ${c.cyan}stats${c.reset}                  Memory statistics
