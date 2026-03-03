@@ -104,6 +104,7 @@ const { cmdGet, cmdDelete, cmdUpdate } = await import('../src/commands/memory.js
 const { cmdSearch, cmdContext, cmdExtract, cmdIngest, cmdConsolidate } = await import('../src/commands/search.js');
 const { cmdCount, cmdSuggested, cmdGraph } = await import('../src/commands/status.js');
 const { cmdHistory } = await import('../src/commands/history.js');
+const { cmdCore } = await import('../src/commands/core.js');
 const { cmdRelations } = await import('../src/commands/relations.js');
 const { cmdNamespace } = await import('../src/commands/namespace.js');
 const { cmdExport, cmdPurge } = await import('../src/commands/data.js');
@@ -1280,6 +1281,65 @@ describe('list tags filter', () => {
 
     const url = allFetches.find(f => f.url.includes('/v1/memories'))?.url || '';
     expect(url).toContain('tags=urgent%2Cfix');
+  });
+});
+
+describe('cmdCore', () => {
+  test('displays core memories in table', async () => {
+    mockFetchResponse = {
+      memories: [
+        { id: 'core-1111-2222-3333', content: 'User prefers dark mode', importance: 0.95, metadata: { tags: ['preference'] }, created_at: '2026-01-15T00:00:00Z' },
+        { id: 'core-4444-5555-6666', content: 'Primary language is TypeScript', importance: 0.9, metadata: { tags: ['tech'] }, created_at: '2026-01-20T00:00:00Z' },
+      ],
+      total: 2,
+    };
+    captureConsole();
+    await cmdCore({ _: [] } as any);
+    restoreConsole();
+    const output = consoleOutput.join('\n');
+    expect(output).toContain('User prefers dark mode');
+    expect(output).toContain('Primary language is TypeScript');
+    expect(output).toContain('2 of 2 core memories');
+  });
+
+  test('shows empty message when no core memories', async () => {
+    mockFetchResponse = { memories: [], total: 0 };
+    captureConsole();
+    await cmdCore({ _: [] } as any);
+    restoreConsole();
+    expect(consoleOutput.join('\n')).toContain('No core memories found');
+  });
+
+  test('passes namespace and limit to query params', async () => {
+    mockFetchResponse = { memories: [], total: 0 };
+    allFetches.length = 0;
+    captureConsole();
+    await cmdCore({ _: [], namespace: 'proj', limit: '5' } as any);
+    restoreConsole();
+    const url = allFetches.find(f => f.url.includes('/v1/core'))?.url || '';
+    expect(url).toContain('namespace=proj');
+    expect(url).toContain('limit=5');
+  });
+
+  test('outputs JSON when --json flag set', async () => {
+    mockFetchResponse = { memories: [{ id: 'abc', content: 'test' }], total: 1 };
+    resetOutputState();
+    const { configureOutput } = await import('../src/output.js');
+    configureOutput({ json: true });
+    captureConsole();
+    await cmdCore({ _: [], json: true } as any);
+    restoreConsole();
+    resetOutputState();
+    const parsed = JSON.parse(consoleOutput[0]);
+    expect(parsed.memories).toBeDefined();
+  });
+
+  test('raw mode outputs content only', async () => {
+    mockFetchResponse = { memories: [{ id: 'a', content: 'raw content here' }], total: 1 };
+    captureConsole();
+    await cmdCore({ _: [], raw: true } as any);
+    restoreConsole();
+    expect(consoleOutput.join('\n')).toContain('raw content here');
   });
 });
 

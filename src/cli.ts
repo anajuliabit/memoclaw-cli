@@ -34,6 +34,7 @@ import { cmdMigrate } from './commands/migrate.js';
 import { cmdBrowse } from './commands/browse.js';
 import { cmdCompletions } from './commands/completions.js';
 import { cmdHistory } from './commands/history.js';
+import { cmdCore } from './commands/core.js';
 
 // ─── Main ────────────────────────────────────────────────────────────────────
 
@@ -182,6 +183,9 @@ try {
       break;
     case 'init':
       await cmdInit(args);
+      break;
+    case 'core':
+      await cmdCore(args);
       break;
     case 'history':
       if (!rest[0]) throw new Error('Memory ID required. Usage: memoclaw history <id>');
