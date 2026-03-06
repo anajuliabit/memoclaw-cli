@@ -307,14 +307,16 @@ describe('export format', () => {
 // ─── Completions ─────────────────────────────────────────────────────────────
 
 describe('completions', () => {
-  const commands = ['init', 'migrate', 'store', 'recall', 'search', 'list', 'get', 'update', 'delete', 'ingest', 'extract',
-    'context', 'consolidate', 'relations', 'suggested', 'status', 'export', 'import', 'stats', 'browse',
+  const commands = ['init', 'migrate', 'store', 'recall', 'search', 'list', 'get', 'update', 'delete', 'bulk-delete', 'ingest', 'extract',
+    'context', 'consolidate', 'relations', 'core', 'suggested', 'status', 'export', 'import', 'stats', 'browse',
     'completions', 'config', 'graph', 'history', 'purge', 'count', 'namespace', 'help'];
 
   test('all commands present', () => {
-    expect(commands.length).toBe(28);
+    expect(commands.length).toBe(30);
     expect(commands).toContain('store');
     expect(commands).toContain('get');
+    expect(commands).toContain('bulk-delete');
+    expect(commands).toContain('core');
     expect(commands).toContain('export');
     expect(commands).toContain('import');
     expect(commands).toContain('stats');
