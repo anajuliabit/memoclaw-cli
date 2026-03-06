@@ -878,7 +878,6 @@ describe('cmdExtract', () => {
     await expect(cmdExtract('   \n\t  ', { _: [] } as any)).rejects.toThrow('empty');
     restoreConsole();
   });
-});
 
   test('accepts text longer than 8192 chars', async () => {
     mockFetchResponse = { memories: [] };
@@ -887,6 +886,7 @@ describe('cmdExtract', () => {
     expect(getLastBody().text).toBe(longText);
     restoreConsole();
   });
+});
 
 // ─── Ingest ──────────────────────────────────────────────────────────────────
 
@@ -1481,6 +1481,110 @@ describe('search csv/yaml format', () => {
     resetOutputState();
     const output = consoleOutput.join('\n');
     expect(output).toContain('content: yaml test');
+  });
+});
+
+// ─── #70: list format support ────────────────────────────────────────────────
+
+describe('list csv/yaml format', () => {
+  test('csv format outputs comma-separated values', async () => {
+    mockFetchResponse = {
+      memories: [
+        { id: 'list-1111-2222', content: 'hello world', importance: 0.7, namespace: 'test', metadata: { tags: ['tag1'] }, created_at: '2026-01-01T00:00:00Z' },
+      ],
+      total: 1,
+    };
+    resetOutputState();
+    const { configureOutput } = await import('../src/output.js');
+    configureOutput({ format: 'csv' });
+    captureConsole();
+    await cmdList({ _: [] } as any);
+    restoreConsole();
+    resetOutputState();
+    const output = consoleOutput.join('\n');
+    expect(output).toContain('id');
+    expect(output).toContain('content');
+    expect(output).toContain('hello world');
+    expect(output).toContain('tag1');
+  });
+
+  test('yaml format outputs yaml', async () => {
+    mockFetchResponse = {
+      memories: [
+        { id: 'yaml-1111-2222', content: 'yaml test', importance: 0.5, metadata: {}, created_at: '2026-01-01T00:00:00Z' },
+      ],
+      total: 1,
+    };
+    resetOutputState();
+    const { configureOutput } = await import('../src/output.js');
+    configureOutput({ format: 'yaml' });
+    captureConsole();
+    await cmdList({ _: [] } as any);
+    restoreConsole();
+    resetOutputState();
+    const output = consoleOutput.join('\n');
+    expect(output).toContain('content: yaml test');
+  });
+
+  test('tsv format outputs tab-separated values', async () => {
+    mockFetchResponse = {
+      memories: [
+        { id: 'tsv-1111-2222', content: 'tsv test', importance: 0.5, metadata: { tags: ['a'] }, created_at: '2026-01-01T00:00:00Z' },
+      ],
+      total: 1,
+    };
+    resetOutputState();
+    const { configureOutput } = await import('../src/output.js');
+    configureOutput({ format: 'tsv' });
+    captureConsole();
+    await cmdList({ _: [] } as any);
+    restoreConsole();
+    resetOutputState();
+    const output = consoleOutput.join('\n');
+    expect(output).toContain('id\t');
+    expect(output).toContain('tsv test');
+  });
+});
+
+// ─── #72: core format support ────────────────────────────────────────────────
+
+describe('core csv/yaml format', () => {
+  test('csv format outputs comma-separated values', async () => {
+    mockFetchResponse = {
+      memories: [
+        { id: 'core-1111-2222', content: 'core csv test', importance: 0.9, metadata: { tags: ['pref'] }, created_at: '2026-01-15T00:00:00Z' },
+      ],
+      total: 1,
+    };
+    resetOutputState();
+    const { configureOutput } = await import('../src/output.js');
+    configureOutput({ format: 'csv' });
+    captureConsole();
+    await cmdCore({ _: [] } as any);
+    restoreConsole();
+    resetOutputState();
+    const output = consoleOutput.join('\n');
+    expect(output).toContain('id');
+    expect(output).toContain('content');
+    expect(output).toContain('core csv test');
+  });
+
+  test('yaml format outputs yaml', async () => {
+    mockFetchResponse = {
+      memories: [
+        { id: 'core-yaml-2222', content: 'core yaml test', importance: 0.8, metadata: {}, created_at: '2026-01-20T00:00:00Z' },
+      ],
+      total: 1,
+    };
+    resetOutputState();
+    const { configureOutput } = await import('../src/output.js');
+    configureOutput({ format: 'yaml' });
+    captureConsole();
+    await cmdCore({ _: [] } as any);
+    restoreConsole();
+    resetOutputState();
+    const output = consoleOutput.join('\n');
+    expect(output).toContain('content: core yaml test');
   });
 });
 

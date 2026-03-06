@@ -5,7 +5,7 @@
 import type { ParsedArgs } from '../args.js';
 import { request } from '../http.js';
 import { c } from '../colors.js';
-import { outputJson, outputTruncate, noTruncate, out, table, outputWrite } from '../output.js';
+import { outputJson, outputFormat, outputTruncate, noTruncate, out, table, outputWrite } from '../output.js';
 
 export async function cmdCore(opts: ParsedArgs) {
   const params = new URLSearchParams();
@@ -31,6 +31,18 @@ export async function cmdCore(opts: ParsedArgs) {
 
   if (memories.length === 0) {
     console.log(`${c.dim}No core memories found.${c.reset}`);
+    return;
+  }
+
+  if (outputFormat === 'csv' || outputFormat === 'tsv' || outputFormat === 'yaml') {
+    const rows = memories.map((m: any) => ({
+      id: m.id || '',
+      content: m.content || '',
+      importance: m.importance?.toFixed(2) || '',
+      tags: m.metadata?.tags?.join(', ') || '',
+      created: m.created_at || '',
+    }));
+    out(rows);
     return;
   }
 

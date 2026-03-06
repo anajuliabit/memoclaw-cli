@@ -1,7 +1,7 @@
 import type { ParsedArgs } from '../args.js';
 import { request } from '../http.js';
 import { c } from '../colors.js';
-import { outputJson, outputTruncate, noTruncate, out, table, outputWrite } from '../output.js';
+import { outputJson, outputFormat, outputTruncate, noTruncate, out, table, outputWrite } from '../output.js';
 
 /** Apply client-side sorting to memories array */
 function sortMemories(memories: any[], opts: ParsedArgs): any[] {
@@ -157,6 +157,18 @@ export async function cmdList(opts: ParsedArgs) {
     for (const mem of memories) {
       outputWrite(mem.content || '');
     }
+  } else if (outputFormat === 'csv' || outputFormat === 'tsv' || outputFormat === 'yaml') {
+    let memories = result.memories || result.data || [];
+    memories = sortMemories(memories, opts);
+    const rows = memories.map((m: any) => ({
+      id: m.id || '',
+      content: m.content || '',
+      importance: m.importance?.toFixed(2) || '',
+      namespace: m.namespace || '',
+      tags: m.metadata?.tags?.join(', ') || '',
+      created: m.created_at || '',
+    }));
+    out(rows);
   } else {
     let memories = result.memories || result.data || [];
     memories = sortMemories(memories, opts);
