@@ -1493,3 +1493,4 @@ describe('validateImportance', () => {
   test('rejects "abc"', () => expect(() => validateImportance('abc')).toThrow());
   test('rejects empty', () => expect(() => validateImportance('')).toThrow());
 });
+// CI test
