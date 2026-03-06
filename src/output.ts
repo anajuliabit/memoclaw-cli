@@ -25,9 +25,12 @@ export function configureOutput(args: any) {
   outputQuiet = !!args.quiet;
   outputPretty = !!args.pretty;
 
+  // Always reset field and file — use explicit null/undefined to clear
   if (args.field && args.field !== true) {
     outputField = String(args.field);
     outputJson = true;
+  } else {
+    outputField = null;
   }
 
   if (args.format) {
@@ -36,6 +39,8 @@ export function configureOutput(args: any) {
     if (fmt === 'json' || fmt === 'table' || fmt === 'csv' || fmt === 'tsv' || fmt === 'yaml') {
       outputFormat = fmt as typeof outputFormat;
     }
+  } else {
+    outputFormat = args.json ? 'json' : 'table';
   }
   if (args.json) outputFormat = 'json';
 
@@ -43,6 +48,8 @@ export function configureOutput(args: any) {
     outputTruncate = parseInt(args.truncate);
   } else if (args.truncate === true) {
     outputTruncate = 80;
+  } else {
+    outputTruncate = 0;
   }
 
   noTruncate = !!args.noTruncate;
@@ -51,6 +58,8 @@ export function configureOutput(args: any) {
   if (args.output) {
     outputFile = String(args.output);
     fs.writeFileSync(outputFile, '');
+  } else {
+    outputFile = null;
   }
 }
 

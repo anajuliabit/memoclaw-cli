@@ -63,8 +63,16 @@ if (args.help) {
 if (!args.namespace && DEFAULT_NAMESPACE) args.namespace = DEFAULT_NAMESPACE;
 
 // Configure request timeout
-const TIMEOUT_MS = args.timeout ? parseInt(args.timeout) * 1000 : DEFAULT_TIMEOUT * 1000;
-setRequestTimeout(TIMEOUT_MS);
+if (args.timeout) {
+  const parsed = parseInt(args.timeout);
+  if (isNaN(parsed) || parsed < 0) {
+    console.error(`${c.red}Error:${c.reset} Invalid timeout value "${args.timeout}". Must be a positive number (seconds).`);
+    process.exit(1);
+  }
+  setRequestTimeout(parsed * 1000);
+} else {
+  setRequestTimeout(DEFAULT_TIMEOUT * 1000);
+}
 
 try {
   switch (cmd) {

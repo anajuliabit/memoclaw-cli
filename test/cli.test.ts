@@ -1054,6 +1054,18 @@ describe('timeout config', () => {
     // '0' is truthy as string, so parseInt('0') * 1000 = 0
     expect(timeoutMs).toBe(0);
   });
+
+  test('invalid timeout value is detected as NaN', () => {
+    const args = parseArgs(['list', '--timeout', 'abc']);
+    const parsed = parseInt(args.timeout);
+    expect(isNaN(parsed)).toBe(true);
+  });
+
+  test('negative timeout value is detected', () => {
+    const args = parseArgs(['list', '--timeout', '-5']);
+    const parsed = parseInt(args.timeout);
+    expect(parsed < 0).toBe(true);
+  });
 });
 
 // ─── Combined flags with output options ─────────────────────────────────────
@@ -1181,6 +1193,34 @@ describe('store --content flag', () => {
     const [cmd, ...rest] = result._;
     const content = rest[0] || (result.content && result.content !== true ? result.content : undefined);
     expect(content).toBe('flag content');
+  });
+});
+
+// ─── Watch mode fingerprint ──────────────────────────────────────────────────
+
+describe('watch mode fingerprint', () => {
+  test('detects changes when IDs differ even if count is same', () => {
+    const memories1 = [{ id: 'aaa', updated_at: '2024-01-01' }, { id: 'bbb', updated_at: '2024-01-01' }];
+    const memories2 = [{ id: 'aaa', updated_at: '2024-01-01' }, { id: 'ccc', updated_at: '2024-01-02' }];
+    const fp1 = memories1.map((m: any) => `${m.id}:${m.updated_at || ''}`).join('|');
+    const fp2 = memories2.map((m: any) => `${m.id}:${m.updated_at || ''}`).join('|');
+    expect(fp1).not.toBe(fp2);
+    expect(memories1.length).toBe(memories2.length); // count is same
+  });
+
+  test('detects changes when updated_at differs', () => {
+    const memories1 = [{ id: 'aaa', updated_at: '2024-01-01' }];
+    const memories2 = [{ id: 'aaa', updated_at: '2024-01-02' }];
+    const fp1 = memories1.map((m: any) => `${m.id}:${m.updated_at || ''}`).join('|');
+    const fp2 = memories2.map((m: any) => `${m.id}:${m.updated_at || ''}`).join('|');
+    expect(fp1).not.toBe(fp2);
+  });
+
+  test('same memories produce same fingerprint', () => {
+    const memories = [{ id: 'aaa', updated_at: '2024-01-01' }, { id: 'bbb', updated_at: '2024-01-02' }];
+    const fp1 = memories.map((m: any) => `${m.id}:${m.updated_at || ''}`).join('|');
+    const fp2 = memories.map((m: any) => `${m.id}:${m.updated_at || ''}`).join('|');
+    expect(fp1).toBe(fp2);
   });
 });
 

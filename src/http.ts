@@ -73,11 +73,23 @@ export async function request(method: string, path: string, body: any = null) {
       const paymentHeaders = client.encodePaymentSignatureHeader(paymentPayload);
       if (process.env.DEBUG) console.error('Payment headers:', paymentHeaders);
 
-      res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json', ...paymentHeaders },
-        body: body ? JSON.stringify(body) : undefined,
-      });
+      const retryController = new AbortController();
+      const retryTimeoutId = setTimeout(() => retryController.abort(), _timeoutMs);
+      try {
+        res = await fetch(url, {
+          method,
+          headers: { 'Content-Type': 'application/json', ...paymentHeaders },
+          body: body ? JSON.stringify(body) : undefined,
+          signal: retryController.signal,
+        });
+      } catch (retryErr: any) {
+        clearTimeout(retryTimeoutId);
+        if (retryErr.name === 'AbortError') {
+          throw new Error(`x402 payment retry timed out after ${_timeoutMs / 1000}s`);
+        }
+        throw retryErr;
+      }
+      clearTimeout(retryTimeoutId);
 
       if (process.env.DEBUG) {
         console.error('=== Retry Response ===');
