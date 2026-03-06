@@ -33,7 +33,7 @@ export async function cmdRecall(query: string, opts: ParsedArgs) {
 
   // Watch mode
   if (opts.watch) {
-    let lastCount = -1;
+    let lastFingerprint = '';
     const pollInterval = parseInt(opts.watchInterval || '5000');
 
     console.log(`${c.dim}Watching for changes... Press Ctrl+C to stop.${c.reset}`);
@@ -42,10 +42,11 @@ export async function cmdRecall(query: string, opts: ParsedArgs) {
       try {
         const result = await request('POST', '/v1/recall', body) as any;
         const memories = result.memories || [];
+        const fingerprint = memories.map((m: any) => `${m.id}:${m.updated_at || ''}`).join('|');
 
-        if (memories.length !== lastCount) {
-          if (lastCount >= 0) console.log(`${c.dim}${'─'.repeat(40)}${c.reset}`);
-          lastCount = memories.length;
+        if (fingerprint !== lastFingerprint) {
+          if (lastFingerprint) console.log(`${c.dim}${'─'.repeat(40)}${c.reset}`);
+          lastFingerprint = fingerprint;
           renderMemories(memories);
         }
 
