@@ -35,6 +35,7 @@ import { cmdBrowse } from './commands/browse.js';
 import { cmdCompletions } from './commands/completions.js';
 import { cmdHistory } from './commands/history.js';
 import { cmdCore } from './commands/core.js';
+import { cmdWhoami } from './commands/whoami.js';
 
 // ─── Main ────────────────────────────────────────────────────────────────────
 
@@ -129,11 +130,14 @@ try {
       break;
     case 'extract': {
       let text = rest[0];
+      if (!text && args.file) {
+        text = readFileContent(args.file);
+      }
       if (!text) {
         const stdin = await readStdin();
         if (stdin) text = stdin;
       }
-      if (!text) throw new Error('Text required. Provide as argument or pipe via stdin.');
+      if (!text) throw new Error('Text required. Provide as argument, --file flag, or pipe via stdin.');
       await cmdExtract(text, args);
       break;
     }
@@ -218,6 +222,9 @@ try {
       await cmdMigrate(rest[0], args);
       break;
     }
+    case 'whoami':
+      await cmdWhoami(args);
+      break;
     case 'help':
       printHelp(rest[0]);
       break;
