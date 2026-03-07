@@ -5,7 +5,7 @@
 import type { ParsedArgs } from '../args.js';
 import { request } from '../http.js';
 import { c } from '../colors.js';
-import { outputJson, outputFormat, outputTruncate, noTruncate, out, success, info, truncate, table, readStdin } from '../output.js';
+import { outputJson, outputFormat, outputTruncate, noTruncate, out, outputWrite, success, info, truncate, table, readStdin } from '../output.js';
 
 export async function cmdSearch(query: string, opts: ParsedArgs) {
   const params = new URLSearchParams({ q: query });
@@ -20,12 +20,12 @@ export async function cmdSearch(query: string, opts: ParsedArgs) {
   } else if (opts.raw) {
     const memories = result.memories || result.data || [];
     for (const mem of memories) {
-      console.log(mem.content);
+      outputWrite(mem.content);
     }
   } else if (outputFormat === 'csv' || outputFormat === 'tsv' || outputFormat === 'yaml') {
     const memories = result.memories || result.data || [];
     const rows = memories.map((m: any) => ({
-      id: m.id?.slice(0, 8) || '?',
+      id: m.id || '',
       content: m.content || '',
       tags: m.metadata?.tags?.join(', ') || '',
     }));
@@ -33,17 +33,17 @@ export async function cmdSearch(query: string, opts: ParsedArgs) {
   } else {
     const memories = result.memories || result.data || [];
     if (memories.length === 0) {
-      console.log(`${c.dim}No memories found.${c.reset}`);
+      outputWrite(`${c.dim}No memories found.${c.reset}`);
     } else {
       const truncateWidth = outputTruncate || 80;
       for (const mem of memories) {
         const content = noTruncate ? mem.content : truncate(mem.content || '', truncateWidth);
-        console.log(`${c.cyan}${(mem.id || '?').slice(0, 8)}${c.reset}  ${content}`);
+        outputWrite(`${c.cyan}${(mem.id || '?').slice(0, 8)}${c.reset}  ${content}`);
         if (mem.metadata?.tags?.length) {
-          console.log(`  ${c.dim}tags: ${mem.metadata.tags.join(', ')}${c.reset}`);
+          outputWrite(`  ${c.dim}tags: ${mem.metadata.tags.join(', ')}${c.reset}`);
         }
       }
-      console.log(`${c.dim}─ ${memories.length} result${memories.length !== 1 ? 's' : ''} (text search, free)${c.reset}`);
+      outputWrite(`${c.dim}─ ${memories.length} result${memories.length !== 1 ? 's' : ''} (text search, free)${c.reset}`);
     }
   }
 }
