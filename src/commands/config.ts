@@ -9,16 +9,16 @@ import type { ParsedArgs } from '../args.js';
 import { c } from '../colors.js';
 import { API_URL, PRIVATE_KEY, DEFAULT_NAMESPACE, DEFAULT_TIMEOUT, CONFIG_DIR, CONFIG_FILE, CONFIG_FILE_JSON, ensureConfigDir } from '../config.js';
 import { getAccount } from '../auth.js';
-import { outputJson, out, success, info } from '../output.js';
+import { outputJson, out, outputWrite, outputError, success, info } from '../output.js';
 
 export async function cmdInit(opts: ParsedArgs) {
   const configPath = CONFIG_FILE_JSON;
 
   if (fs.existsSync(configPath) && !opts.force) {
     const existing = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
-    console.error(`${c.yellow}⚠${c.reset} Config already exists at ${c.cyan}${configPath}${c.reset}`);
-    console.error(`  Wallet: ${c.dim}${existing.address || '(unknown)'}${c.reset}`);
-    console.error(`  Use ${c.bold}--force${c.reset} to overwrite.`);
+    outputError(`${c.yellow}⚠${c.reset} Config already exists at ${c.cyan}${configPath}${c.reset}`);
+    outputError(`  Wallet: ${c.dim}${existing.address || '(unknown)'}${c.reset}`);
+    outputError(`  Use ${c.bold}--force${c.reset} to overwrite.`);
     process.exit(1);
   }
 
@@ -42,17 +42,17 @@ export async function cmdInit(opts: ParsedArgs) {
   if (outputJson) {
     out({ address: newAccount.address, url: apiUrl, configPath });
   } else {
-    console.log();
-    console.log(`${c.green}✓${c.reset} ${c.bold}MemoClaw initialized!${c.reset}`);
-    console.log();
-    console.log(`  ${c.bold}Wallet:${c.reset}  ${c.cyan}${newAccount.address}${c.reset}`);
-    console.log(`  ${c.bold}API:${c.reset}     ${c.dim}${apiUrl}${c.reset}`);
-    console.log(`  ${c.bold}Config:${c.reset}  ${c.dim}${configPath}${c.reset}`);
-    console.log();
-    console.log(`  Your wallet is your identity. No signup needed.`);
-    console.log(`  You get ${c.bold}100 free API calls${c.reset}, then x402 micropayments.`);
-    console.log();
-    console.log(`  ${c.dim}Try: memoclaw store "Hello, MemoClaw!"${c.reset}`);
+    outputWrite('');
+    outputWrite(`${c.green}✓${c.reset} ${c.bold}MemoClaw initialized!${c.reset}`);
+    outputWrite('');
+    outputWrite(`  ${c.bold}Wallet:${c.reset}  ${c.cyan}${newAccount.address}${c.reset}`);
+    outputWrite(`  ${c.bold}API:${c.reset}     ${c.dim}${apiUrl}${c.reset}`);
+    outputWrite(`  ${c.bold}Config:${c.reset}  ${c.dim}${configPath}${c.reset}`);
+    outputWrite('');
+    outputWrite(`  Your wallet is your identity. No signup needed.`);
+    outputWrite(`  You get ${c.bold}100 free API calls${c.reset}, then x402 micropayments.`);
+    outputWrite('');
+    outputWrite(`  ${c.dim}Try: memoclaw store "Hello, MemoClaw!"${c.reset}`);
   }
 }
 
@@ -69,12 +69,12 @@ export async function cmdConfig(subcmd: string, rest: string[]) {
 
     fs.writeFileSync(configPath, yaml.dump(sampleConfig, { indent: 2 }));
     success(`Config file created at ${c.cyan}${configPath}${c.reset}`);
-    console.log(`${c.dim}Edit this file and remove the privateKey line (set via MEMOCLAW_PRIVATE_KEY env var)${c.reset}`);
+    outputWrite(`${c.dim}Edit this file and remove the privateKey line (set via MEMOCLAW_PRIVATE_KEY env var)${c.reset}`);
     return;
   }
 
   if (subcmd === 'path') {
-    console.log(CONFIG_FILE);
+    outputWrite(CONFIG_FILE);
     return;
   }
 
@@ -90,13 +90,13 @@ export async function cmdConfig(subcmd: string, rest: string[]) {
     if (outputJson) {
       out(config);
     } else {
-      console.log(`${c.bold}MemoClaw Configuration${c.reset}`);
-      console.log(`${c.dim}${'─'.repeat(50)}${c.reset}`);
+      outputWrite(`${c.bold}MemoClaw Configuration${c.reset}`);
+      outputWrite(`${c.dim}${'─'.repeat(50)}${c.reset}`);
       for (const [key, val] of Object.entries(config)) {
         const isSet = !val.includes('not set');
-        console.log(`  ${c.cyan}${key.padEnd(24)}${c.reset} ${isSet ? val : `${c.dim}${val}${c.reset}`}`);
+        outputWrite(`  ${c.cyan}${key.padEnd(24)}${c.reset} ${isSet ? val : `${c.dim}${val}${c.reset}`}`);
       }
-      console.log(`\n${c.dim}Set via environment variables or .env file${c.reset}`);
+      outputWrite(`\n${c.dim}Set via environment variables or .env file${c.reset}`);
     }
   } else if (subcmd === 'check') {
     const issues: string[] = [];
@@ -129,7 +129,7 @@ export async function cmdConfig(subcmd: string, rest: string[]) {
         success(`API reachable at ${c.dim}${API_URL}${c.reset}`);
       } else {
         for (const issue of issues) {
-          console.log(`${c.red}✗${c.reset} ${issue}`);
+          outputWrite(`${c.red}✗${c.reset} ${issue}`);
         }
       }
     }
