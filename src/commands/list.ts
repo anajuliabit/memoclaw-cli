@@ -137,7 +137,26 @@ export async function cmdList(opts: ParsedArgs) {
           if (lastFingerprint) outputWrite(`${c.dim}${'─'.repeat(40)}${c.reset}`);
           lastFingerprint = fingerprint;
           memories = sortMemories(memories, opts);
-          renderTable(memories, columns, opts, total);
+
+          if (outputJson) {
+            out(result);
+          } else if (opts.raw) {
+            for (const mem of memories) {
+              outputWrite(mem.content || '');
+            }
+          } else if (outputFormat === 'csv' || outputFormat === 'tsv' || outputFormat === 'yaml') {
+            const rows = memories.map((m: any) => ({
+              id: m.id || '',
+              content: m.content || '',
+              importance: m.importance?.toFixed(2) || '',
+              namespace: m.namespace || '',
+              tags: m.metadata?.tags?.join(', ') || '',
+              created: m.created_at || '',
+            }));
+            out(rows);
+          } else {
+            renderTable(memories, columns, opts, total);
+          }
         }
 
         await new Promise(r => setTimeout(r, pollInterval));
