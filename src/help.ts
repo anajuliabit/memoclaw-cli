@@ -336,6 +336,14 @@ View the change history for a memory (FREE).
   ${c.dim}memoclaw history 550e8400-e29b-41d4-a716-446655440000${c.reset}
   ${c.dim}memoclaw history abc123 --json${c.reset}`,
 
+      whoami: `${c.bold}memoclaw whoami${c.reset}
+
+Print your wallet address. Useful for scripting.
+
+  ${c.dim}memoclaw whoami${c.reset}
+  ${c.dim}WALLET=$(memoclaw whoami)${c.reset}
+  ${c.dim}memoclaw whoami --json${c.reset}`,
+
       namespace: `${c.bold}memoclaw namespace${c.reset} [list|stats]
 
 Manage and view namespaces.
@@ -379,6 +387,7 @@ ${c.bold}Commands:${c.reset}
   ${c.cyan}relations${c.reset} <sub>        Manage memory relations
   ${c.cyan}core${c.reset}                   List core memories (free)
   ${c.cyan}suggested${c.reset}              Get suggested memories for review
+  ${c.cyan}whoami${c.reset}                 Print your wallet address
   ${c.cyan}status${c.reset}                 Check account & free tier info
   ${c.cyan}stats${c.reset}                  Memory statistics
   ${c.cyan}export${c.reset}                 Export all memories as JSON
