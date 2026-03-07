@@ -1,6 +1,7 @@
 import type { ParsedArgs } from '../args.js';
 import { request } from '../http.js';
 import { c } from '../colors.js';
+import { outputWrite } from '../output.js';
 import { cmdGet } from './memory.js';
 import { cmdRecall } from './recall.js';
 import { cmdStore } from './store.js';
@@ -12,9 +13,9 @@ export async function cmdBrowse(opts: ParsedArgs) {
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
   const prompt = (q: string): Promise<string> => new Promise(r => rl.question(q, r));
 
-  console.log(`${c.bold}MemoClaw Interactive Browser${c.reset} ${c.dim}(type "help" or "q" to quit)${c.reset}`);
-  if (opts.namespace) console.log(`${c.dim}Namespace: ${opts.namespace}${c.reset}`);
-  console.log();
+  outputWrite(`${c.bold}MemoClaw Interactive Browser${c.reset} ${c.dim}(type "help" or "q" to quit)${c.reset}`);
+  if (opts.namespace) outputWrite(`${c.dim}Namespace: ${opts.namespace}${c.reset}`);
+  outputWrite('');
 
   let offset = 0;
   const limit = 10;
@@ -31,7 +32,7 @@ export async function cmdBrowse(opts: ParsedArgs) {
     try {
       switch (browsCmd) {
         case 'help':
-          console.log(`${c.bold}Commands:${c.reset}
+          outputWrite(`${c.bold}Commands:${c.reset}
   list / ls          List memories (paginated)
   next / n           Next page
   prev / p           Previous page
@@ -48,12 +49,12 @@ export async function cmdBrowse(opts: ParsedArgs) {
           if (opts.namespace) params.set('namespace', opts.namespace);
           const result = await request('GET', `/v1/memories?${params}`) as any;
           const memories = result.memories || result.data || [];
-          if (memories.length === 0) { console.log(`${c.dim}No memories.${c.reset}`); break; }
+          if (memories.length === 0) { outputWrite(`${c.dim}No memories.${c.reset}`); break; }
           for (const m of memories) {
             const text = m.content?.length > 60 ? m.content.slice(0, 60) + '…' : (m.content || '');
-            console.log(`  ${c.cyan}${(m.id || '?').slice(0, 8)}${c.reset}  ${text}`);
+            outputWrite(`  ${c.cyan}${(m.id || '?').slice(0, 8)}${c.reset}  ${text}`);
           }
-          console.log(`${c.dim}─ showing ${offset + 1}-${offset + memories.length}${result.total ? ` of ${result.total}` : ''}${c.reset}`);
+          outputWrite(`${c.dim}─ showing ${offset + 1}-${offset + memories.length}${result.total ? ` of ${result.total}` : ''}${c.reset}`);
           break;
         }
         case 'next': case 'n':
@@ -63,12 +64,12 @@ export async function cmdBrowse(opts: ParsedArgs) {
             if (opts.namespace) params.set('namespace', opts.namespace);
             const result = await request('GET', `/v1/memories?${params}`) as any;
             const memories = result.memories || result.data || [];
-            if (memories.length === 0) { console.log(`${c.dim}No more memories.${c.reset}`); offset = Math.max(0, offset - limit); break; }
+            if (memories.length === 0) { outputWrite(`${c.dim}No more memories.${c.reset}`); offset = Math.max(0, offset - limit); break; }
             for (const m of memories) {
               const text = m.content?.length > 60 ? m.content.slice(0, 60) + '…' : (m.content || '');
-              console.log(`  ${c.cyan}${(m.id || '?').slice(0, 8)}${c.reset}  ${text}`);
+              outputWrite(`  ${c.cyan}${(m.id || '?').slice(0, 8)}${c.reset}  ${text}`);
             }
-            console.log(`${c.dim}─ showing ${offset + 1}-${offset + memories.length}${result.total ? ` of ${result.total}` : ''}${c.reset}`);
+            outputWrite(`${c.dim}─ showing ${offset + 1}-${offset + memories.length}${result.total ? ` of ${result.total}` : ''}${c.reset}`);
           }
           break;
         case 'prev': case 'p':
@@ -80,39 +81,39 @@ export async function cmdBrowse(opts: ParsedArgs) {
             const memories = result.memories || result.data || [];
             for (const m of memories) {
               const text = m.content?.length > 60 ? m.content.slice(0, 60) + '…' : (m.content || '');
-              console.log(`  ${c.cyan}${(m.id || '?').slice(0, 8)}${c.reset}  ${text}`);
+              outputWrite(`  ${c.cyan}${(m.id || '?').slice(0, 8)}${c.reset}  ${text}`);
             }
-            console.log(`${c.dim}─ showing ${offset + 1}-${offset + memories.length}${result.total ? ` of ${result.total}` : ''}${c.reset}`);
+            outputWrite(`${c.dim}─ showing ${offset + 1}-${offset + memories.length}${result.total ? ` of ${result.total}` : ''}${c.reset}`);
           }
           break;
         case 'get':
-          if (!browseArgs) { console.log(`${c.red}Usage: get <id>${c.reset}`); break; }
+          if (!browseArgs) { outputWrite(`${c.red}Usage: get <id>${c.reset}`); break; }
           await cmdGet(browseArgs);
           break;
         case 'recall': case 'search':
-          if (!browseArgs) { console.log(`${c.red}Usage: recall <query>${c.reset}`); break; }
+          if (!browseArgs) { outputWrite(`${c.red}Usage: recall <query>${c.reset}`); break; }
           await cmdRecall(browseArgs, opts);
           break;
         case 'store':
-          if (!browseArgs) { console.log(`${c.red}Usage: store <content>${c.reset}`); break; }
+          if (!browseArgs) { outputWrite(`${c.red}Usage: store <content>${c.reset}`); break; }
           await cmdStore(browseArgs, opts);
           break;
         case 'delete': case 'rm':
-          if (!browseArgs) { console.log(`${c.red}Usage: delete <id>${c.reset}`); break; }
+          if (!browseArgs) { outputWrite(`${c.red}Usage: delete <id>${c.reset}`); break; }
           await cmdDelete(browseArgs);
           break;
         case 'stats':
           await cmdStats(opts);
           break;
         default:
-          console.log(`${c.dim}Unknown command. Type "help" for available commands.${c.reset}`);
+          outputWrite(`${c.dim}Unknown command. Type "help" for available commands.${c.reset}`);
       }
     } catch (e: any) {
-      console.log(`${c.red}Error:${c.reset} ${e.message}`);
+      outputWrite(`${c.red}Error:${c.reset} ${e.message}`);
     }
-    console.log();
+    outputWrite('');
   }
 
   rl.close();
-  console.log(`${c.dim}Bye!${c.reset}`);
+  outputWrite(`${c.dim}Bye!${c.reset}`);
 }

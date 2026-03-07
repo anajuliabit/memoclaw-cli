@@ -47,7 +47,25 @@ export async function cmdRecall(query: string, opts: ParsedArgs) {
         if (fingerprint !== lastFingerprint) {
           if (lastFingerprint) outputWrite(`${c.dim}${'─'.repeat(40)}${c.reset}`);
           lastFingerprint = fingerprint;
-          renderMemories(memories);
+
+          if (outputJson) {
+            out(result);
+          } else if (outputFormat === 'csv' || outputFormat === 'tsv' || outputFormat === 'yaml') {
+            const rows = memories.map((m: any) => ({
+              id: m.id || '',
+              similarity: m.similarity?.toFixed(3) || '',
+              content: m.content || '',
+              importance: m.importance?.toFixed(2) || '',
+              tags: m.metadata?.tags?.join(', ') || '',
+            }));
+            out(rows);
+          } else if (opts.raw) {
+            for (const mem of memories) {
+              outputWrite(mem.content);
+            }
+          } else {
+            renderMemories(memories);
+          }
         }
 
         await new Promise(r => setTimeout(r, pollInterval));
