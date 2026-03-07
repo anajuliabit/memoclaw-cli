@@ -8,7 +8,7 @@ import { c } from '../colors.js';
 import { API_URL } from '../config.js';
 import { getAccount, getWalletAuthHeader } from '../auth.js';
 import { getRequestTimeout } from '../http.js';
-import { outputJson, outputTruncate, noTruncate, out, success, info, table, truncate } from '../output.js';
+import { outputJson, outputFormat, outputTruncate, noTruncate, out, outputWrite, success, info, table, truncate } from '../output.js';
 
 async function fetchWithTimeout(url: string, options: RequestInit = {}): Promise<Response> {
   const timeoutMs = getRequestTimeout();
@@ -127,26 +127,37 @@ export async function cmdSuggested(opts: ParsedArgs) {
 
   if (outputJson) {
     out(result);
+  } else if (outputFormat === 'csv' || outputFormat === 'tsv' || outputFormat === 'yaml') {
+    const suggestions = result.suggested || [];
+    const rows = suggestions.map((m: any) => ({
+      id: m.id || '',
+      category: m.category || '',
+      review_score: m.review_score?.toFixed(2) || '',
+      content: m.content || '',
+      importance: m.importance?.toFixed(2) || '',
+      tags: m.metadata?.tags?.join(', ') || '',
+    }));
+    out(rows);
   } else {
     if (result.categories) {
       const cats = Object.entries(result.categories)
         .map(([k, v]) => `${c.bold}${k}${c.reset}=${v}`).join('  ');
-      console.log(`Categories: ${cats}`);
-      console.log(`${c.dim}${'─'.repeat(60)}${c.reset}`);
+      outputWrite(`Categories: ${cats}`);
+      outputWrite(`${c.dim}${'─'.repeat(60)}${c.reset}`);
     }
 
     const suggestions = result.suggested || [];
     if (suggestions.length === 0) {
-      console.log(`${c.dim}No suggested memories.${c.reset}`);
+      outputWrite(`${c.dim}No suggested memories.${c.reset}`);
     } else {
       for (const mem of suggestions) {
         const cat = mem.category?.toUpperCase() || '???';
         const catColor = { STALE: c.red, FRESH: c.green, HOT: c.yellow, DECAYING: c.magenta }[cat] || c.gray;
         const maxLen = noTruncate ? Infinity : (outputTruncate || 100);
         const text = truncate(mem.content || '', maxLen);
-        console.log(`${catColor}[${cat}]${c.reset} ${c.dim}(${mem.review_score?.toFixed(2) || '?'})${c.reset} ${text}`);
+        outputWrite(`${catColor}[${cat}]${c.reset} ${c.dim}(${mem.review_score?.toFixed(2) || '?'})${c.reset} ${text}`);
         if (mem.metadata?.tags?.length) {
-          console.log(`  ${c.dim}tags: ${mem.metadata.tags.join(', ')}${c.reset}`);
+          outputWrite(`  ${c.dim}tags: ${mem.metadata.tags.join(', ')}${c.reset}`);
         }
       }
     }
@@ -171,11 +182,11 @@ export async function cmdGraph(id: string, opts: ParsedArgs) {
 
   const shortId = (s: string) => s?.slice(0, 8) || '?';
 
-  console.log();
-  console.log(`  ${c.bold}${c.cyan}[${shortId(mem.id)}]${c.reset} ${label(mem)}`);
+  outputWrite('');
+  outputWrite(`  ${c.bold}${c.cyan}[${shortId(mem.id)}]${c.reset} ${label(mem)}`);
 
   if (relations.length === 0) {
-    console.log(`  ${c.dim}  └── (no relations)${c.reset}`);
+    outputWrite(`  ${c.dim}  └── (no relations)${c.reset}`);
   } else {
     for (let i = 0; i < relations.length; i++) {
       const r = relations[i];
@@ -185,8 +196,8 @@ export async function cmdGraph(id: string, opts: ParsedArgs) {
         contradicts: c.red, supersedes: c.yellow, supports: c.green,
         derived_from: c.magenta, related_to: c.blue,
       }[r.relation_type] || c.dim;
-      console.log(`  ${c.dim}  ${branch}──${c.reset} ${typeColor}${r.relation_type}${c.reset} ${c.dim}→${c.reset} ${c.cyan}[${shortId(r.target_id)}]${c.reset}`);
+      outputWrite(`  ${c.dim}  ${branch}──${c.reset} ${typeColor}${r.relation_type}${c.reset} ${c.dim}→${c.reset} ${c.cyan}[${shortId(r.target_id)}]${c.reset}`);
     }
   }
-  console.log();
+  outputWrite('');
 }

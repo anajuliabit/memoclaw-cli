@@ -1588,6 +1588,142 @@ describe('core csv/yaml format', () => {
   });
 });
 
+// ─── #74: recall outputWrite fix ─────────────────────────────────────────────
+
+describe('recall uses outputWrite', () => {
+  test('table output goes through outputWrite', async () => {
+    mockFetchResponse = {
+      memories: [
+        { id: 'rec-1111-2222', content: 'recall test', similarity: 0.85, metadata: { tags: ['t1'] } },
+      ],
+    };
+    resetOutputState();
+    captureConsole();
+    await cmdRecall('query', { _: [] } as any);
+    restoreConsole();
+    resetOutputState();
+    const output = consoleOutput.join('\n');
+    expect(output).toContain('recall test');
+    expect(output).toContain('0.850');
+  });
+
+  test('raw output goes through outputWrite', async () => {
+    mockFetchResponse = {
+      memories: [
+        { id: 'raw-1111-2222', content: 'raw recall content', similarity: 0.9, metadata: {} },
+      ],
+    };
+    resetOutputState();
+    captureConsole();
+    await cmdRecall('query', { _: [], raw: true } as any);
+    restoreConsole();
+    resetOutputState();
+    const output = consoleOutput.join('\n');
+    expect(output).toContain('raw recall content');
+  });
+});
+
+// ─── #74: search outputWrite fix ─────────────────────────────────────────────
+
+describe('search uses outputWrite', () => {
+  test('table output goes through outputWrite', async () => {
+    mockFetchResponse = {
+      memories: [
+        { id: 'srch-1111-2222', content: 'search test output', metadata: { tags: ['x'] } },
+      ],
+    };
+    resetOutputState();
+    captureConsole();
+    await cmdSearch('query', { _: [] } as any);
+    restoreConsole();
+    resetOutputState();
+    const output = consoleOutput.join('\n');
+    expect(output).toContain('search test output');
+    expect(output).toContain('1 result');
+  });
+
+  test('raw output goes through outputWrite', async () => {
+    mockFetchResponse = {
+      memories: [
+        { id: 'srch-raw-2222', content: 'search raw content', metadata: {} },
+      ],
+    };
+    resetOutputState();
+    captureConsole();
+    await cmdSearch('q', { _: [], raw: true } as any);
+    restoreConsole();
+    resetOutputState();
+    const output = consoleOutput.join('\n');
+    expect(output).toContain('search raw content');
+  });
+});
+
+// ─── #75: suggested csv/yaml format ──────────────────────────────────────────
+
+describe('suggested csv/yaml format', () => {
+  test('csv format outputs comma-separated values', async () => {
+    mockFetchResponse = {
+      suggested: [
+        { id: 'sug-1111-2222', category: 'stale', review_score: 0.75, content: 'suggested csv test', importance: 0.6, metadata: { tags: ['old'] } },
+      ],
+      categories: { stale: 1 },
+    };
+    resetOutputState();
+    const { configureOutput } = await import('../src/output.js');
+    configureOutput({ format: 'csv' });
+    captureConsole();
+    await cmdSuggested({ _: [] } as any);
+    restoreConsole();
+    resetOutputState();
+    const output = consoleOutput.join('\n');
+    expect(output).toContain('id');
+    expect(output).toContain('category');
+    expect(output).toContain('suggested csv test');
+    expect(output).toContain('stale');
+  });
+
+  test('yaml format outputs yaml', async () => {
+    mockFetchResponse = {
+      suggested: [
+        { id: 'sug-yaml-2222', category: 'hot', review_score: 0.9, content: 'suggested yaml test', importance: 0.8, metadata: {} },
+      ],
+    };
+    resetOutputState();
+    const { configureOutput } = await import('../src/output.js');
+    configureOutput({ format: 'yaml' });
+    captureConsole();
+    await cmdSuggested({ _: [] } as any);
+    restoreConsole();
+    resetOutputState();
+    const output = consoleOutput.join('\n');
+    expect(output).toContain('content: suggested yaml test');
+    expect(output).toContain('category: hot');
+  });
+});
+
+// ─── #74: graph uses outputWrite ─────────────────────────────────────────────
+
+describe('graph uses outputWrite', () => {
+  test('ascii tree goes through outputWrite', async () => {
+    let callCount = 0;
+    mockFetchResponse = { memory: { id: 'graph-1111-2222-3333-4444', content: 'graph node' } };
+    // The graph command makes 2 requests: get memory + get relations
+    const origFetch = globalThis.fetch;
+    // We need to handle sequenced responses — the test mock handles one at a time
+    // First call returns memory, second returns relations
+    captureConsole();
+    resetOutputState();
+    // Just test that graph doesn't crash and produces output
+    // The mock will return the same response for both calls which is fine
+    mockFetchResponse = { memory: { id: 'graph-1111-2222-3333-4444', content: 'graph node test' }, relations: [] };
+    await cmdGraph('graph-1111-2222-3333-4444', { _: [] } as any);
+    restoreConsole();
+    resetOutputState();
+    const output = consoleOutput.join('\n');
+    expect(output).toContain('graph-11');
+  });
+});
+
 describe('validateImportance', () => {
   test('accepts 0', () => expect(validateImportance('0')).toBe(0));
   test('accepts 1', () => expect(validateImportance('1')).toBe(1));
