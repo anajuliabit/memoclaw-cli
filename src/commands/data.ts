@@ -166,7 +166,7 @@ export async function cmdPurge(opts: ParsedArgs) {
     ));
     rl.close();
     if (answer.trim().toLowerCase() !== 'yes') {
-      console.log(`${c.dim}Aborted.${c.reset}`);
+      outputWrite(`${c.dim}Aborted.${c.reset}`);
       return;
     }
   }

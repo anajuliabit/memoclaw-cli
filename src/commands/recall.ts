@@ -1,27 +1,27 @@
 import type { ParsedArgs } from '../args.js';
 import { request } from '../http.js';
 import { c } from '../colors.js';
-import { outputJson, outputTruncate, outputFormat, out, truncate } from '../output.js';
+import { outputJson, outputTruncate, outputFormat, out, outputWrite, truncate } from '../output.js';
 
 /** Render a list of recall memories to stdout (shared between normal and watch mode) */
 function renderMemories(memories: any[], opts: { showId?: boolean } = {}) {
   if (memories.length === 0) {
-    console.log(`${c.dim}No memories found.${c.reset}`);
+    outputWrite(`${c.dim}No memories found.${c.reset}`);
     return;
   }
   for (const mem of memories) {
     const sim = mem.similarity?.toFixed(3) || '???';
     const simColor = (mem.similarity || 0) > 0.8 ? c.green : (mem.similarity || 0) > 0.5 ? c.yellow : c.red;
     const content = outputTruncate ? truncate(mem.content, outputTruncate) : mem.content;
-    console.log(`${simColor}[${sim}]${c.reset} ${content}`);
+    outputWrite(`${simColor}[${sim}]${c.reset} ${content}`);
     if (mem.metadata?.tags?.length) {
-      console.log(`  ${c.dim}tags: ${mem.metadata.tags.join(', ')}${c.reset}`);
+      outputWrite(`  ${c.dim}tags: ${mem.metadata.tags.join(', ')}${c.reset}`);
     }
     if (opts.showId && mem.id) {
-      console.log(`  ${c.dim}id: ${mem.id}${c.reset}`);
+      outputWrite(`  ${c.dim}id: ${mem.id}${c.reset}`);
     }
   }
-  console.log(`${c.dim}─ ${memories.length} result${memories.length !== 1 ? 's' : ''}${c.reset}`);
+  outputWrite(`${c.dim}─ ${memories.length} result${memories.length !== 1 ? 's' : ''}${c.reset}`);
 }
 
 export async function cmdRecall(query: string, opts: ParsedArgs) {
@@ -36,7 +36,7 @@ export async function cmdRecall(query: string, opts: ParsedArgs) {
     let lastFingerprint = '';
     const pollInterval = parseInt(opts.watchInterval || '5000');
 
-    console.log(`${c.dim}Watching for changes... Press Ctrl+C to stop.${c.reset}`);
+    outputWrite(`${c.dim}Watching for changes... Press Ctrl+C to stop.${c.reset}`);
 
     while (true) {
       try {
@@ -45,7 +45,7 @@ export async function cmdRecall(query: string, opts: ParsedArgs) {
         const fingerprint = memories.map((m: any) => `${m.id}:${m.updated_at || ''}`).join('|');
 
         if (fingerprint !== lastFingerprint) {
-          if (lastFingerprint) console.log(`${c.dim}${'─'.repeat(40)}${c.reset}`);
+          if (lastFingerprint) outputWrite(`${c.dim}${'─'.repeat(40)}${c.reset}`);
           lastFingerprint = fingerprint;
           renderMemories(memories);
         }
@@ -75,7 +75,7 @@ export async function cmdRecall(query: string, opts: ParsedArgs) {
   } else if (opts.raw) {
     const memories = result.memories || [];
     for (const mem of memories) {
-      console.log(mem.content);
+      outputWrite(mem.content);
     }
   } else {
     renderMemories(result.memories || [], { showId: true });

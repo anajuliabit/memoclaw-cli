@@ -4,7 +4,7 @@
 
 import { request } from '../http.js';
 import { c } from '../colors.js';
-import { outputJson, out, table } from '../output.js';
+import { outputJson, outputFormat, out, outputWrite, table } from '../output.js';
 
 export async function cmdHistory(id: string) {
   const result = await request('GET', `/v1/memories/${id}/history`) as any;
@@ -15,7 +15,17 @@ export async function cmdHistory(id: string) {
 
   const history = result.history || [];
   if (history.length === 0) {
-    console.log(`${c.dim}No history entries found.${c.reset}`);
+    outputWrite(`${c.dim}No history entries found.${c.reset}`);
+    return;
+  }
+
+  if (outputFormat === 'csv' || outputFormat === 'tsv' || outputFormat === 'yaml') {
+    const rows = history.map((entry: any) => ({
+      id: entry.id || '',
+      date: entry.created_at || '',
+      fields: Object.keys(entry.changes || {}).join(', ') || '',
+    }));
+    out(rows);
     return;
   }
 

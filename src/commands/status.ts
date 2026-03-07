@@ -8,7 +8,7 @@ import { c } from '../colors.js';
 import { API_URL } from '../config.js';
 import { getAccount, getWalletAuthHeader } from '../auth.js';
 import { getRequestTimeout } from '../http.js';
-import { outputJson, outputTruncate, noTruncate, out, success, info, table, truncate } from '../output.js';
+import { outputJson, outputFormat, outputTruncate, noTruncate, out, outputWrite, success, info, table, truncate } from '../output.js';
 
 async function fetchWithTimeout(url: string, options: RequestInit = {}): Promise<Response> {
   const timeoutMs = getRequestTimeout();
@@ -43,18 +43,25 @@ export async function cmdStatus() {
     const data = await res.json() as any;
     if (outputJson) {
       out(data);
+    } else if (outputFormat === 'csv' || outputFormat === 'tsv' || outputFormat === 'yaml') {
+      const row = {
+        wallet: data.wallet || '',
+        free_tier_remaining: data.free_tier_remaining ?? 0,
+        free_tier_total: data.free_tier_total ?? 100,
+      };
+      out([row]);
     } else {
-      console.log(`${c.bold}Wallet:${c.reset}     ${data.wallet}`);
       const remaining = data.free_tier_remaining ?? 0;
       const total = data.free_tier_total ?? 100;
       const pct = Math.max(0, Math.min(100, Math.round((remaining / total) * 100)));
       const barLen = 20;
       const filled = Math.max(0, Math.min(barLen, Math.round((remaining / total) * barLen)));
       const bar = `${c.green}${'█'.repeat(filled)}${c.dim}${'░'.repeat(barLen - filled)}${c.reset}`;
-      console.log(`${c.bold}Free tier:${c.reset}  ${remaining}/${total} calls remaining`);
-      console.log(`            ${bar} ${pct}%`);
+      outputWrite(`${c.bold}Wallet:${c.reset}     ${data.wallet}`);
+      outputWrite(`${c.bold}Free tier:${c.reset}  ${remaining}/${total} calls remaining`);
+      outputWrite(`            ${bar} ${pct}%`);
       if (remaining === 0) {
-        console.log(`${c.yellow}→ Next calls will use x402 payment (pay-per-use USDC on Base)${c.reset}`);
+        outputWrite(`${c.yellow}→ Next calls will use x402 payment (pay-per-use USDC on Base)${c.reset}`);
       }
     }
   } else {
@@ -81,25 +88,29 @@ export async function cmdStats(opts: ParsedArgs) {
     tierData = await statusRes.json();
   }
 
+  const statsRow = {
+    total_memories: total,
+    api_url: API_URL,
+    wallet: tierData.wallet || getAccount().address,
+    free_tier_remaining: tierData.free_tier_remaining,
+    free_tier_total: tierData.free_tier_total,
+  };
+
   if (outputJson) {
-    out({
-      total_memories: total,
-      api_url: API_URL,
-      wallet: tierData.wallet || getAccount().address,
-      free_tier_remaining: tierData.free_tier_remaining,
-      free_tier_total: tierData.free_tier_total,
-    });
+    out(statsRow);
+  } else if (outputFormat === 'csv' || outputFormat === 'tsv' || outputFormat === 'yaml') {
+    out([statsRow]);
   } else {
-    console.log(`${c.bold}MemoClaw Stats${c.reset}`);
-    console.log(`${c.dim}${'─'.repeat(40)}${c.reset}`);
-    console.log(`Memories:        ${c.cyan}${total}${c.reset}`);
-    console.log(`API:             ${c.dim}${API_URL}${c.reset}`);
-    console.log(`Wallet:          ${c.dim}${tierData.wallet || getAccount().address}${c.reset}`);
+    outputWrite(`${c.bold}MemoClaw Stats${c.reset}`);
+    outputWrite(`${c.dim}${'─'.repeat(40)}${c.reset}`);
+    outputWrite(`Memories:        ${c.cyan}${total}${c.reset}`);
+    outputWrite(`API:             ${c.dim}${API_URL}${c.reset}`);
+    outputWrite(`Wallet:          ${c.dim}${tierData.wallet || getAccount().address}${c.reset}`);
     if (tierData.free_tier_remaining !== undefined) {
-      console.log(`Free calls left: ${c.cyan}${tierData.free_tier_remaining}${c.reset}/${tierData.free_tier_total}`);
+      outputWrite(`Free calls left: ${c.cyan}${tierData.free_tier_remaining}${c.reset}/${tierData.free_tier_total}`);
     }
     if (opts.namespace) {
-      console.log(`Namespace:       ${c.cyan}${opts.namespace}${c.reset}`);
+      outputWrite(`Namespace:       ${c.cyan}${opts.namespace}${c.reset}`);
     }
   }
 }
@@ -112,8 +123,10 @@ export async function cmdCount(opts: ParsedArgs) {
 
   if (outputJson) {
     out({ count: total, namespace: opts.namespace || null });
+  } else if (outputFormat === 'csv' || outputFormat === 'tsv' || outputFormat === 'yaml') {
+    out([{ count: total, namespace: opts.namespace || '' }]);
   } else {
-    console.log(String(total));
+    outputWrite(String(total));
   }
 }
 
@@ -127,26 +140,37 @@ export async function cmdSuggested(opts: ParsedArgs) {
 
   if (outputJson) {
     out(result);
+  } else if (outputFormat === 'csv' || outputFormat === 'tsv' || outputFormat === 'yaml') {
+    const suggestions = result.suggested || [];
+    const rows = suggestions.map((m: any) => ({
+      id: m.id || '',
+      category: m.category || '',
+      review_score: m.review_score?.toFixed(2) || '',
+      content: m.content || '',
+      importance: m.importance?.toFixed(2) || '',
+      tags: m.metadata?.tags?.join(', ') || '',
+    }));
+    out(rows);
   } else {
     if (result.categories) {
       const cats = Object.entries(result.categories)
         .map(([k, v]) => `${c.bold}${k}${c.reset}=${v}`).join('  ');
-      console.log(`Categories: ${cats}`);
-      console.log(`${c.dim}${'─'.repeat(60)}${c.reset}`);
+      outputWrite(`Categories: ${cats}`);
+      outputWrite(`${c.dim}${'─'.repeat(60)}${c.reset}`);
     }
 
     const suggestions = result.suggested || [];
     if (suggestions.length === 0) {
-      console.log(`${c.dim}No suggested memories.${c.reset}`);
+      outputWrite(`${c.dim}No suggested memories.${c.reset}`);
     } else {
       for (const mem of suggestions) {
         const cat = mem.category?.toUpperCase() || '???';
         const catColor = { STALE: c.red, FRESH: c.green, HOT: c.yellow, DECAYING: c.magenta }[cat] || c.gray;
         const maxLen = noTruncate ? Infinity : (outputTruncate || 100);
         const text = truncate(mem.content || '', maxLen);
-        console.log(`${catColor}[${cat}]${c.reset} ${c.dim}(${mem.review_score?.toFixed(2) || '?'})${c.reset} ${text}`);
+        outputWrite(`${catColor}[${cat}]${c.reset} ${c.dim}(${mem.review_score?.toFixed(2) || '?'})${c.reset} ${text}`);
         if (mem.metadata?.tags?.length) {
-          console.log(`  ${c.dim}tags: ${mem.metadata.tags.join(', ')}${c.reset}`);
+          outputWrite(`  ${c.dim}tags: ${mem.metadata.tags.join(', ')}${c.reset}`);
         }
       }
     }
@@ -171,11 +195,11 @@ export async function cmdGraph(id: string, opts: ParsedArgs) {
 
   const shortId = (s: string) => s?.slice(0, 8) || '?';
 
-  console.log();
-  console.log(`  ${c.bold}${c.cyan}[${shortId(mem.id)}]${c.reset} ${label(mem)}`);
+  outputWrite('');
+  outputWrite(`  ${c.bold}${c.cyan}[${shortId(mem.id)}]${c.reset} ${label(mem)}`);
 
   if (relations.length === 0) {
-    console.log(`  ${c.dim}  └── (no relations)${c.reset}`);
+    outputWrite(`  ${c.dim}  └── (no relations)${c.reset}`);
   } else {
     for (let i = 0; i < relations.length; i++) {
       const r = relations[i];
@@ -185,8 +209,8 @@ export async function cmdGraph(id: string, opts: ParsedArgs) {
         contradicts: c.red, supersedes: c.yellow, supports: c.green,
         derived_from: c.magenta, related_to: c.blue,
       }[r.relation_type] || c.dim;
-      console.log(`  ${c.dim}  ${branch}──${c.reset} ${typeColor}${r.relation_type}${c.reset} ${c.dim}→${c.reset} ${c.cyan}[${shortId(r.target_id)}]${c.reset}`);
+      outputWrite(`  ${c.dim}  ${branch}──${c.reset} ${typeColor}${r.relation_type}${c.reset} ${c.dim}→${c.reset} ${c.cyan}[${shortId(r.target_id)}]${c.reset}`);
     }
   }
-  console.log();
+  outputWrite('');
 }

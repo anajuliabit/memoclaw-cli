@@ -1,7 +1,7 @@
 import type { ParsedArgs } from '../args.js';
 import { request } from '../http.js';
 import { c } from '../colors.js';
-import { outputJson, out, success, table } from '../output.js';
+import { outputJson, out, outputWrite, success, table } from '../output.js';
 
 export async function cmdRelations(subcmd: string, rest: string[], opts: ParsedArgs) {
   if (subcmd === 'list') {
@@ -12,7 +12,7 @@ export async function cmdRelations(subcmd: string, rest: string[], opts: ParsedA
     } else {
       const relations = result.relations || [];
       if (relations.length === 0) {
-        console.log(`${c.dim}No relations found.${c.reset}`);
+        outputWrite(`${c.dim}No relations found.${c.reset}`);
       } else {
         const rows = relations.map((r: any) => ({
           id: r.id?.slice(0, 8) || '?',
