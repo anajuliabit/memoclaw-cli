@@ -16,7 +16,10 @@ export function validateContentLength(content: string, label = 'Content') {
 export function validateImportance(value: string): number {
   const n = parseFloat(value);
   if (isNaN(n) || n < 0 || n > 1) {
-    throw new Error(`Importance must be a number between 0 and 1 (got "${value}")`);
+    throw new Error(
+      `Importance must be a number between 0 and 1 (got "${value}")\n` +
+      `Hint: --importance takes a numeric value, e.g. --importance 0.8`
+    );
   }
   return n;
 }
