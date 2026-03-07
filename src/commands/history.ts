@@ -2,11 +2,12 @@
  * History command: view change history for a memory
  */
 
+import type { ParsedArgs } from '../args.js';
 import { request } from '../http.js';
 import { c } from '../colors.js';
 import { outputJson, outputFormat, out, outputWrite, table } from '../output.js';
 
-export async function cmdHistory(id: string) {
+export async function cmdHistory(id: string, opts?: ParsedArgs) {
   const result = await request('GET', `/v1/memories/${id}/history`) as any;
   if (outputJson) {
     out(result);

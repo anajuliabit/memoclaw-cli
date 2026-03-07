@@ -100,10 +100,13 @@ Export all memories as JSON. Useful for backups.
 
   ${c.dim}memoclaw export > backup.json${c.reset}
   ${c.dim}memoclaw export --namespace project1 > project1.json${c.reset}
+  ${c.dim}memoclaw export --format csv > backup.csv${c.reset}
+  ${c.dim}memoclaw export --format yaml > backup.yaml${c.reset}
 
 Options:
   --namespace <name>     Filter by namespace
-  --limit <n>            Max per page (default: 100)`,
+  --limit <n>            Max per page (default: 1000)
+  --format <fmt>         Output format: json, csv, tsv, yaml`,
 
       import: `${c.bold}memoclaw import${c.reset} [options]
 

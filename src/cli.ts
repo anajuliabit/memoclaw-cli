@@ -200,7 +200,7 @@ try {
       break;
     case 'history':
       if (!rest[0]) throw new Error('Memory ID required. Usage: memoclaw history <id>');
-      await cmdHistory(rest[0]);
+      await cmdHistory(rest[0], args);
       break;
     case 'migrate': {
       if (!rest[0]) throw new Error('Path required. Usage: memoclaw migrate <path>');
