@@ -3,7 +3,7 @@ import * as path from 'path';
 import type { ParsedArgs } from '../args.js';
 import { request } from '../http.js';
 import { c } from '../colors.js';
-import { outputJson, outputQuiet, out, success, progressBar } from '../output.js';
+import { outputJson, outputQuiet, out, outputWrite, success, progressBar } from '../output.js';
 
 export async function cmdMigrate(targetPath: string, opts: ParsedArgs) {
   if (!targetPath) {
@@ -51,7 +51,7 @@ export async function cmdMigrate(targetPath: string, opts: ParsedArgs) {
   }
 
   if (!outputQuiet) {
-    console.log(`${c.blue}ℹ${c.reset} Found ${c.bold}${mdFiles.length}${c.reset} markdown file${mdFiles.length !== 1 ? 's' : ''}`);
+    outputWrite(`${c.blue}ℹ${c.reset} Found ${c.bold}${mdFiles.length}${c.reset} markdown file${mdFiles.length !== 1 ? 's' : ''}`);
   }
 
   const BATCH_SIZE = 5;
@@ -108,13 +108,13 @@ export async function cmdMigrate(targetPath: string, opts: ParsedArgs) {
   if (outputJson) {
     out({ files_found: mdFiles.length, files_processed: filesProcessed, memories_created: totalCreated, memories_deduplicated: totalDeduplicated, errors: totalErrors });
   } else {
-    console.log();
+    outputWrite('');
     success(`Migration complete!`);
-    console.log(`  Files processed:      ${c.cyan}${filesProcessed}${c.reset}`);
-    console.log(`  Memories created:     ${c.green}${totalCreated}${c.reset}`);
-    console.log(`  Deduplicated:         ${c.dim}${totalDeduplicated}${c.reset}`);
+    outputWrite(`  Files processed:      ${c.cyan}${filesProcessed}${c.reset}`);
+    outputWrite(`  Memories created:     ${c.green}${totalCreated}${c.reset}`);
+    outputWrite(`  Deduplicated:         ${c.dim}${totalDeduplicated}${c.reset}`);
     if (totalErrors > 0) {
-      console.log(`  Errors:               ${c.red}${totalErrors}${c.reset}`);
+      outputWrite(`  Errors:               ${c.red}${totalErrors}${c.reset}`);
     }
   }
 }

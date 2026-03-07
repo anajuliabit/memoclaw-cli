@@ -30,7 +30,7 @@ export async function cmdCore(opts: ParsedArgs) {
   const memories = result.memories || result.core_memories || result.data || [];
 
   if (memories.length === 0) {
-    console.log(`${c.dim}No core memories found.${c.reset}`);
+    outputWrite(`${c.dim}No core memories found.${c.reset}`);
     return;
   }
 
@@ -64,5 +64,5 @@ export async function cmdCore(opts: ParsedArgs) {
   ]);
 
   const total = result.total ?? memories.length;
-  console.log(`${c.dim}─ ${memories.length} of ${total} core memories${c.reset}`);
+  outputWrite(`${c.dim}─ ${memories.length} of ${total} core memories${c.reset}`);
 }

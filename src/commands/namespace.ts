@@ -1,7 +1,7 @@
 import type { ParsedArgs } from '../args.js';
 import { request } from '../http.js';
 import { c } from '../colors.js';
-import { outputJson, out, table } from '../output.js';
+import { outputJson, out, outputWrite, table } from '../output.js';
 
 /** Try /v1/namespaces endpoint, fall back to client-side pagination */
 async function fetchNamespaces(): Promise<{ name: string; count?: number }[]> {
@@ -48,10 +48,10 @@ export async function cmdNamespace(subcmd: string, rest: string[], opts: ParsedA
     if (outputJson) {
       out({ namespaces: namespaces.map(ns => ns.name), count: namespaces.length });
     } else if (namespaces.length === 0) {
-      console.log(`${c.dim}No namespaces found.${c.reset}`);
+      outputWrite(`${c.dim}No namespaces found.${c.reset}`);
     } else {
       table(namespaces.map(ns => ({ namespace: ns.name })), [{ key: 'namespace', label: 'NAMESPACE', width: 30 }]);
-      console.log(`${c.dim}─ ${namespaces.length} namespace${namespaces.length !== 1 ? 's' : ''}${c.reset}`);
+      outputWrite(`${c.dim}─ ${namespaces.length} namespace${namespaces.length !== 1 ? 's' : ''}${c.reset}`);
     }
   } else if (subcmd === 'stats') {
     const namespaces = await fetchNamespaces();

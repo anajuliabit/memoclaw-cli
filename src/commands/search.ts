@@ -60,7 +60,7 @@ export async function cmdContext(query: string, opts: ParsedArgs) {
   } else {
     const context = result.context || result.text || result.content;
     if (context) {
-      console.log(context);
+      outputWrite(context);
     } else {
       out(result);
     }

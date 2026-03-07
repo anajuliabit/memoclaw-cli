@@ -5,7 +5,7 @@
 import type { ParsedArgs } from '../args.js';
 import { request } from '../http.js';
 import { c } from '../colors.js';
-import { outputJson, out, success, readStdin } from '../output.js';
+import { outputJson, outputFormat, out, outputWrite, success, readStdin } from '../output.js';
 import { MAX_CONTENT_LENGTH, validateContentLength, validateImportance } from '../validate.js';
 
 export async function cmdGet(id: string, opts?: ParsedArgs) {
@@ -14,22 +14,37 @@ export async function cmdGet(id: string, opts?: ParsedArgs) {
     out(result);
   } else if (opts?.raw) {
     const mem = result.memory || result;
-    console.log(mem.content);
+    outputWrite(mem.content);
+  } else if (outputFormat === 'csv' || outputFormat === 'tsv' || outputFormat === 'yaml') {
+    const mem = result.memory || result;
+    const row = {
+      id: mem.id || id,
+      content: mem.content || '',
+      importance: mem.importance?.toFixed(2) || '',
+      namespace: mem.namespace || '',
+      tags: mem.metadata?.tags?.join(', ') || '',
+      type: mem.memory_type || '',
+      created: mem.created_at || '',
+      updated: mem.updated_at || '',
+      immutable: mem.immutable ? 'yes' : '',
+      pinned: mem.pinned ? 'yes' : '',
+    };
+    out([row]);
   } else {
     const mem = result.memory || result;
-    console.log(`${c.bold}ID:${c.reset}         ${mem.id || id}`);
-    console.log(`${c.bold}Content:${c.reset}    ${mem.content}`);
-    if (mem.importance !== undefined) console.log(`${c.bold}Importance:${c.reset} ${mem.importance}`);
-    if (mem.namespace) console.log(`${c.bold}Namespace:${c.reset}  ${mem.namespace}`);
-    if (mem.metadata?.tags?.length) console.log(`${c.bold}Tags:${c.reset}       ${mem.metadata.tags.join(', ')}`);
-    if (mem.memory_type) console.log(`${c.bold}Type:${c.reset}       ${mem.memory_type}`);
-    if (mem.created_at) console.log(`${c.bold}Created:${c.reset}    ${new Date(mem.created_at).toLocaleString()}`);
-    if (mem.updated_at) console.log(`${c.bold}Updated:${c.reset}    ${new Date(mem.updated_at).toLocaleString()}`);
-    if (mem.immutable) console.log(`${c.bold}Immutable:${c.reset}  ${c.yellow}yes${c.reset}`);
-    if (mem.pinned) console.log(`${c.bold}Pinned:${c.reset}     ${c.green}yes${c.reset}`);
-    if (mem.expires_at) console.log(`${c.bold}Expires:${c.reset}    ${new Date(mem.expires_at).toLocaleString()}`);
-    if (mem.session_id) console.log(`${c.bold}Session:${c.reset}    ${mem.session_id}`);
-    if (mem.agent_id) console.log(`${c.bold}Agent:${c.reset}      ${mem.agent_id}`);
+    outputWrite(`${c.bold}ID:${c.reset}         ${mem.id || id}`);
+    outputWrite(`${c.bold}Content:${c.reset}    ${mem.content}`);
+    if (mem.importance !== undefined) outputWrite(`${c.bold}Importance:${c.reset} ${mem.importance}`);
+    if (mem.namespace) outputWrite(`${c.bold}Namespace:${c.reset}  ${mem.namespace}`);
+    if (mem.metadata?.tags?.length) outputWrite(`${c.bold}Tags:${c.reset}       ${mem.metadata.tags.join(', ')}`);
+    if (mem.memory_type) outputWrite(`${c.bold}Type:${c.reset}       ${mem.memory_type}`);
+    if (mem.created_at) outputWrite(`${c.bold}Created:${c.reset}    ${new Date(mem.created_at).toLocaleString()}`);
+    if (mem.updated_at) outputWrite(`${c.bold}Updated:${c.reset}    ${new Date(mem.updated_at).toLocaleString()}`);
+    if (mem.immutable) outputWrite(`${c.bold}Immutable:${c.reset}  ${c.yellow}yes${c.reset}`);
+    if (mem.pinned) outputWrite(`${c.bold}Pinned:${c.reset}     ${c.green}yes${c.reset}`);
+    if (mem.expires_at) outputWrite(`${c.bold}Expires:${c.reset}    ${new Date(mem.expires_at).toLocaleString()}`);
+    if (mem.session_id) outputWrite(`${c.bold}Session:${c.reset}    ${mem.session_id}`);
+    if (mem.agent_id) outputWrite(`${c.bold}Agent:${c.reset}      ${mem.agent_id}`);
   }
 }
 

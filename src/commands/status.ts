@@ -43,18 +43,25 @@ export async function cmdStatus() {
     const data = await res.json() as any;
     if (outputJson) {
       out(data);
+    } else if (outputFormat === 'csv' || outputFormat === 'tsv' || outputFormat === 'yaml') {
+      const row = {
+        wallet: data.wallet || '',
+        free_tier_remaining: data.free_tier_remaining ?? 0,
+        free_tier_total: data.free_tier_total ?? 100,
+      };
+      out([row]);
     } else {
-      console.log(`${c.bold}Wallet:${c.reset}     ${data.wallet}`);
       const remaining = data.free_tier_remaining ?? 0;
       const total = data.free_tier_total ?? 100;
       const pct = Math.max(0, Math.min(100, Math.round((remaining / total) * 100)));
       const barLen = 20;
       const filled = Math.max(0, Math.min(barLen, Math.round((remaining / total) * barLen)));
       const bar = `${c.green}${'█'.repeat(filled)}${c.dim}${'░'.repeat(barLen - filled)}${c.reset}`;
-      console.log(`${c.bold}Free tier:${c.reset}  ${remaining}/${total} calls remaining`);
-      console.log(`            ${bar} ${pct}%`);
+      outputWrite(`${c.bold}Wallet:${c.reset}     ${data.wallet}`);
+      outputWrite(`${c.bold}Free tier:${c.reset}  ${remaining}/${total} calls remaining`);
+      outputWrite(`            ${bar} ${pct}%`);
       if (remaining === 0) {
-        console.log(`${c.yellow}→ Next calls will use x402 payment (pay-per-use USDC on Base)${c.reset}`);
+        outputWrite(`${c.yellow}→ Next calls will use x402 payment (pay-per-use USDC on Base)${c.reset}`);
       }
     }
   } else {
@@ -81,25 +88,29 @@ export async function cmdStats(opts: ParsedArgs) {
     tierData = await statusRes.json();
   }
 
+  const statsRow = {
+    total_memories: total,
+    api_url: API_URL,
+    wallet: tierData.wallet || getAccount().address,
+    free_tier_remaining: tierData.free_tier_remaining,
+    free_tier_total: tierData.free_tier_total,
+  };
+
   if (outputJson) {
-    out({
-      total_memories: total,
-      api_url: API_URL,
-      wallet: tierData.wallet || getAccount().address,
-      free_tier_remaining: tierData.free_tier_remaining,
-      free_tier_total: tierData.free_tier_total,
-    });
+    out(statsRow);
+  } else if (outputFormat === 'csv' || outputFormat === 'tsv' || outputFormat === 'yaml') {
+    out([statsRow]);
   } else {
-    console.log(`${c.bold}MemoClaw Stats${c.reset}`);
-    console.log(`${c.dim}${'─'.repeat(40)}${c.reset}`);
-    console.log(`Memories:        ${c.cyan}${total}${c.reset}`);
-    console.log(`API:             ${c.dim}${API_URL}${c.reset}`);
-    console.log(`Wallet:          ${c.dim}${tierData.wallet || getAccount().address}${c.reset}`);
+    outputWrite(`${c.bold}MemoClaw Stats${c.reset}`);
+    outputWrite(`${c.dim}${'─'.repeat(40)}${c.reset}`);
+    outputWrite(`Memories:        ${c.cyan}${total}${c.reset}`);
+    outputWrite(`API:             ${c.dim}${API_URL}${c.reset}`);
+    outputWrite(`Wallet:          ${c.dim}${tierData.wallet || getAccount().address}${c.reset}`);
     if (tierData.free_tier_remaining !== undefined) {
-      console.log(`Free calls left: ${c.cyan}${tierData.free_tier_remaining}${c.reset}/${tierData.free_tier_total}`);
+      outputWrite(`Free calls left: ${c.cyan}${tierData.free_tier_remaining}${c.reset}/${tierData.free_tier_total}`);
     }
     if (opts.namespace) {
-      console.log(`Namespace:       ${c.cyan}${opts.namespace}${c.reset}`);
+      outputWrite(`Namespace:       ${c.cyan}${opts.namespace}${c.reset}`);
     }
   }
 }
@@ -112,8 +123,10 @@ export async function cmdCount(opts: ParsedArgs) {
 
   if (outputJson) {
     out({ count: total, namespace: opts.namespace || null });
+  } else if (outputFormat === 'csv' || outputFormat === 'tsv' || outputFormat === 'yaml') {
+    out([{ count: total, namespace: opts.namespace || '' }]);
   } else {
-    console.log(String(total));
+    outputWrite(String(total));
   }
 }
 

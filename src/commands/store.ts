@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import type { ParsedArgs } from '../args.js';
 import { request } from '../http.js';
 import { c } from '../colors.js';
-import { outputJson, outputQuiet, out, success, info, progressBar } from '../output.js';
+import { outputJson, outputQuiet, out, outputWrite, success, info, progressBar } from '../output.js';
 import { validateContentLength, validateImportance } from '../validate.js';
 
 export async function cmdStoreBatch(opts: ParsedArgs, lines: string[]) {
@@ -83,7 +83,7 @@ export async function cmdStore(content: string, opts: ParsedArgs) {
 
   const result = await request('POST', '/v1/store', body) as any;
   if (opts.idOnly) {
-    console.log(result.id || '');
+    outputWrite(result.id || '');
   } else if (outputJson) {
     out(result);
   } else {

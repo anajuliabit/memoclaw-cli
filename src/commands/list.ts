@@ -74,7 +74,7 @@ function buildColumns(opts: ParsedArgs): { key: string; label: string; width?: n
 /** Render memories as a table with the given columns */
 function renderTable(memories: any[], columns: { key: string; label: string; width?: number }[], opts: ParsedArgs, total?: number) {
   if (memories.length === 0) {
-    console.log(`${c.dim}No memories found.${c.reset}`);
+    outputWrite(`${c.dim}No memories found.${c.reset}`);
     return;
   }
 
@@ -102,7 +102,7 @@ function renderTable(memories: any[], columns: { key: string; label: string; wid
 
   table(rows, columns, { wide: !!opts.wide });
   if (total !== undefined) {
-    console.log(`${c.dim}─ ${memories.length} of ${total} memories${c.reset}`);
+    outputWrite(`${c.dim}─ ${memories.length} of ${total} memories${c.reset}`);
   }
 }
 
@@ -124,7 +124,7 @@ export async function cmdList(opts: ParsedArgs) {
     const pollInterval = parseInt(opts.watchInterval || '5000');
     const columns = buildColumns(opts);
 
-    console.log(`${c.dim}Watching for changes... Press Ctrl+C to stop.${c.reset}`);
+    outputWrite(`${c.dim}Watching for changes... Press Ctrl+C to stop.${c.reset}`);
 
     while (true) {
       try {
@@ -134,7 +134,7 @@ export async function cmdList(opts: ParsedArgs) {
         const fingerprint = memories.map((m: any) => `${m.id}:${m.updated_at || ''}`).join('|');
 
         if (fingerprint !== lastFingerprint) {
-          if (lastFingerprint) console.log(`${c.dim}${'─'.repeat(40)}${c.reset}`);
+          if (lastFingerprint) outputWrite(`${c.dim}${'─'.repeat(40)}${c.reset}`);
           lastFingerprint = fingerprint;
           memories = sortMemories(memories, opts);
           renderTable(memories, columns, opts, total);

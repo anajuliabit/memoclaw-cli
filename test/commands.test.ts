@@ -1733,3 +1733,164 @@ describe('validateImportance', () => {
   test('rejects "abc"', () => expect(() => validateImportance('abc')).toThrow());
   test('rejects empty', () => expect(() => validateImportance('')).toThrow());
 });
+
+// ─── outputWrite consistency: --format csv/yaml/tsv for commands (Fixes #77, #78) ─────
+
+describe('cmdGet --format csv', () => {
+  test('outputs csv row for a memory', async () => {
+    mockFetchResponse = { memory: { id: 'abc-123-full', content: 'hello world', importance: 0.7, namespace: 'test', metadata: { tags: ['a', 'b'] }, memory_type: 'core', created_at: '2025-01-01', updated_at: '2025-01-02' } };
+    resetOutputState({ format: 'csv' });
+    await cmdGet('abc-123-full');
+    const joined = consoleOutput.join('\n');
+    expect(joined).toContain('id');
+    expect(joined).toContain('abc-123-full');
+    expect(joined).toContain('hello world');
+  });
+
+  test('outputs yaml for a memory', async () => {
+    mockFetchResponse = { memory: { id: 'abc-yaml', content: 'test content', importance: 0.5 } };
+    resetOutputState({ format: 'yaml' });
+    await cmdGet('abc-yaml');
+    const joined = consoleOutput.join('\n');
+    expect(joined).toContain('abc-yaml');
+    expect(joined).toContain('test content');
+  });
+});
+
+describe('cmdGet uses outputWrite (--output file support)', () => {
+  test('raw mode uses outputWrite not console.log', async () => {
+    mockFetchResponse = { memory: { id: 'x', content: 'raw content' } };
+    resetOutputState();
+    await cmdGet('x', { _: [], raw: true } as any);
+    expect(consoleOutput.join('')).toContain('raw content');
+  });
+
+  test('detailed view uses outputWrite', async () => {
+    mockFetchResponse = { memory: { id: 'x', content: 'test', importance: 0.5, namespace: 'ns', metadata: { tags: ['t1'] } } };
+    resetOutputState();
+    await cmdGet('x');
+    const joined = consoleOutput.join('\n');
+    expect(joined).toContain('ID:');
+    expect(joined).toContain('test');
+  });
+});
+
+describe('cmdCount --format csv', () => {
+  test('outputs csv row', async () => {
+    mockFetchResponse = { memories: [], total: 42 };
+    resetOutputState({ format: 'csv' });
+    await cmdCount({ _: [] } as any);
+    const joined = consoleOutput.join('\n');
+    expect(joined).toContain('count');
+    expect(joined).toContain('42');
+  });
+});
+
+describe('cmdHistory --format csv', () => {
+  test('outputs csv rows for history entries', async () => {
+    mockFetchResponse = { history: [{ id: 'h1-full-id', created_at: '2025-01-01T00:00:00Z', changes: { content: true } }, { id: 'h2-full-id', created_at: '2025-01-02T00:00:00Z', changes: { importance: true, tags: true } }] };
+    resetOutputState({ format: 'csv' });
+    await cmdHistory('abc');
+    const joined = consoleOutput.join('\n');
+    expect(joined).toContain('id');
+    expect(joined).toContain('h1-full-id');
+    expect(joined).toContain('content');
+  });
+
+  test('empty history uses outputWrite', async () => {
+    mockFetchResponse = { history: [] };
+    resetOutputState();
+    await cmdHistory('abc');
+    expect(consoleOutput.join('')).toContain('No history entries found');
+  });
+});
+
+describe('search uses outputWrite', () => {
+  test('raw mode outputs content via outputWrite', async () => {
+    mockFetchResponse = { memories: [{ id: 's1', content: 'search result' }] };
+    resetOutputState();
+    await cmdSearch('test', { _: [], raw: true } as any);
+    expect(consoleOutput.join('')).toContain('search result');
+  });
+
+  test('csv mode does not truncate IDs', async () => {
+    mockFetchResponse = { memories: [{ id: 'abcdefgh-1234-5678-9012-abcdefghijkl', content: 'test' }] };
+    resetOutputState({ format: 'csv' });
+    await cmdSearch('test', { _: [] } as any);
+    const joined = consoleOutput.join('\n');
+    expect(joined).toContain('abcdefgh-1234-5678-9012-abcdefghijkl');
+  });
+
+  test('empty search uses outputWrite', async () => {
+    mockFetchResponse = { memories: [] };
+    resetOutputState();
+    await cmdSearch('test', { _: [] } as any);
+    expect(consoleOutput.join('')).toContain('No memories found');
+  });
+});
+
+describe('recall uses outputWrite', () => {
+  test('raw mode outputs content via outputWrite', async () => {
+    mockFetchResponse = { memories: [{ id: 'r1', content: 'recall result', similarity: 0.9 }] };
+    resetOutputState();
+    await cmdRecall('test', { _: [], raw: true } as any);
+    expect(consoleOutput.join('')).toContain('recall result');
+  });
+
+  test('default mode outputs via outputWrite', async () => {
+    mockFetchResponse = { memories: [{ id: 'r2', content: 'recall formatted', similarity: 0.85 }] };
+    resetOutputState();
+    await cmdRecall('test', { _: [] } as any);
+    const joined = consoleOutput.join('\n');
+    expect(joined).toContain('recall formatted');
+    expect(joined).toContain('0.850');
+  });
+
+  test('empty recall uses outputWrite', async () => {
+    mockFetchResponse = { memories: [] };
+    resetOutputState();
+    await cmdRecall('test', { _: [] } as any);
+    expect(consoleOutput.join('')).toContain('No memories found');
+  });
+});
+
+describe('suggested --format csv', () => {
+  test('outputs csv rows', async () => {
+    mockFetchResponse = { suggested: [{ id: 'sug-1', category: 'stale', review_score: 0.3, content: 'old fact', importance: 0.5, metadata: { tags: ['t'] } }] };
+    resetOutputState({ format: 'csv' });
+    await cmdSuggested({ _: [] } as any);
+    const joined = consoleOutput.join('\n');
+    expect(joined).toContain('id');
+    expect(joined).toContain('sug-1');
+    expect(joined).toContain('stale');
+  });
+
+  test('default mode uses outputWrite', async () => {
+    mockFetchResponse = { suggested: [{ id: 'sug-2', category: 'hot', review_score: 0.9, content: 'hot fact' }] };
+    resetOutputState();
+    await cmdSuggested({ _: [] } as any);
+    expect(consoleOutput.join('\n')).toContain('hot fact');
+  });
+
+  test('empty suggested uses outputWrite', async () => {
+    mockFetchResponse = { suggested: [] };
+    resetOutputState();
+    await cmdSuggested({ _: [] } as any);
+    expect(consoleOutput.join('')).toContain('No suggested memories');
+  });
+});
+
+describe('graph uses outputWrite', () => {
+  test('renders graph via outputWrite', async () => {
+    let callCount = 0;
+    mockFetchResponse = (url: string) => {
+      if (url.includes('/relations')) return { relations: [{ id: 'r1', relation_type: 'supports', target_id: 'target-1234' }] };
+      return { memory: { id: 'mem-12345678', content: 'graph node' } };
+    };
+    resetOutputState();
+    await cmdGraph('mem-12345678', { _: [] } as any);
+    const joined = consoleOutput.join('\n');
+    expect(joined).toContain('mem-1234');
+    expect(joined).toContain('supports');
+  });
+});
