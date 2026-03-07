@@ -49,11 +49,15 @@ export async function cmdStoreBatch(opts: ParsedArgs, lines: string[]) {
   // Batch in chunks of 100
   const BATCH_SIZE = 100;
   let stored = 0;
+  const allIds: string[] = [];
 
   for (let i = 0; i < memories.length; i += BATCH_SIZE) {
     const chunk = memories.slice(i, i + BATCH_SIZE);
     const result = await request('POST', '/v1/store/batch', { memories: chunk }) as any;
     stored += result.stored ?? chunk.length;
+    if (result.ids && Array.isArray(result.ids)) {
+      allIds.push(...result.ids);
+    }
     if (!outputQuiet) {
       process.stderr.write(`\r  ${progressBar(Math.min(i + BATCH_SIZE, memories.length), memories.length)}`);
     }
@@ -61,8 +65,14 @@ export async function cmdStoreBatch(opts: ParsedArgs, lines: string[]) {
 
   if (!outputQuiet) process.stderr.write('\n');
 
-  if (outputJson) {
-    out({ stored, total: memories.length });
+  if (opts.idOnly) {
+    if (allIds.length > 0) {
+      outputWrite(allIds.join('\n'));
+    } else {
+      info(`Stored ${stored} memories (batch API did not return individual IDs)`);
+    }
+  } else if (outputJson) {
+    out({ stored, total: memories.length, ...(allIds.length > 0 ? { ids: allIds } : {}) });
   } else {
     success(`Stored ${c.cyan}${stored}${c.reset} memories via batch`);
   }
