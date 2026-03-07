@@ -100,7 +100,7 @@ export async function cmdImport(opts: ParsedArgs) {
       const entry: Record<string, any> = { content: mem.content };
       if (mem.importance !== undefined) entry.importance = mem.importance;
       if (mem.metadata) entry.metadata = mem.metadata;
-      if (mem.namespace || opts.namespace) entry.namespace = mem.namespace || opts.namespace;
+      if (opts.namespace || mem.namespace) entry.namespace = opts.namespace || mem.namespace;
       if (mem.memory_type) entry.memory_type = mem.memory_type;
       if (mem.session_id) entry.session_id = mem.session_id;
       if (mem.agent_id) entry.agent_id = mem.agent_id;

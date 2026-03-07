@@ -35,6 +35,7 @@ import { cmdBrowse } from './commands/browse.js';
 import { cmdCompletions } from './commands/completions.js';
 import { cmdHistory } from './commands/history.js';
 import { cmdCore } from './commands/core.js';
+import { cmdWhoami } from './commands/whoami.js';
 
 // ─── Main ────────────────────────────────────────────────────────────────────
 
@@ -218,6 +219,9 @@ try {
       await cmdMigrate(rest[0], args);
       break;
     }
+    case 'whoami':
+      await cmdWhoami(args);
+      break;
     case 'help':
       printHelp(rest[0]);
       break;
