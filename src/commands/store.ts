@@ -3,7 +3,7 @@ import type { ParsedArgs } from '../args.js';
 import { request } from '../http.js';
 import { c } from '../colors.js';
 import { outputJson, outputQuiet, out, outputWrite, success, info, progressBar } from '../output.js';
-import { validateContentLength, validateImportance } from '../validate.js';
+import { validateContentLength, validateImportance, warnIfBooleanImportance } from '../validate.js';
 
 export async function cmdStoreBatch(opts: ParsedArgs, lines: string[]) {
   if (lines.length === 0) throw new Error('No input. Pipe content via stdin (one memory per line, or JSON array).');
@@ -33,7 +33,7 @@ export async function cmdStoreBatch(opts: ParsedArgs, lines: string[]) {
   // Apply shared opts to each memory
   for (const mem of memories) {
     validateContentLength(mem.content);
-    if (opts.importance != null && opts.importance !== true && mem.importance === undefined)
+    if (opts.importance != null && !warnIfBooleanImportance(opts.importance) && mem.importance === undefined)
       mem.importance = validateImportance(opts.importance);
     if (opts.tags && !mem.metadata)
       mem.metadata = { tags: opts.tags.split(',').map((t: string) => t.trim()) };
@@ -71,7 +71,7 @@ export async function cmdStoreBatch(opts: ParsedArgs, lines: string[]) {
 export async function cmdStore(content: string, opts: ParsedArgs) {
   validateContentLength(content);
   const body: Record<string, any> = { content };
-  if (opts.importance != null && opts.importance !== true) body.importance = validateImportance(opts.importance);
+  if (opts.importance != null && !warnIfBooleanImportance(opts.importance)) body.importance = validateImportance(opts.importance);
   if (opts.tags) body.metadata = { tags: opts.tags.split(',').map((t: string) => t.trim()) };
   if (opts.namespace) body.namespace = opts.namespace;
   if (opts.memoryType) body.memory_type = opts.memoryType;

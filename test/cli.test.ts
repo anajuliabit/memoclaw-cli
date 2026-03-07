@@ -1259,3 +1259,89 @@ describe('importance validation', () => {
     expect(() => validateImportance('')).toThrow('between 0 and 1');
   });
 });
+
+// ─── warnIfBooleanImportance ────────────────────────────────────────────────
+
+describe('warnIfBooleanImportance', () => {
+  const { warnIfBooleanImportance } = require('../src/validate.js') as { warnIfBooleanImportance: (v: any) => boolean };
+  const origWrite = process.stderr.write;
+
+  function captureStderr(fn: () => void): string {
+    let captured = '';
+    process.stderr.write = ((chunk: any) => { captured += String(chunk); return true; }) as any;
+    try { fn(); } finally { process.stderr.write = origWrite; }
+    return captured;
+  }
+
+  test('returns true and warns for boolean true', () => {
+    const msg = captureStderr(() => {
+      expect(warnIfBooleanImportance(true)).toBe(true);
+    });
+    expect(msg).toContain('Warning');
+    expect(msg).toContain('--importance');
+  });
+
+  test('returns true and warns for string "true"', () => {
+    const msg = captureStderr(() => {
+      expect(warnIfBooleanImportance('true')).toBe(true);
+    });
+    expect(msg).toContain('Warning');
+  });
+
+  test('returns true and warns for string "false"', () => {
+    const msg = captureStderr(() => {
+      expect(warnIfBooleanImportance('false')).toBe(true);
+    });
+    expect(msg).toContain('Warning');
+  });
+
+  test('returns true and warns for "yes"', () => {
+    const msg = captureStderr(() => {
+      expect(warnIfBooleanImportance('yes')).toBe(true);
+    });
+    expect(msg).toContain('Warning');
+  });
+
+  test('returns false for numeric string "0.8"', () => {
+    const msg = captureStderr(() => {
+      expect(warnIfBooleanImportance('0.8')).toBe(false);
+    });
+    expect(msg).toBe('');
+  });
+
+  test('returns false for null', () => {
+    const msg = captureStderr(() => {
+      expect(warnIfBooleanImportance(null)).toBe(false);
+    });
+    expect(msg).toBe('');
+  });
+
+  test('validateImportance error includes hint', () => {
+    const { validateImportance: vi } = require('../src/validate.js') as { validateImportance: (v: string) => number };
+    expect(() => vi('abc')).toThrow('Hint:');
+  });
+});
+
+// ─── whoami command ──────────────────────────────────────────────────────────
+
+describe('whoami', () => {
+  test('whoami outputs wallet address', async () => {
+    // The whoami command imports getAccount and outputs address
+    const { getAccount } = require('../src/auth.js');
+    const acct = getAccount();
+    expect(acct.address).toBeTruthy();
+    expect(typeof acct.address).toBe('string');
+    expect(acct.address.startsWith('0x')).toBe(true);
+  });
+
+  test('parseArgs handles whoami as positional', () => {
+    const result = parseArgs(['whoami']);
+    expect(result._).toEqual(['whoami']);
+  });
+
+  test('parseArgs handles whoami --json', () => {
+    const result = parseArgs(['whoami', '--json']);
+    expect(result._).toEqual(['whoami']);
+    expect(result.json).toBe(true);
+  });
+});
