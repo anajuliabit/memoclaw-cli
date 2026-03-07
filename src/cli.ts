@@ -130,11 +130,14 @@ try {
       break;
     case 'extract': {
       let text = rest[0];
+      if (!text && args.file) {
+        text = readFileContent(args.file);
+      }
       if (!text) {
         const stdin = await readStdin();
         if (stdin) text = stdin;
       }
-      if (!text) throw new Error('Text required. Provide as argument or pipe via stdin.');
+      if (!text) throw new Error('Text required. Provide as argument, --file flag, or pipe via stdin.');
       await cmdExtract(text, args);
       break;
     }

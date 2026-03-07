@@ -7,6 +7,7 @@ import { request } from '../http.js';
 import { c } from '../colors.js';
 import { outputJson, outputFormat, out, outputWrite, success, readStdin } from '../output.js';
 import { MAX_CONTENT_LENGTH, validateContentLength, validateImportance, warnIfBooleanImportance } from '../validate.js';
+import { readFileContent } from './store.js';
 
 export async function cmdGet(id: string, opts?: ParsedArgs) {
   const result = await request('GET', `/v1/memories/${id}`) as any;
@@ -70,6 +71,9 @@ export async function cmdBulkDelete(ids: string[], opts: ParsedArgs) {
 export async function cmdUpdate(id: string, opts: ParsedArgs) {
   const body: Record<string, any> = {};
   let content = opts.content && opts.content !== true ? String(opts.content) : undefined;
+  if (!content && opts.file) {
+    content = readFileContent(opts.file);
+  }
   if (!content) {
     const stdin = await readStdin();
     if (stdin) content = stdin;

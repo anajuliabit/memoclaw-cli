@@ -153,10 +153,13 @@ Subcommands:
 Update a memory by ID.
 
   ${c.dim}memoclaw update abc123 --content "New content"${c.reset}
+  ${c.dim}memoclaw update abc123 --file updated.txt${c.reset}
   ${c.dim}memoclaw update abc123 --importance 0.9 --tags "urgent,fix"${c.reset}
+  ${c.dim}cat updated.txt | memoclaw update abc123${c.reset}
 
 Options:
   --content <text>       New content
+  --file <path>          Read new content from a file
   --importance <0-1>     New importance score
   --tags <tag1,tag2>     New tags
   --memory-type <type>   Memory type
@@ -202,9 +205,11 @@ Extract memories from text without storing them.
 Uses GPT-4o-mini + embeddings. Costs $0.01 per call.
 
   ${c.dim}memoclaw extract "User prefers dark mode and uses vim"${c.reset}
+  ${c.dim}memoclaw extract --file conversation.txt${c.reset}
   ${c.dim}echo "conversation..." | memoclaw extract${c.reset}
 
 Options:
+  --file <path>          Read text from a file
   --namespace <name>     Target namespace
   --session-id <id>      Session identifier
   --agent-id <id>        Agent identifier`,

@@ -652,6 +652,36 @@ describe('cmdUpdate', () => {
     expect(body.memory_type).toBe('episodic');
     restoreConsole();
   });
+
+  test('reads content from --file flag', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const tmpFile = path.join(import.meta.dir, '_test_update_file.txt');
+    fs.writeFileSync(tmpFile, 'content from file');
+    try {
+      mockFetchResponse = { id: 'abc' };
+      await cmdUpdate('abc', { _: [], file: tmpFile } as any);
+      expect(getLastBody().content).toBe('content from file');
+    } finally {
+      fs.unlinkSync(tmpFile);
+      restoreConsole();
+    }
+  });
+
+  test('--file takes precedence over stdin for update', async () => {
+    const fs = await import('fs');
+    const path = await import('path');
+    const tmpFile = path.join(import.meta.dir, '_test_update_prio.txt');
+    fs.writeFileSync(tmpFile, 'file wins');
+    try {
+      mockFetchResponse = { id: 'abc' };
+      await cmdUpdate('abc', { _: [], file: tmpFile } as any);
+      expect(getLastBody().content).toBe('file wins');
+    } finally {
+      fs.unlinkSync(tmpFile);
+      restoreConsole();
+    }
+  });
 });
 
 // ─── Count ───────────────────────────────────────────────────────────────────
