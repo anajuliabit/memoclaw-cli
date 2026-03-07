@@ -5,68 +5,34 @@
 import type { ParsedArgs } from '../args.js';
 import { request } from '../http.js';
 import { c } from '../colors.js';
-import { API_URL } from '../config.js';
-import { getAccount, getWalletAuthHeader } from '../auth.js';
-import { getRequestTimeout } from '../http.js';
+import { getAccount } from '../auth.js';
 import { outputJson, outputFormat, outputTruncate, noTruncate, out, outputWrite, success, info, table, truncate } from '../output.js';
 
-async function fetchWithTimeout(url: string, options: RequestInit = {}): Promise<Response> {
-  const timeoutMs = getRequestTimeout();
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const res = await fetch(url, { ...options, signal: controller.signal });
-    return res;
-  } catch (e: any) {
-    if (e.name === 'AbortError') {
-      throw new Error(`Request timed out after ${timeoutMs / 1000}s`);
-    }
-    if (e.code === 'ECONNREFUSED' || e.cause?.code === 'ECONNREFUSED') {
-      throw new Error(`Cannot connect to ${API_URL} — is the server running?`);
-    }
-    if (e.code === 'ENOTFOUND' || e.cause?.code === 'ENOTFOUND') {
-      throw new Error(`DNS lookup failed for ${API_URL} — check your internet connection`);
-    }
-    throw new Error(`Network error: ${e.message}`);
-  } finally {
-    clearTimeout(timeoutId);
-  }
-}
-
 export async function cmdStatus() {
-  const walletAuth = await getWalletAuthHeader();
-  const res = await fetchWithTimeout(`${API_URL}/v1/free-tier/status`, {
-    headers: { 'x-wallet-auth': walletAuth }
-  });
+  const data = await request('GET', '/v1/free-tier/status') as any;
 
-  if (res.ok) {
-    const data = await res.json() as any;
-    if (outputJson) {
-      out(data);
-    } else if (outputFormat === 'csv' || outputFormat === 'tsv' || outputFormat === 'yaml') {
-      const row = {
-        wallet: data.wallet || '',
-        free_tier_remaining: data.free_tier_remaining ?? 0,
-        free_tier_total: data.free_tier_total ?? 100,
-      };
-      out([row]);
-    } else {
-      const remaining = data.free_tier_remaining ?? 0;
-      const total = data.free_tier_total ?? 100;
-      const pct = Math.max(0, Math.min(100, Math.round((remaining / total) * 100)));
-      const barLen = 20;
-      const filled = Math.max(0, Math.min(barLen, Math.round((remaining / total) * barLen)));
-      const bar = `${c.green}${'█'.repeat(filled)}${c.dim}${'░'.repeat(barLen - filled)}${c.reset}`;
-      outputWrite(`${c.bold}Wallet:${c.reset}     ${data.wallet}`);
-      outputWrite(`${c.bold}Free tier:${c.reset}  ${remaining}/${total} calls remaining`);
-      outputWrite(`            ${bar} ${pct}%`);
-      if (remaining === 0) {
-        outputWrite(`${c.yellow}→ Next calls will use x402 payment (pay-per-use USDC on Base)${c.reset}`);
-      }
-    }
+  if (outputJson) {
+    out(data);
+  } else if (outputFormat === 'csv' || outputFormat === 'tsv' || outputFormat === 'yaml') {
+    const row = {
+      wallet: data.wallet || '',
+      free_tier_remaining: data.free_tier_remaining ?? 0,
+      free_tier_total: data.free_tier_total ?? 100,
+    };
+    out([row]);
   } else {
-    const err = await res.json() as any;
-    throw new Error(err.error?.message || 'Failed to get status');
+    const remaining = data.free_tier_remaining ?? 0;
+    const total = data.free_tier_total ?? 100;
+    const pct = Math.max(0, Math.min(100, Math.round((remaining / total) * 100)));
+    const barLen = 20;
+    const filled = Math.max(0, Math.min(barLen, Math.round((remaining / total) * barLen)));
+    const bar = `${c.green}${'█'.repeat(filled)}${c.dim}${'░'.repeat(barLen - filled)}${c.reset}`;
+    outputWrite(`${c.bold}Wallet:${c.reset}     ${data.wallet}`);
+    outputWrite(`${c.bold}Free tier:${c.reset}  ${remaining}/${total} calls remaining`);
+    outputWrite(`            ${bar} ${pct}%`);
+    if (remaining === 0) {
+      outputWrite(`${c.yellow}→ Next calls will use x402 payment (pay-per-use USDC on Base)${c.reset}`);
+    }
   }
 }
 
@@ -78,14 +44,11 @@ export async function cmdStats(opts: ParsedArgs) {
   const result = await request('GET', `/v1/memories?${params}`) as any;
   const total = result.total ?? '?';
 
-  const walletAuth = await getWalletAuthHeader();
-  const statusRes = await fetchWithTimeout(`${API_URL}/v1/free-tier/status`, {
-    headers: { 'x-wallet-auth': walletAuth }
-  });
-
   let tierData: any = {};
-  if (statusRes.ok) {
-    tierData = await statusRes.json();
+  try {
+    tierData = await request('GET', '/v1/free-tier/status') as any;
+  } catch {
+    // Non-critical — continue with partial stats
   }
 
   const statsRow = {
