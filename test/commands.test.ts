@@ -910,11 +910,9 @@ describe('cmdExtract', () => {
     restoreConsole();
   });
 
-  test('accepts text longer than 8192 chars', async () => {
-    mockFetchResponse = { memories: [] };
+  test('rejects text longer than 8192 chars', async () => {
     const longText = 'a'.repeat(10000);
-    await cmdExtract(longText, { _: [] } as any);
-    expect(getLastBody().text).toBe(longText);
+    await expect(cmdExtract(longText, { _: [] } as any)).rejects.toThrow('exceeds');
     restoreConsole();
   });
 });
@@ -947,11 +945,9 @@ describe('cmdIngest', () => {
     restoreConsole();
   });
 
-  test('accepts text longer than 8192 chars', async () => {
-    mockFetchResponse = { memories_created: 2 };
+  test('rejects text longer than 8192 chars', async () => {
     const longText = 'a'.repeat(10000);
-    await cmdIngest({ _: [], text: longText } as any);
-    expect(getLastBody().text).toBe(longText);
+    await expect(cmdIngest({ _: [], text: longText } as any)).rejects.toThrow('exceeds');
     restoreConsole();
   });
 
