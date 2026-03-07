@@ -1296,6 +1296,54 @@ describe('store batch flags', () => {
     expect(body.memories[0].expires_at).toBe('2026-12-31');
     expect(body.memories[1].session_id).toBe('sess-1');
   });
+
+  test('batch --id-only outputs IDs one per line when API returns ids', async () => {
+    const { cmdStoreBatch } = await import('../src/commands/store.js');
+    mockFetchResponse = { stored: 2, ids: ['id-aaa', 'id-bbb'] };
+    resetOutputState();
+    captureConsole();
+
+    await cmdStoreBatch(
+      { _: [], idOnly: true, quiet: true } as any,
+      ['memory one', 'memory two']
+    );
+
+    const output = consoleOutput.join('\n');
+    expect(output).toContain('id-aaa');
+    expect(output).toContain('id-bbb');
+  });
+
+  test('batch --id-only shows info message when API returns no ids', async () => {
+    const { cmdStoreBatch } = await import('../src/commands/store.js');
+    mockFetchResponse = { stored: 2 };
+    resetOutputState();
+    captureConsole();
+
+    await cmdStoreBatch(
+      { _: [], idOnly: true } as any,
+      ['memory one', 'memory two']
+    );
+
+    const allOutput = [...consoleOutput, ...consoleErrors].join('\n');
+    expect(allOutput).toContain('Stored 2 memories');
+  });
+
+  test('batch --json includes ids array when API returns them', async () => {
+    const { cmdStoreBatch } = await import('../src/commands/store.js');
+    mockFetchResponse = { stored: 2, ids: ['id-aaa', 'id-bbb'] };
+    resetOutputState({ json: true });
+    captureConsole();
+
+    await cmdStoreBatch(
+      { _: [], quiet: true } as any,
+      ['memory one', 'memory two']
+    );
+
+    const output = consoleOutput.join('\n');
+    const parsed = JSON.parse(output);
+    expect(parsed.ids).toEqual(['id-aaa', 'id-bbb']);
+    expect(parsed.stored).toBe(2);
+  });
 });
 
 describe('list tags filter', () => {
