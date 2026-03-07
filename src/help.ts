@@ -405,7 +405,6 @@ ${c.bold}Commands:${c.reset}
   ${c.cyan}purge${c.reset}                  Delete ALL memories (requires --force or confirm)
   ${c.cyan}namespace${c.reset} [list|stats] Manage and view namespaces
   ${c.cyan}count${c.reset}                  Quick memory count
-  ${c.cyan}whoami${c.reset}                 Show your wallet address
   ${c.cyan}help${c.reset} [command]          Show help for a command
 
 ${c.bold}Global Options:${c.reset}

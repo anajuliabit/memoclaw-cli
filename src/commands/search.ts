@@ -6,6 +6,7 @@ import type { ParsedArgs } from '../args.js';
 import { request } from '../http.js';
 import { c } from '../colors.js';
 import { outputJson, outputFormat, outputTruncate, noTruncate, out, outputWrite, success, info, truncate, table, readStdin } from '../output.js';
+import { validateContentLength } from '../validate.js';
 
 export async function cmdSearch(query: string, opts: ParsedArgs) {
   const params = new URLSearchParams({ q: query });
@@ -68,7 +69,7 @@ export async function cmdContext(query: string, opts: ParsedArgs) {
 }
 
 export async function cmdExtract(text: string, opts: ParsedArgs) {
-  if (!text.trim()) throw new Error('Extract text cannot be empty or whitespace-only');
+  validateContentLength(text, 'Extract text');
   const body: Record<string, any> = { text };
   if (opts.namespace) body.namespace = opts.namespace;
   if (opts.sessionId) body.session_id = opts.sessionId;
@@ -99,7 +100,7 @@ export async function cmdIngest(opts: ParsedArgs) {
   }
 
   if (!body.text) throw new Error('Text required (use --text, --file, or pipe via stdin)');
-  if (!body.text.trim()) throw new Error('Ingest text cannot be empty or whitespace-only');
+  validateContentLength(body.text, 'Ingest text');
 
   const result = await request('POST', '/v1/ingest', body) as any;
   if (outputJson) {

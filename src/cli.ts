@@ -161,17 +161,9 @@ try {
     case 'suggested':
       await cmdSuggested(args);
       break;
-    case 'whoami': {
-      const { getAccount } = await import('./auth.js');
-      const { out, outputJson, outputWrite } = await import('./output.js');
-      const acct = getAccount();
-      if (outputJson) {
-        out({ address: acct.address });
-      } else {
-        outputWrite(acct.address);
-      }
+    case 'whoami':
+      await cmdWhoami(args);
       break;
-    }
     case 'status':
       await cmdStatus();
       break;
@@ -222,9 +214,6 @@ try {
       await cmdMigrate(rest[0], args);
       break;
     }
-    case 'whoami':
-      await cmdWhoami(args);
-      break;
     case 'help':
       printHelp(rest[0]);
       break;
