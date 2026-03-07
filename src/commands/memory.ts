@@ -6,7 +6,7 @@ import type { ParsedArgs } from '../args.js';
 import { request } from '../http.js';
 import { c } from '../colors.js';
 import { outputJson, outputFormat, out, outputWrite, success, readStdin } from '../output.js';
-import { MAX_CONTENT_LENGTH, validateContentLength, validateImportance } from '../validate.js';
+import { MAX_CONTENT_LENGTH, validateContentLength, validateImportance, warnIfBooleanImportance } from '../validate.js';
 
 export async function cmdGet(id: string, opts?: ParsedArgs) {
   const result = await request('GET', `/v1/memories/${id}`) as any;
@@ -78,7 +78,7 @@ export async function cmdUpdate(id: string, opts: ParsedArgs) {
     validateContentLength(content);
     body.content = content;
   }
-  if (opts.importance != null && opts.importance !== true) {
+  if (opts.importance != null && !warnIfBooleanImportance(opts.importance)) {
     body.importance = validateImportance(opts.importance);
   }
   if (opts.memoryType) body.memory_type = opts.memoryType;
