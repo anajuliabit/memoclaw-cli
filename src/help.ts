@@ -165,7 +165,9 @@ Options:
   --memory-type <type>   Memory type
   --namespace <name>     Move to namespace
   --expires-at <date>    Expiration date
-  --pinned <true|false>  Pin/unpin memory`,
+  --pinned <true|false>  Pin/unpin memory
+  --session-id <id>      Session identifier
+  --agent-id <id>        Agent identifier`,
 
       delete: `${c.bold}memoclaw delete${c.reset} <id>
 

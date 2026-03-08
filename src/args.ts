@@ -74,7 +74,9 @@ export function parseArgs(args: string[]): ParsedArgs {
           i++;
         } else {
           const next = args[i + 1];
-          if (next !== undefined && !next.startsWith('-')) {
+          // Match long-flag behavior: only reject values starting with '--'
+          // (single '-' is common in tags, namespaces, etc.)
+          if (next !== undefined && (!next.startsWith('--') || /^--?\d/.test(next))) {
             result[key] = next;
             i += 2;
           } else {
@@ -100,7 +102,7 @@ export function parseArgs(args: string[]): ParsedArgs {
             } else if (ci === chars.length - 1) {
               // Last flag can take a value
               const next = args[i + 1];
-              if (next !== undefined && !next.startsWith('-')) {
+              if (next !== undefined && (!next.startsWith('--') || /^--?\d/.test(next))) {
                 result[key] = next;
                 i++; // extra bump for consumed value
               } else {

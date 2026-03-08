@@ -109,7 +109,7 @@ const { cmdRelations } = await import('../src/commands/relations.js');
 const { cmdNamespace } = await import('../src/commands/namespace.js');
 const { cmdExport, cmdImport, cmdPurge } = await import('../src/commands/data.js');
 const { cmdWhoami } = await import('../src/commands/whoami.js');
-const { validateContentLength, validateImportance } = await import('../src/validate.js');
+const { validateContentLength, validateBulkContentLength, validateImportance } = await import('../src/validate.js');
 
 // ─── Setup ───────────────────────────────────────────────────────────────────
 
@@ -682,6 +682,15 @@ describe('cmdUpdate', () => {
       restoreConsole();
     }
   });
+
+  test('passes session-id and agent-id to API', async () => {
+    mockFetchResponse = { id: 'abc' };
+    await cmdUpdate('abc', { _: [], content: 'updated', sessionId: 'sess-1', agentId: 'agent-1' } as any);
+    const body = getLastBody();
+    expect(body.session_id).toBe('sess-1');
+    expect(body.agent_id).toBe('agent-1');
+    restoreConsole();
+  });
 });
 
 // ─── Count ───────────────────────────────────────────────────────────────────
@@ -910,8 +919,16 @@ describe('cmdExtract', () => {
     restoreConsole();
   });
 
-  test('rejects text longer than 8192 chars', async () => {
+  test('accepts text longer than 8192 chars (bulk limit is 100k)', async () => {
+    mockFetchResponse = { memories: [] };
     const longText = 'a'.repeat(10000);
+    await cmdExtract(longText, { _: [] } as any);
+    expect(getLastBody().text).toBe(longText);
+    restoreConsole();
+  });
+
+  test('rejects text longer than 100,000 chars', async () => {
+    const longText = 'a'.repeat(100_001);
     await expect(cmdExtract(longText, { _: [] } as any)).rejects.toThrow('exceeds');
     restoreConsole();
   });
@@ -945,8 +962,16 @@ describe('cmdIngest', () => {
     restoreConsole();
   });
 
-  test('rejects text longer than 8192 chars', async () => {
+  test('accepts text longer than 8192 chars (bulk limit is 100k)', async () => {
+    mockFetchResponse = { memories_created: 1 };
     const longText = 'a'.repeat(10000);
+    await cmdIngest({ _: [], text: longText } as any);
+    expect(getLastBody().text).toBe(longText);
+    restoreConsole();
+  });
+
+  test('rejects text longer than 100,000 chars', async () => {
+    const longText = 'a'.repeat(100_001);
     await expect(cmdIngest({ _: [], text: longText } as any)).rejects.toThrow('exceeds');
     restoreConsole();
   });
@@ -1276,6 +1301,32 @@ describe('validateContentLength', () => {
 
   test('rejects whitespace-only content', () => {
     expect(() => validateContentLength('   \n\t  ')).toThrow('empty');
+  });
+});
+
+describe('validateBulkContentLength', () => {
+  test('allows text up to 100,000 chars', () => {
+    expect(() => validateBulkContentLength('x'.repeat(100_000))).not.toThrow();
+  });
+
+  test('allows text over 8192 chars (ingest/extract use case)', () => {
+    expect(() => validateBulkContentLength('x'.repeat(50_000))).not.toThrow();
+  });
+
+  test('throws over 100,000 chars', () => {
+    expect(() => validateBulkContentLength('x'.repeat(100_001))).toThrow('100000');
+  });
+
+  test('rejects empty content', () => {
+    expect(() => validateBulkContentLength('')).toThrow('empty');
+  });
+
+  test('rejects whitespace-only content', () => {
+    expect(() => validateBulkContentLength('   \n\t  ')).toThrow('empty');
+  });
+
+  test('uses custom label', () => {
+    expect(() => validateBulkContentLength('', 'Ingest text')).toThrow('Ingest text');
   });
 });
 
