@@ -114,10 +114,13 @@ Import memories from JSON file or stdin.
 
   ${c.dim}memoclaw import --file backup.json${c.reset}
   ${c.dim}cat backup.json | memoclaw import${c.reset}
+  ${c.dim}memoclaw import --file backup.json --concurrency 4${c.reset}
 
 Options:
   --file <path>          JSON file to import
-  --namespace <name>     Override namespace for all memories`,
+  --namespace <name>     Override namespace for all memories
+  -c, --concurrency <n>  Parallel batch imports (default: 1)
+  -q, --quiet            Suppress progress output`,
 
       stats: `${c.bold}memoclaw stats${c.reset} [options]
 
@@ -249,7 +252,7 @@ Options:
   --namespace <name>     Filter by namespace
   --category <name>      Filter by category (stale, fresh, hot, decaying)`,
 
-      migrate: `${c.bold}memoclaw migrate${c.reset} <path>
+      migrate: `${c.bold}memoclaw migrate${c.reset} <path> [options]
 
 Import .md files as memories. Useful for migrating from MEMORY.md
 or other markdown-based memory systems.
@@ -257,8 +260,14 @@ or other markdown-based memory systems.
   ${c.dim}memoclaw migrate ~/notes/${c.reset}
   ${c.dim}memoclaw migrate MEMORY.md${c.reset}
   ${c.dim}memoclaw migrate . --namespace imported${c.reset}
+  ${c.dim}memoclaw migrate ~/notes/ --concurrency 4${c.reset}
 
-Automatically skips node_modules, .git, and other common directories.`,
+Automatically skips node_modules, .git, and other common directories.
+
+Options:
+  --namespace <name>     Target namespace for imported memories
+  -c, --concurrency <n>  Parallel batch imports (default: 1)
+  -q, --quiet            Suppress progress output`,
 
       init: `${c.bold}memoclaw init${c.reset} [options]
 
