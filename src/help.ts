@@ -383,6 +383,19 @@ Print your wallet address. Useful for scripting.
   ${c.dim}WALLET=$(memoclaw whoami)${c.reset}
   ${c.dim}memoclaw whoami --json${c.reset}`,
 
+      upgrade: `${c.bold}memoclaw upgrade${c.reset} [options]
+
+Check for and install CLI updates from npm.
+
+  ${c.dim}memoclaw upgrade${c.reset}              Check and prompt to install
+  ${c.dim}memoclaw upgrade --yes${c.reset}         Auto-install without prompting
+  ${c.dim}memoclaw upgrade --check${c.reset}       Check only, don't install
+
+Options:
+  --check                Just check for updates (don't install)
+  --yes, -y              Auto-install without prompting
+  --json                 Machine-readable output`,
+
       namespace: `${c.bold}memoclaw namespace${c.reset} [list|stats]
 
 Manage and view namespaces.
@@ -440,6 +453,7 @@ ${c.bold}Commands:${c.reset}
   ${c.cyan}purge${c.reset}                  Delete ALL memories (requires --force or confirm)
   ${c.cyan}namespace${c.reset} [list|stats] Manage and view namespaces
   ${c.cyan}count${c.reset}                  Quick memory count
+  ${c.cyan}upgrade${c.reset}                Check for and install CLI updates
   ${c.cyan}help${c.reset} [command]          Show help for a command
 
 ${c.bold}Global Options:${c.reset}
