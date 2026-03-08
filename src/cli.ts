@@ -15,7 +15,7 @@ import { parseArgs } from './args.js';
 import { VERSION, DEFAULT_NAMESPACE, DEFAULT_TIMEOUT } from './config.js';
 import { c } from './colors.js';
 import { configureOutput, outputJson, readStdin } from './output.js';
-import { setRequestTimeout } from './http.js';
+import { setRequestTimeout, setMaxRetries } from './http.js';
 import { printHelp } from './help.js';
 
 // Commands
@@ -34,6 +34,7 @@ import { cmdMigrate } from './commands/migrate.js';
 import { cmdBrowse } from './commands/browse.js';
 import { cmdCompletions } from './commands/completions.js';
 import { cmdHistory } from './commands/history.js';
+import { cmdDiff } from './commands/diff.js';
 import { cmdCore } from './commands/core.js';
 import { cmdWhoami } from './commands/whoami.js';
 
@@ -73,6 +74,21 @@ if (args.timeout) {
   setRequestTimeout(parsed * 1000);
 } else {
   setRequestTimeout(DEFAULT_TIMEOUT * 1000);
+}
+
+// Configure retry logic
+if (args.noRetry) {
+  setMaxRetries(0);
+} else if (args.retries !== undefined && args.retries !== true) {
+  const parsed = parseInt(args.retries);
+  if (isNaN(parsed) || parsed < 0) {
+    console.error(`${c.red}Error:${c.reset} Invalid retries value "${args.retries}". Must be a non-negative number.`);
+    process.exit(1);
+  }
+  setMaxRetries(parsed);
+} else if (process.env.MEMOCLAW_RETRIES) {
+  const envRetries = parseInt(process.env.MEMOCLAW_RETRIES);
+  if (!isNaN(envRetries) && envRetries >= 0) setMaxRetries(envRetries);
 }
 
 try {
@@ -208,6 +224,10 @@ try {
     case 'history':
       if (!rest[0]) throw new Error('Memory ID required. Usage: memoclaw history <id>');
       await cmdHistory(rest[0], args);
+      break;
+    case 'diff':
+      if (!rest[0]) throw new Error('Memory ID required. Usage: memoclaw diff <id>');
+      await cmdDiff(rest[0], args);
       break;
     case 'migrate': {
       if (!rest[0]) throw new Error('Path required. Usage: memoclaw migrate <path>');

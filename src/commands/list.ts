@@ -2,6 +2,7 @@ import type { ParsedArgs } from '../args.js';
 import { request } from '../http.js';
 import { c } from '../colors.js';
 import { outputJson, outputFormat, outputTruncate, noTruncate, out, table, outputWrite } from '../output.js';
+import { parseDate, filterByDateRange } from '../dates.js';
 
 /** Apply client-side sorting to memories array */
 function sortMemories(memories: any[], opts: ParsedArgs): any[] {
@@ -173,15 +174,31 @@ export async function cmdList(opts: ParsedArgs) {
 
   const result = await request('GET', `/v1/memories?${params}`) as any;
 
+  // Apply client-side date filtering
+  const sinceDate = opts.since ? parseDate(opts.since) : null;
+  const untilDate = opts.until ? parseDate(opts.until) : null;
+  if ((opts.since && !sinceDate) || (opts.until && !untilDate)) {
+    throw new Error(
+      `Invalid date format. Use ISO 8601 (2025-01-01) or relative shorthand (1h, 7d, 2w, 1mo, 1y).`
+    );
+  }
+
   if (outputJson) {
-    out(result);
+    if (sinceDate || untilDate) {
+      const filtered = filterByDateRange(result.memories || result.data || [], 'created_at', sinceDate, untilDate);
+      out({ ...result, memories: filtered, total: filtered.length });
+    } else {
+      out(result);
+    }
   } else if (opts.raw) {
-    const memories = result.memories || result.data || [];
+    let memories = result.memories || result.data || [];
+    memories = filterByDateRange(memories, 'created_at', sinceDate, untilDate);
     for (const mem of memories) {
       outputWrite(mem.content || '');
     }
   } else if (outputFormat === 'csv' || outputFormat === 'tsv' || outputFormat === 'yaml') {
     let memories = result.memories || result.data || [];
+    memories = filterByDateRange(memories, 'created_at', sinceDate, untilDate);
     memories = sortMemories(memories, opts);
     const rows = memories.map((m: any) => ({
       id: m.id || '',
@@ -194,8 +211,9 @@ export async function cmdList(opts: ParsedArgs) {
     out(rows);
   } else {
     let memories = result.memories || result.data || [];
+    memories = filterByDateRange(memories, 'created_at', sinceDate, untilDate);
     memories = sortMemories(memories, opts);
     const columns = buildColumns(opts);
-    renderTable(memories, columns, opts, result.total);
+    renderTable(memories, columns, opts, sinceDate || untilDate ? memories.length : result.total);
   }
 }
