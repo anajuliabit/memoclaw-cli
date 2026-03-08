@@ -108,9 +108,19 @@ export async function request(method: string, path: string, body: any = null) {
     }
   }
 
-  const data = await res.json();
+  const text = await res.text();
+  let data: any;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    throw new Error(
+      `Server returned non-JSON response (HTTP ${res.status}).\n` +
+      `This usually means the API is down or behind a proxy.\n` +
+      `Response: ${text.slice(0, 200)}`
+    );
+  }
   if (!res.ok) {
-    throw new Error((data as any).error?.message || `HTTP ${res.status}`);
+    throw new Error(data.error?.message || `HTTP ${res.status}`);
   }
   return data;
 }

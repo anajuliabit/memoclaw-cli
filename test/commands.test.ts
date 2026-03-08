@@ -44,6 +44,7 @@ function setupMockFetch() {
       ok: true,
       status: 200,
       json: async () => responseData,
+      text: async () => JSON.stringify(responseData),
       headers: new Headers({ 'content-type': 'application/json' }),
       clone: () => ({
         json: async () => responseData,
