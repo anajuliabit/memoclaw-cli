@@ -115,8 +115,12 @@ export async function cmdList(opts: ParsedArgs) {
   if (opts.memoryType) params.set('memory_type', opts.memoryType);
   if (opts.agentId) params.set('agent_id', opts.agentId);
   if (opts.sessionId) params.set('session_id', opts.sessionId);
-  if (opts.pinned) params.set('pinned', 'true');
-  if (opts.immutable) params.set('immutable', 'true');
+  if (opts.pinned !== undefined && opts.pinned !== false) {
+    params.set('pinned', String(opts.pinned !== 'false'));
+  }
+  if (opts.immutable !== undefined && opts.immutable !== false) {
+    params.set('immutable', String(opts.immutable !== 'false'));
+  }
 
   // Watch mode
   if (opts.watch) {
