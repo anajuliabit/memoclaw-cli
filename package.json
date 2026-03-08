@@ -1,6 +1,6 @@
 {
   "name": "memoclaw",
-  "version": "1.8.5",
+  "version": "1.9.0",
   "description": "MemoClaw CLI - Memory-as-a-Service for AI agents. 100 free calls, then x402 micropayments.",
   "type": "module",
   "bin": {

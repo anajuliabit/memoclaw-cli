@@ -81,6 +81,8 @@ Options:
   --limit <n>            Max results (default: 20)
   --offset <n>           Pagination offset
   --namespace <name>     Filter by namespace
+  --since <date>         Only memories created after date (ISO 8601 or 1h/7d/2w/1mo/1y)
+  --until <date>         Only memories created before date
   --sort-by <field>      Sort by field (id, importance, created, updated)
   --reverse              Reverse sort order
   --memory-type <type>   Filter by memory type
@@ -92,7 +94,13 @@ Options:
   --immutable            Filter immutable memories only
   --raw                  Output content only (for piping)
   --watch                Watch for changes (continuous polling)
-  --watch-interval <ms>  Polling interval (default: 5000)`,
+  --watch-interval <ms>  Polling interval (default: 5000)
+
+Examples:
+  ${c.dim}memoclaw list --since 7d${c.reset}              Last 7 days
+  ${c.dim}memoclaw list --since 1h${c.reset}              Last hour
+  ${c.dim}memoclaw list --since 2025-01-01${c.reset}      Since Jan 1, 2025
+  ${c.dim}memoclaw list --since 7d --until 1d${c.reset}   Between 7 and 1 day ago`,
 
       export: `${c.bold}memoclaw export${c.reset} [options]
 
@@ -352,6 +360,21 @@ View the change history for a memory (FREE).
   ${c.dim}memoclaw history 550e8400-e29b-41d4-a716-446655440000${c.reset}
   ${c.dim}memoclaw history abc123 --json${c.reset}`,
 
+      diff: `${c.bold}memoclaw diff${c.reset} <id> [options]
+
+Show content changes between memory versions (unified diff).
+Uses the history endpoint (FREE — no cost).
+
+  ${c.dim}memoclaw diff abc123${c.reset}                  Diff latest vs previous
+  ${c.dim}memoclaw diff abc123 --revision 2${c.reset}     Show revision 2 changes
+  ${c.dim}memoclaw diff abc123 --all${c.reset}            Show all diffs in sequence
+  ${c.dim}memoclaw diff abc123 --json${c.reset}           Machine-readable output
+
+Options:
+  --revision <n>         Show specific revision diff
+  --all                  Show all diffs in sequence
+  --json                 JSON output`,
+
       whoami: `${c.bold}memoclaw whoami${c.reset}
 
 Print your wallet address. Useful for scripting.
@@ -412,6 +435,7 @@ ${c.bold}Commands:${c.reset}
   ${c.cyan}browse${c.reset}                 Interactive memory browser (REPL)
   ${c.cyan}config${c.reset} [show|check]    Show or validate configuration
   ${c.cyan}history${c.reset} <id>           View change history for a memory
+  ${c.cyan}diff${c.reset} <id>              Show content diff between memory versions
   ${c.cyan}graph${c.reset} <id>             ASCII visualization of memory relations
   ${c.cyan}purge${c.reset}                  Delete ALL memories (requires --force or confirm)
   ${c.cyan}namespace${c.reset} [list|stats] Manage and view namespaces
@@ -444,6 +468,10 @@ ${c.bold}Global Options:${c.reset}
   --wide                 Use wider columns in table output
   --force                Skip confirmation prompts
   -T, --timeout <sec>    Request timeout (default: 30)
+  --retries <n>          Max retries on transient errors (default: 3)
+  --no-retry             Disable retries (fail-fast mode)
+  --since <date>         Filter by creation date (ISO 8601 or 1h/7d/2w/1mo/1y)
+  --until <date>         Filter by creation date (upper bound)
 
 ${c.bold}Environment:${c.reset}
   MEMOCLAW_PRIVATE_KEY   Wallet private key for auth + payments
