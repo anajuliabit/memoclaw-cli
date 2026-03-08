@@ -1568,6 +1568,36 @@ describe('list pinned/immutable filters', () => {
     expect(url).toContain('pinned=true');
     expect(url).toContain('immutable=true');
   });
+
+  test('--pinned false sends pinned=false (#108)', async () => {
+    mockFetchResponse = { memories: [], total: 0 };
+    allFetches.length = 0;
+    captureConsole();
+    await cmdList({ _: [], pinned: 'false' } as any);
+    restoreConsole();
+    const url = allFetches.find(f => f.url.includes('/v1/memories'))?.url || '';
+    expect(url).toContain('pinned=false');
+  });
+
+  test('--immutable false sends immutable=false (#108)', async () => {
+    mockFetchResponse = { memories: [], total: 0 };
+    allFetches.length = 0;
+    captureConsole();
+    await cmdList({ _: [], immutable: 'false' } as any);
+    restoreConsole();
+    const url = allFetches.find(f => f.url.includes('/v1/memories'))?.url || '';
+    expect(url).toContain('immutable=false');
+  });
+
+  test('--pinned (no value) still sends pinned=true (#108)', async () => {
+    mockFetchResponse = { memories: [], total: 0 };
+    allFetches.length = 0;
+    captureConsole();
+    await cmdList({ _: [], pinned: true } as any);
+    restoreConsole();
+    const url = allFetches.find(f => f.url.includes('/v1/memories'))?.url || '';
+    expect(url).toContain('pinned=true');
+  });
 });
 
 // ─── #60: search format support ──────────────────────────────────────────────
