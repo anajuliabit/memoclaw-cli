@@ -3,6 +3,7 @@
  */
 
 export const MAX_CONTENT_LENGTH = 8192;
+export const MAX_BULK_CONTENT_LENGTH = 100_000;
 
 export function validateContentLength(content: string, label = 'Content') {
   if (!content.trim()) {
@@ -10,6 +11,19 @@ export function validateContentLength(content: string, label = 'Content') {
   }
   if (content.length > MAX_CONTENT_LENGTH) {
     throw new Error(`${label} exceeds the ${MAX_CONTENT_LENGTH} character limit (got ${content.length} chars)`);
+  }
+}
+
+/**
+ * Validate content for bulk-processing commands (ingest, extract) that accept
+ * longer text. Only checks for empty/whitespace; uses a generous upper limit.
+ */
+export function validateBulkContentLength(content: string, label = 'Content') {
+  if (!content.trim()) {
+    throw new Error(`${label} cannot be empty or whitespace-only`);
+  }
+  if (content.length > MAX_BULK_CONTENT_LENGTH) {
+    throw new Error(`${label} exceeds the ${MAX_BULK_CONTENT_LENGTH} character limit (got ${content.length} chars)`);
   }
 }
 

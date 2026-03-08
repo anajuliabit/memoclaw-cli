@@ -1344,4 +1344,26 @@ describe('whoami', () => {
     expect(result._).toEqual(['whoami']);
     expect(result.json).toBe(true);
   });
+
+  test('short flag -t accepts values starting with single hyphen', () => {
+    const result = parseArgs(['-t', '-experimental']);
+    expect(result.tags).toBe('-experimental');
+  });
+
+  test('short flag -n accepts hyphenated values', () => {
+    const result = parseArgs(['-n', '-my-namespace']);
+    expect(result.namespace).toBe('-my-namespace');
+  });
+
+  test('short flag still rejects values starting with --', () => {
+    const result = parseArgs(['-n', '--json']);
+    expect(result.namespace).toBe(true);
+    expect(result.json).toBe(true);
+  });
+
+  test('combined short flags: last flag accepts hyphenated value', () => {
+    const result = parseArgs(['-jn', '-my-ns']);
+    expect(result.json).toBe(true);
+    expect(result.namespace).toBe('-my-ns');
+  });
 });

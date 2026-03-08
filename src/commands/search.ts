@@ -6,7 +6,7 @@ import type { ParsedArgs } from '../args.js';
 import { request } from '../http.js';
 import { c } from '../colors.js';
 import { outputJson, outputFormat, outputTruncate, noTruncate, out, outputWrite, success, info, truncate, table, readStdin } from '../output.js';
-import { validateContentLength } from '../validate.js';
+import { validateContentLength, validateBulkContentLength } from '../validate.js';
 
 export async function cmdSearch(query: string, opts: ParsedArgs) {
   const params = new URLSearchParams({ q: query });
@@ -36,9 +36,8 @@ export async function cmdSearch(query: string, opts: ParsedArgs) {
     if (memories.length === 0) {
       outputWrite(`${c.dim}No memories found.${c.reset}`);
     } else {
-      const truncateWidth = outputTruncate || 80;
       for (const mem of memories) {
-        const content = noTruncate ? mem.content : truncate(mem.content || '', truncateWidth);
+        const content = (noTruncate || !outputTruncate) ? (mem.content || '') : truncate(mem.content || '', outputTruncate);
         outputWrite(`${c.cyan}${(mem.id || '?').slice(0, 8)}${c.reset}  ${content}`);
         if (mem.metadata?.tags?.length) {
           outputWrite(`  ${c.dim}tags: ${mem.metadata.tags.join(', ')}${c.reset}`);
@@ -69,7 +68,7 @@ export async function cmdContext(query: string, opts: ParsedArgs) {
 }
 
 export async function cmdExtract(text: string, opts: ParsedArgs) {
-  validateContentLength(text, 'Extract text');
+  validateBulkContentLength(text, 'Extract text');
   const body: Record<string, any> = { text };
   if (opts.namespace) body.namespace = opts.namespace;
   if (opts.sessionId) body.session_id = opts.sessionId;
@@ -100,7 +99,7 @@ export async function cmdIngest(opts: ParsedArgs) {
   }
 
   if (!body.text) throw new Error('Text required (use --text, --file, or pipe via stdin)');
-  validateContentLength(body.text, 'Ingest text');
+  validateBulkContentLength(body.text, 'Ingest text');
 
   const result = await request('POST', '/v1/ingest', body) as any;
   if (outputJson) {
