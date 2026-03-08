@@ -443,6 +443,7 @@ ${c.bold}Global Options:${c.reset}
   --raw                  Raw output (content only, for piping)
   --wide                 Use wider columns in table output
   --force                Skip confirmation prompts
+  -M, --memory-type <t>  Memory type (core, episodic, semantic, procedural)
   -T, --timeout <sec>    Request timeout (default: 30)
 
 ${c.bold}Environment:${c.reset}
