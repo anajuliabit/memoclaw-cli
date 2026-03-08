@@ -10,7 +10,7 @@ describe('printHelp', () => {
     'store', 'recall', 'list', 'search', 'context', 'get', 'update', 'delete',
     'ingest', 'extract', 'consolidate', 'relations', 'suggested', 'export',
     'import', 'stats', 'config', 'browse', 'graph', 'purge', 'count',
-    'completions', 'history', 'namespace', 'init', 'migrate',
+    'completions', 'history', 'tags', 'namespace', 'init', 'migrate',
   ];
 
   for (const cmd of commands) {

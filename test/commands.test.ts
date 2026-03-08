@@ -110,6 +110,7 @@ const { cmdRelations } = await import('../src/commands/relations.js');
 const { cmdNamespace } = await import('../src/commands/namespace.js');
 const { cmdExport, cmdImport, cmdPurge } = await import('../src/commands/data.js');
 const { cmdWhoami } = await import('../src/commands/whoami.js');
+const { cmdTags } = await import('../src/commands/tags.js');
 const { validateContentLength, validateBulkContentLength, validateImportance } = await import('../src/validate.js');
 
 // ─── Setup ───────────────────────────────────────────────────────────────────
@@ -2100,5 +2101,127 @@ describe('cmdWhoami', () => {
     const parsed = JSON.parse(consoleOutput.join(''));
     expect(parsed.address).toBeDefined();
     expect(parsed.address.startsWith('0x')).toBe(true);
+  });
+});
+
+// ─── #124: tags command ──────────────────────────────────────────────────────
+
+describe('cmdTags', () => {
+  test('lists unique tags from all memories', async () => {
+    mockFetchResponse = {
+      memories: [
+        { id: 'a', content: 'hello', metadata: { tags: ['bug', 'urgent'] } },
+        { id: 'b', content: 'world', metadata: { tags: ['bug', 'feature'] } },
+        { id: 'c', content: 'no tags', metadata: {} },
+      ],
+      total: 3,
+    };
+    captureConsole();
+    await cmdTags('list', [], { _: [] } as any);
+    restoreConsole();
+    const output = consoleOutput.join('\n');
+    expect(output).toContain('bug');
+    expect(output).toContain('urgent');
+    expect(output).toContain('feature');
+    expect(output).toContain('3 tags');
+  });
+
+  test('default subcommand is list', async () => {
+    mockFetchResponse = { memories: [{ id: 'a', metadata: { tags: ['t1'] } }], total: 1 };
+    captureConsole();
+    await cmdTags('', [], { _: [] } as any);
+    restoreConsole();
+    expect(consoleOutput.join('\n')).toContain('t1');
+  });
+
+  test('shows "No tags found" when empty', async () => {
+    mockFetchResponse = { memories: [], total: 0 };
+    captureConsole();
+    await cmdTags('list', [], { _: [] } as any);
+    restoreConsole();
+    expect(consoleOutput.join('\n')).toContain('No tags found');
+  });
+
+  test('JSON mode outputs tags array and count', async () => {
+    mockFetchResponse = {
+      memories: [
+        { id: 'a', metadata: { tags: ['alpha', 'beta'] } },
+        { id: 'b', metadata: { tags: ['beta', 'gamma'] } },
+      ],
+      total: 2,
+    };
+    resetOutputState({ json: true });
+    captureConsole();
+    await cmdTags('list', [], { _: [] } as any);
+    restoreConsole();
+    resetOutputState();
+    const parsed = JSON.parse(consoleOutput.join(''));
+    expect(parsed.tags).toEqual(['alpha', 'beta', 'gamma']);
+    expect(parsed.count).toBe(3);
+  });
+
+  test('passes namespace filter', async () => {
+    mockFetchResponse = { memories: [], total: 0 };
+    allFetches.length = 0;
+    captureConsole();
+    await cmdTags('list', [], { _: [], namespace: 'proj1' } as any);
+    restoreConsole();
+    const url = allFetches.find(f => f.url.includes('/v1/memories'))?.url || '';
+    expect(url).toContain('namespace=proj1');
+  });
+
+  test('throws on invalid subcommand', async () => {
+    await expect(cmdTags('bad', [], { _: [] } as any)).rejects.toThrow('Usage');
+    restoreConsole();
+  });
+
+  test('deduplicates tags across memories', async () => {
+    mockFetchResponse = {
+      memories: [
+        { id: 'a', metadata: { tags: ['same'] } },
+        { id: 'b', metadata: { tags: ['same'] } },
+        { id: 'c', metadata: { tags: ['same'] } },
+      ],
+      total: 3,
+    };
+    resetOutputState({ json: true });
+    captureConsole();
+    await cmdTags('list', [], { _: [] } as any);
+    restoreConsole();
+    resetOutputState();
+    const parsed = JSON.parse(consoleOutput.join(''));
+    expect(parsed.tags).toEqual(['same']);
+    expect(parsed.count).toBe(1);
+  });
+
+  test('sorts tags alphabetically', async () => {
+    mockFetchResponse = {
+      memories: [
+        { id: 'a', metadata: { tags: ['zebra', 'apple', 'mango'] } },
+      ],
+      total: 1,
+    };
+    resetOutputState({ json: true });
+    captureConsole();
+    await cmdTags('list', [], { _: [] } as any);
+    restoreConsole();
+    resetOutputState();
+    const parsed = JSON.parse(consoleOutput.join(''));
+    expect(parsed.tags).toEqual(['apple', 'mango', 'zebra']);
+  });
+
+  test('csv format outputs rows', async () => {
+    mockFetchResponse = {
+      memories: [{ id: 'a', metadata: { tags: ['csv-tag'] } }],
+      total: 1,
+    };
+    resetOutputState({ format: 'csv' });
+    captureConsole();
+    await cmdTags('list', [], { _: [] } as any);
+    restoreConsole();
+    resetOutputState();
+    const output = consoleOutput.join('\n');
+    expect(output).toContain('tag');
+    expect(output).toContain('csv-tag');
   });
 });

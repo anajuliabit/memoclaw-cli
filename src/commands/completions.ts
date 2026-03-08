@@ -1,7 +1,7 @@
 export async function cmdCompletions(shell: string) {
   const commands = ['init', 'migrate', 'store', 'recall', 'search', 'list', 'get', 'update', 'delete', 'bulk-delete', 'ingest', 'extract',
     'context', 'consolidate', 'relations', 'core', 'suggested', 'status', 'export', 'import', 'stats', 'browse',
-    'completions', 'config', 'graph', 'history', 'purge', 'count', 'namespace', 'whoami', 'upgrade', 'help'];
+    'completions', 'config', 'graph', 'history', 'purge', 'count', 'tags', 'namespace', 'whoami', 'upgrade', 'help'];
 
   const globalFlags = ['--help', '--version', '--json', '--quiet', '--namespace', '--limit', '--offset',
     '--tags', '--format', '--pretty', '--watch', '--raw', '--force', '--output', '--truncate',
@@ -29,6 +29,8 @@ _memoclaw() {
     COMPREPLY=( $(compgen -W "list create delete" -- "\$cur") )
   elif [[ "\${COMP_WORDS[1]}" == "config" && "\$COMP_CWORD" -eq 2 ]]; then
     COMPREPLY=( $(compgen -W "show check init path" -- "\$cur") )
+  elif [[ "\${COMP_WORDS[1]}" == "tags" && "\$COMP_CWORD" -eq 2 ]]; then
+    COMPREPLY=( $(compgen -W "list" -- "\$cur") )
   elif [[ "\${COMP_WORDS[1]}" == "namespace" && "\$COMP_CWORD" -eq 2 ]]; then
     COMPREPLY=( $(compgen -W "list stats" -- "\$cur") )
   elif [[ "\${COMP_WORDS[1]}" == "completions" && "\$COMP_CWORD" -eq 2 ]]; then
@@ -49,6 +51,7 @@ _memoclaw() {
     case \${words[2]} in
       relations)  _values 'subcommand' list create delete ;;
       config)     _values 'subcommand' show check init path ;;
+      tags)       _values 'subcommand' list ;;
       namespace)  _values 'subcommand' list stats ;;
       completions) _values 'shell' bash zsh fish ;;
       store|list|update) 
@@ -71,6 +74,7 @@ ${commands.map(cmd => `complete -c memoclaw -n '__fish_use_subcommand' -a '${cmd
 # Subcommands
 complete -c memoclaw -n '__fish_seen_subcommand_from relations' -a 'list create delete'
 complete -c memoclaw -n '__fish_seen_subcommand_from config' -a 'show check init path'
+complete -c memoclaw -n '__fish_seen_subcommand_from tags' -a 'list'
 complete -c memoclaw -n '__fish_seen_subcommand_from namespace' -a 'list stats'
 complete -c memoclaw -n '__fish_seen_subcommand_from completions' -a 'bash zsh fish'
 

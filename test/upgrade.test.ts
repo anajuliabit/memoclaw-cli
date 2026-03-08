@@ -125,13 +125,13 @@ describe('upgrade CLI args', () => {
 describe('completions include upgrade', () => {
   const commands = ['init', 'migrate', 'store', 'recall', 'search', 'list', 'get', 'update', 'delete', 'bulk-delete', 'ingest', 'extract',
     'context', 'consolidate', 'relations', 'core', 'suggested', 'status', 'export', 'import', 'stats', 'browse',
-    'completions', 'config', 'graph', 'history', 'purge', 'count', 'namespace', 'whoami', 'upgrade', 'help'];
+    'completions', 'config', 'graph', 'history', 'purge', 'count', 'tags', 'namespace', 'whoami', 'upgrade', 'help'];
 
   test('upgrade is in commands list', () => {
     expect(commands).toContain('upgrade');
   });
 
-  test('total command count is 32', () => {
-    expect(commands.length).toBe(32);
+  test('total command count is 33', () => {
+    expect(commands.length).toBe(33);
   });
 });
