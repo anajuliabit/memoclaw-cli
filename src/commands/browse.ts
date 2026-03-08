@@ -9,6 +9,10 @@ import { cmdDelete } from './memory.js';
 import { cmdStats } from './status.js';
 
 export async function cmdBrowse(opts: ParsedArgs) {
+  if (!process.stdin.isTTY) {
+    throw new Error('Interactive browser requires a terminal. Use individual commands instead (e.g. memoclaw list, memoclaw recall).');
+  }
+
   const readline = await import('readline');
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
   const prompt = (q: string): Promise<string> => new Promise(r => rl.question(q, r));

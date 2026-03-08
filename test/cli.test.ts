@@ -795,6 +795,22 @@ describe('new short flags', () => {
     const result = parseArgs(['list', '--timeout=120']);
     expect(result.timeout).toBe('120');
   });
+
+  test('-M for memoryType', () => {
+    const result = parseArgs(['store', 'test', '-M', 'core']);
+    expect(result.memoryType).toBe('core');
+    expect(result._).toEqual(['store', 'test']);
+  });
+
+  test('--memory-type maps to memoryType', () => {
+    const result = parseArgs(['list', '--memory-type', 'episodic']);
+    expect(result.memoryType).toBe('episodic');
+  });
+
+  test('-M=semantic works', () => {
+    const result = parseArgs(['store', 'test', '-M=semantic']);
+    expect(result.memoryType).toBe('semantic');
+  });
 });
 
 // ─── Sort and column selection ────────────────────────────────────────────────

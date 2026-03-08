@@ -43,6 +43,7 @@ const SHORT_FLAGS: Record<string, string> = {
   '-k': 'columns',
   '-O': 'output',
   '-F': 'field',
+  '-M': 'memoryType',
 };
 
 export function parseArgs(args: string[]): ParsedArgs {

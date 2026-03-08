@@ -23,6 +23,8 @@ _memoclaw() {
     COMPREPLY=( $(compgen -W "\$flags" -- "\$cur") )
   elif [[ "\$prev" == "--format" || "\$prev" == "-f" ]]; then
     COMPREPLY=( $(compgen -W "json table csv yaml" -- "\$cur") )
+  elif [[ "\$prev" == "--memory-type" || "\$prev" == "-M" ]]; then
+    COMPREPLY=( $(compgen -W "core episodic semantic procedural" -- "\$cur") )
   elif [[ "\${COMP_WORDS[1]}" == "relations" && "\$COMP_CWORD" -eq 2 ]]; then
     COMPREPLY=( $(compgen -W "list create delete" -- "\$cur") )
   elif [[ "\${COMP_WORDS[1]}" == "config" && "\$COMP_CWORD" -eq 2 ]]; then
@@ -49,6 +51,10 @@ _memoclaw() {
       config)     _values 'subcommand' show check init path ;;
       namespace)  _values 'subcommand' list stats ;;
       completions) _values 'shell' bash zsh fish ;;
+      store|list|update) 
+        case \${words[CURRENT-1]} in
+          --memory-type|-M) _values 'type' core episodic semantic procedural ;;
+        esac ;;
       *)
         if [[ "\$PREFIX" == -* ]]; then
           _describe 'flag' flags
