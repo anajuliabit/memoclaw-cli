@@ -22,7 +22,7 @@ import { printHelp } from './help.js';
 import { cmdStore, cmdStoreBatch, readFileContent } from './commands/store.js';
 import { cmdRecall } from './commands/recall.js';
 import { cmdList } from './commands/list.js';
-import { cmdGet, cmdDelete, cmdUpdate, cmdBulkDelete } from './commands/memory.js';
+import { cmdGet, cmdDelete, cmdUpdate, cmdBulkDelete, cmdPin, cmdUnpin } from './commands/memory.js';
 
 import { cmdSearch, cmdContext, cmdExtract, cmdIngest, cmdConsolidate } from './commands/search.js';
 import { cmdRelations } from './commands/relations.js';
@@ -132,6 +132,14 @@ try {
     case 'delete':
       if (!rest[0]) throw new Error('Memory ID required. Usage: memoclaw delete <id>');
       await cmdDelete(rest[0]);
+      break;
+    case 'pin':
+      if (!rest[0]) throw new Error('Memory ID required. Usage: memoclaw pin <id>');
+      await cmdPin(rest[0], args);
+      break;
+    case 'unpin':
+      if (!rest[0]) throw new Error('Memory ID required. Usage: memoclaw unpin <id>');
+      await cmdUnpin(rest[0], args);
       break;
     case 'bulk-delete': {
       let ids = rest;
