@@ -48,10 +48,10 @@ export async function cmdExport(opts: ParsedArgs) {
     outputWrite(JSON.stringify(exportData, null, 2));
   } else if (outputFormat === 'csv' || outputFormat === 'tsv') {
     const sep = outputFormat === 'tsv' ? '\t' : ',';
-    if (allMemories.length > 0) {
+    if (filteredMemories.length > 0) {
       const headers = ['id', 'content', 'importance', 'namespace', 'tags', 'created_at'];
       outputWrite(headers.join(sep));
-      for (const m of allMemories) {
+      for (const m of filteredMemories) {
         const row = [
           m.id || '',
           m.content || '',

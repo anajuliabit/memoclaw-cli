@@ -2,9 +2,24 @@
  * Terminal color utilities
  */
 
-const NO_COLOR = !!process.env.NO_COLOR || !process.stdout.isTTY;
+let NO_COLOR = !!process.env.NO_COLOR || !process.stdout.isTTY;
 
-export const c = {
+/** Disable all color output (called after arg parsing when --no-color is used) */
+export function disableColors() {
+  NO_COLOR = true;
+  c.reset = '';
+  c.bold = '';
+  c.dim = '';
+  c.red = '';
+  c.green = '';
+  c.yellow = '';
+  c.blue = '';
+  c.magenta = '';
+  c.cyan = '';
+  c.gray = '';
+}
+
+export const c: Record<string, string> = {
   reset: NO_COLOR ? '' : '\x1b[0m',
   bold: NO_COLOR ? '' : '\x1b[1m',
   dim: NO_COLOR ? '' : '\x1b[2m',

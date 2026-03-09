@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'bun:test';
-import { c } from '../src/colors';
+import { c, disableColors } from '../src/colors';
 
 describe('colors', () => {
   const colorKeys = ['reset', 'bold', 'dim', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'gray'];
@@ -22,6 +22,13 @@ describe('colors', () => {
     for (const key of colorKeys) {
       const val = (c as any)[key];
       expect(val === '' || val.startsWith('\x1b[')).toBe(true);
+    }
+  });
+
+  test('disableColors() sets all color values to empty strings', () => {
+    disableColors();
+    for (const key of colorKeys) {
+      expect((c as any)[key]).toBe('');
     }
   });
 });
