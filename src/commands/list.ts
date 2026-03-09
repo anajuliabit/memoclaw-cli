@@ -123,6 +123,15 @@ export async function cmdList(opts: ParsedArgs) {
     params.set('immutable', String(opts.immutable !== 'false'));
   }
 
+  // Parse date filters (before watch mode so they apply in both paths)
+  const sinceDate = opts.since ? parseDate(opts.since) : null;
+  const untilDate = opts.until ? parseDate(opts.until) : null;
+  if ((opts.since && !sinceDate) || (opts.until && !untilDate)) {
+    throw new Error(
+      `Invalid date format. Use ISO 8601 (2025-01-01) or relative shorthand (1h, 7d, 2w, 1mo, 1y).`
+    );
+  }
+
   // Watch mode
   if (opts.watch) {
     let lastFingerprint = '';
@@ -135,6 +144,7 @@ export async function cmdList(opts: ParsedArgs) {
       try {
         const result = await request('GET', `/v1/memories?${params}`) as any;
         let memories = result.memories || result.data || [];
+        memories = filterByDateRange(memories, 'created_at', sinceDate, untilDate);
         const total = result.total ?? memories.length;
         const fingerprint = memories.map((m: any) => `${m.id}:${m.updated_at || ''}`).join('|');
 
@@ -144,7 +154,7 @@ export async function cmdList(opts: ParsedArgs) {
           memories = sortMemories(memories, opts);
 
           if (outputJson) {
-            out(result);
+            out({ ...result, memories, total: memories.length });
           } else if (opts.raw) {
             for (const mem of memories) {
               outputWrite(mem.content || '');
@@ -173,15 +183,6 @@ export async function cmdList(opts: ParsedArgs) {
   }
 
   const result = await request('GET', `/v1/memories?${params}`) as any;
-
-  // Apply client-side date filtering
-  const sinceDate = opts.since ? parseDate(opts.since) : null;
-  const untilDate = opts.until ? parseDate(opts.until) : null;
-  if ((opts.since && !sinceDate) || (opts.until && !untilDate)) {
-    throw new Error(
-      `Invalid date format. Use ISO 8601 (2025-01-01) or relative shorthand (1h, 7d, 2w, 1mo, 1y).`
-    );
-  }
 
   if (outputJson) {
     if (sinceDate || untilDate) {

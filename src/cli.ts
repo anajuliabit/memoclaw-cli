@@ -253,6 +253,9 @@ try {
     case 'help':
       printHelp(rest[0]);
       break;
+    case 'version':
+      console.log(`memoclaw ${VERSION}`);
+      break;
     default:
       console.error(`${c.red}Unknown command: ${cmd}${c.reset}`);
       console.error(`Run ${c.dim}memoclaw --help${c.reset} for usage.`);

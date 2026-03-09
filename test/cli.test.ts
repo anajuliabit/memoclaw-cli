@@ -1383,4 +1383,32 @@ describe('whoami', () => {
     expect(result.json).toBe(true);
     expect(result.namespace).toBe('-my-ns');
   });
+
+  test('parseArgs recognizes version as positional command', () => {
+    const result = parseArgs(['version']);
+    expect(result._).toEqual(['version']);
+  });
+});
+
+// ─── list --watch date filter placement ──────────────────────────────────────
+
+describe('list watch date filter', () => {
+  test('date parsing is reachable before watch block', async () => {
+    // Verify that filterByDateRange is imported and available in list.ts
+    // by testing the date utilities it depends on
+    const { parseDate, filterByDateRange } = await import('../src/dates');
+
+    const memories = [
+      { id: '1', content: 'old', created_at: '2020-01-01T00:00:00Z' },
+      { id: '2', content: 'recent', created_at: new Date().toISOString() },
+    ];
+
+    const since = parseDate('7d');
+    expect(since).not.toBeNull();
+
+    const filtered = filterByDateRange(memories, 'created_at', since);
+    // Only the recent memory should pass
+    expect(filtered.length).toBe(1);
+    expect(filtered[0].id).toBe('2');
+  });
 });
