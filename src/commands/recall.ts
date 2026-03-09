@@ -2,6 +2,7 @@ import type { ParsedArgs } from '../args.js';
 import { request } from '../http.js';
 import { c } from '../colors.js';
 import { outputJson, outputTruncate, outputFormat, out, outputWrite, truncate } from '../output.js';
+import { parseDate, filterByDateRange } from '../dates.js';
 
 /** Render a list of recall memories to stdout (shared between normal and watch mode) */
 function renderMemories(memories: any[], opts: { showId?: boolean } = {}) {
@@ -31,6 +32,15 @@ export async function cmdRecall(query: string, opts: ParsedArgs) {
   if (opts.namespace) body.namespace = opts.namespace;
   if (opts.tags) body.filters = { tags: opts.tags.split(',').map((t: string) => t.trim()) };
 
+  // Parse date filters
+  const sinceDate = opts.since ? parseDate(opts.since) : null;
+  const untilDate = opts.until ? parseDate(opts.until) : null;
+  if ((opts.since && !sinceDate) || (opts.until && !untilDate)) {
+    throw new Error(
+      `Invalid date format. Use ISO 8601 (2025-01-01) or relative shorthand (1h, 7d, 2w, 1mo, 1y).`
+    );
+  }
+
   // Watch mode
   if (opts.watch) {
     let lastFingerprint = '';
@@ -41,7 +51,8 @@ export async function cmdRecall(query: string, opts: ParsedArgs) {
     while (true) {
       try {
         const result = await request('POST', '/v1/recall', body) as any;
-        const memories = result.memories || [];
+        let memories = result.memories || [];
+        memories = filterByDateRange(memories, 'created_at', sinceDate, untilDate);
         const fingerprint = memories.map((m: any) => `${m.id}:${m.updated_at || ''}`).join('|');
 
         if (fingerprint !== lastFingerprint) {
@@ -79,9 +90,15 @@ export async function cmdRecall(query: string, opts: ParsedArgs) {
   const result = await request('POST', '/v1/recall', body) as any;
 
   if (outputJson) {
-    out(result);
+    if (sinceDate || untilDate) {
+      const filtered = filterByDateRange(result.memories || [], 'created_at', sinceDate, untilDate);
+      out({ ...result, memories: filtered });
+    } else {
+      out(result);
+    }
   } else if (outputFormat === 'csv' || outputFormat === 'tsv' || outputFormat === 'yaml') {
-    const memories = result.memories || [];
+    let memories = result.memories || [];
+    memories = filterByDateRange(memories, 'created_at', sinceDate, untilDate);
     const rows = memories.map((m: any) => ({
       id: m.id || '',
       similarity: m.similarity?.toFixed(3) || '',
@@ -91,11 +108,14 @@ export async function cmdRecall(query: string, opts: ParsedArgs) {
     }));
     out(rows);
   } else if (opts.raw) {
-    const memories = result.memories || [];
+    let memories = result.memories || [];
+    memories = filterByDateRange(memories, 'created_at', sinceDate, untilDate);
     for (const mem of memories) {
       outputWrite(mem.content);
     }
   } else {
-    renderMemories(result.memories || [], { showId: true });
+    let memories = result.memories || [];
+    memories = filterByDateRange(memories, 'created_at', sinceDate, untilDate);
+    renderMemories(memories, { showId: true });
   }
 }

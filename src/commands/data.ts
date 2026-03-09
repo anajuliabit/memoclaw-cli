@@ -6,6 +6,7 @@ import type { ParsedArgs } from '../args.js';
 import { request } from '../http.js';
 import { c } from '../colors.js';
 import { outputJson, outputQuiet, outputFormat, out, success, warn, progressBar, outputWrite, readStdin } from '../output.js';
+import { parseDate, filterByDateRange } from '../dates.js';
 
 export async function cmdExport(opts: ParsedArgs) {
   const params = new URLSearchParams();
@@ -25,11 +26,22 @@ export async function cmdExport(opts: ParsedArgs) {
     if (!outputQuiet) process.stderr.write(`${c.dim}Fetched ${allMemories.length} memories...${c.reset}\r`);
   }
 
+  // Apply date filters
+  const sinceDate = opts.since ? parseDate(opts.since) : null;
+  const untilDate = opts.until ? parseDate(opts.until) : null;
+  if ((opts.since && !sinceDate) || (opts.until && !untilDate)) {
+    throw new Error(
+      `Invalid date format. Use ISO 8601 (2025-01-01) or relative shorthand (1h, 7d, 2w, 1mo, 1y).`
+    );
+  }
+
+  const filteredMemories = filterByDateRange(allMemories, 'created_at', sinceDate, untilDate);
+
   const exportData = {
     version: 1,
     exported_at: new Date().toISOString(),
-    count: allMemories.length,
-    memories: allMemories,
+    count: filteredMemories.length,
+    memories: filteredMemories,
   };
 
   if (outputJson || outputFormat === 'json') {
@@ -63,7 +75,8 @@ export async function cmdExport(opts: ParsedArgs) {
     outputWrite(JSON.stringify(exportData, null, 2));
   }
   if (!outputQuiet) {
-    console.error(`${c.green}✓${c.reset} Exported ${allMemories.length} memories`);
+    const filterNote = (sinceDate || untilDate) ? ` (filtered from ${allMemories.length})` : '';
+    console.error(`${c.green}✓${c.reset} Exported ${filteredMemories.length} memories${filterNote}`);
   }
 }
 
