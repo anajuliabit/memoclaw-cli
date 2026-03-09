@@ -254,6 +254,33 @@ Options:
   --interval <seconds>   Poll interval (default: 3)
   --json                 Output JSON lines (for piping)`,
 
+      copy: `${c.bold}memoclaw copy${c.reset} <id> [options]
+
+Duplicate an existing memory. The new memory gets a fresh ID and is mutable
+by default, even if the source was immutable.
+
+  ${c.dim}memoclaw copy abc123${c.reset}
+  ${c.dim}memoclaw copy abc123 --namespace other-project${c.reset}
+  ${c.dim}memoclaw copy abc123 --importance 0.9 --tags new-tag${c.reset}
+
+Options:
+  --namespace <name>     Target namespace (default: same as source)
+  --importance <0-1>     Override importance score
+  --tags <tag1,tag2>     Override tags
+  --memory-type <type>   Override memory type`,
+
+      move: `${c.bold}memoclaw move${c.reset} <id> [<id2> ...] --namespace <target>
+
+Move one or more memories to a different namespace.
+IDs can be provided as arguments or piped via stdin.
+
+  ${c.dim}memoclaw move abc123 --namespace production${c.reset}
+  ${c.dim}memoclaw move abc123 def456 --namespace archive${c.reset}
+  ${c.dim}memoclaw list --namespace staging --json | jq -r '.memories[].id' | memoclaw move --namespace production${c.reset}
+
+Options:
+  --namespace <name>     Target namespace (required)`,
+
       'bulk-delete': `${c.bold}memoclaw bulk-delete${c.reset} <id1> <id2> ...
 
 Delete multiple memories at once. IDs can be provided as arguments
@@ -519,6 +546,8 @@ ${c.bold}Commands:${c.reset}
   ${c.cyan}unlock${c.reset} <id>           Unlock a memory (make mutable)
   ${c.cyan}edit${c.reset} <id>             Edit a memory in $EDITOR
   ${c.cyan}watch${c.reset}                  Watch for new memories in real-time
+  ${c.cyan}copy${c.reset} <id>             Duplicate a memory
+  ${c.cyan}move${c.reset} <id> --namespace  Move memory to another namespace
   ${c.cyan}ingest${c.reset}                 Ingest raw text into memories
   ${c.cyan}extract${c.reset} "text"         Extract memories from text
   ${c.cyan}context${c.reset} "query"        Get GPT-powered contextual summary ($0.01/call)

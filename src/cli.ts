@@ -13,7 +13,7 @@
 
 import { parseArgs } from './args.js';
 import { VERSION, DEFAULT_NAMESPACE, DEFAULT_TIMEOUT } from './config.js';
-import { c } from './colors.js';
+import { c, disableColors } from './colors.js';
 import { configureOutput, outputJson, readStdin } from './output.js';
 import { setRequestTimeout, setMaxRetries } from './http.js';
 import { printHelp } from './help.js';
@@ -22,7 +22,7 @@ import { printHelp } from './help.js';
 import { cmdStore, cmdStoreBatch, readFileContent } from './commands/store.js';
 import { cmdRecall } from './commands/recall.js';
 import { cmdList } from './commands/list.js';
-import { cmdGet, cmdDelete, cmdUpdate, cmdBulkDelete, cmdPin, cmdUnpin, cmdLock, cmdUnlock, cmdEdit } from './commands/memory.js';
+import { cmdGet, cmdDelete, cmdUpdate, cmdBulkDelete, cmdPin, cmdUnpin, cmdLock, cmdUnlock, cmdEdit, cmdCopy, cmdMove } from './commands/memory.js';
 
 import { cmdSearch, cmdContext, cmdExtract, cmdIngest, cmdConsolidate } from './commands/search.js';
 import { cmdRelations } from './commands/relations.js';
@@ -45,6 +45,11 @@ import { cmdWatch } from './commands/watch.js';
 
 const args = parseArgs(process.argv.slice(2));
 const [cmd, ...rest] = args._;
+
+// Disable colors if --no-color flag is passed
+if (args.noColor) {
+  disableColors();
+}
 
 // Configure output state
 configureOutput(args);
@@ -157,6 +162,20 @@ try {
     case 'watch':
       await cmdWatch(args);
       break;
+    case 'copy':
+      if (!rest[0]) throw new Error('Memory ID required. Usage: memoclaw copy <id> [--namespace <ns>]');
+      await cmdCopy(rest[0], args);
+      break;
+    case 'move': {
+      let ids = rest;
+      if (ids.length === 0) {
+        const stdin = await readStdin();
+        if (stdin) ids = stdin.split(/[\n,\s]+/).map(s => s.trim()).filter(Boolean);
+      }
+      if (ids.length === 0) throw new Error('Memory ID(s) required. Usage: memoclaw move <id> --namespace <target>');
+      await cmdMove(ids, args);
+      break;
+    }
     case 'bulk-delete': {
       let ids = rest;
       if (ids.length === 0) {

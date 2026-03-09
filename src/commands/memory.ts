@@ -1,12 +1,12 @@
 /**
- * Single-memory commands: get, delete, update
+ * Single-memory commands: get, delete, update, copy, move
  */
 
 import type { ParsedArgs } from '../args.js';
 import { request } from '../http.js';
 import { c } from '../colors.js';
 import { outputJson, outputFormat, out, outputWrite, success, readStdin } from '../output.js';
-import { MAX_CONTENT_LENGTH, validateContentLength, validateImportance, warnIfBooleanImportance } from '../validate.js';
+import { validateContentLength, validateImportance, warnIfBooleanImportance } from '../validate.js';
 import { readFileContent } from './store.js';
 
 export async function cmdGet(id: string, opts?: ParsedArgs) {
@@ -197,5 +197,58 @@ export async function cmdEdit(id: string, opts?: ParsedArgs) {
   } finally {
     // Clean up temp file
     try { unlinkSync(tmpFile); } catch {}
+  }
+}
+
+export async function cmdCopy(id: string, opts: ParsedArgs) {
+  // Fetch the source memory
+  const result = await request('GET', `/v1/memories/${id}`) as any;
+  const mem = result.memory || result;
+
+  // Build the new memory body, preserving original fields
+  const body: Record<string, any> = { content: mem.content };
+  if (mem.importance !== undefined) body.importance = mem.importance;
+  if (mem.metadata?.tags?.length) body.metadata = { tags: [...mem.metadata.tags] };
+  if (mem.memory_type) body.memory_type = mem.memory_type;
+  if (mem.session_id) body.session_id = mem.session_id;
+  if (mem.agent_id) body.agent_id = mem.agent_id;
+
+  // Use source namespace unless overridden
+  body.namespace = opts.namespace || mem.namespace;
+
+  // Apply overrides from flags
+  if (opts.importance != null && !warnIfBooleanImportance(opts.importance)) {
+    body.importance = validateImportance(opts.importance);
+  }
+  if (opts.tags) {
+    const newTags = opts.tags.split(',').map((t: string) => t.trim());
+    body.metadata = { tags: newTags };
+  }
+  if (opts.memoryType) body.memory_type = opts.memoryType;
+  // Deliberately do NOT copy immutable flag — new memory should be mutable
+
+  const storeResult = await request('POST', '/v1/store', body) as any;
+  if (outputJson) {
+    out({ source: id, id: storeResult.id, copied: true });
+  } else {
+    success(`Copied ${c.cyan}${id.slice(0, 8)}…${c.reset} → ${c.cyan}${(storeResult.id || '?').slice(0, 8)}…${c.reset}`);
+  }
+}
+
+export async function cmdMove(ids: string[], opts: ParsedArgs) {
+  if (!opts.namespace) {
+    throw new Error('Target namespace required. Usage: memoclaw move <id> --namespace <target>');
+  }
+
+  let moved = 0;
+  for (const id of ids) {
+    await request('PATCH', `/v1/memories/${id}`, { namespace: opts.namespace });
+    moved++;
+  }
+
+  if (outputJson) {
+    out({ moved, namespace: opts.namespace, ids });
+  } else {
+    success(`Moved ${c.cyan}${moved}${c.reset} memor${moved === 1 ? 'y' : 'ies'} to namespace ${c.cyan}${opts.namespace}${c.reset}`);
   }
 }

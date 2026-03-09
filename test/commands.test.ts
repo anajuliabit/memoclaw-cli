@@ -101,7 +101,7 @@ function resetOutputState(overrides: Record<string, any> = {}) {
 const { cmdStore, cmdStoreBatch } = await import('../src/commands/store.js');
 const { cmdRecall } = await import('../src/commands/recall.js');
 const { cmdList } = await import('../src/commands/list.js');
-const { cmdGet, cmdDelete, cmdUpdate, cmdBulkDelete, cmdPin, cmdUnpin, cmdLock, cmdUnlock, cmdEdit } = await import('../src/commands/memory.js');
+const { cmdGet, cmdDelete, cmdUpdate, cmdBulkDelete, cmdPin, cmdUnpin, cmdLock, cmdUnlock, cmdEdit, cmdCopy, cmdMove } = await import('../src/commands/memory.js');
 const { cmdSearch, cmdContext, cmdExtract, cmdIngest, cmdConsolidate } = await import('../src/commands/search.js');
 const { cmdCount, cmdSuggested, cmdGraph } = await import('../src/commands/status.js');
 const { cmdHistory } = await import('../src/commands/history.js');
@@ -2563,5 +2563,99 @@ describe('cmdWatch', () => {
   test('module exports cmdWatch', async () => {
     const mod = await import('../src/commands/watch.js');
     expect(typeof mod.cmdWatch).toBe('function');
+  });
+});
+
+// ─── #133: export CSV/TSV date filter fix ────────────────────────────────────
+
+describe('export CSV respects --since filter', () => {
+  const now = Date.now();
+  const recentDate = new Date(now - 1000 * 60 * 60).toISOString(); // 1h ago
+  const oldDate = new Date(now - 1000 * 60 * 60 * 24 * 30).toISOString(); // 30d ago
+
+  test('CSV export only includes filtered memories with --since', async () => {
+    mockFetchResponse = {
+      memories: [
+        { id: 'recent-csv', content: 'recent', created_at: recentDate, importance: 0.5, namespace: '', metadata: {} },
+        { id: 'old-csv', content: 'old', created_at: oldDate, importance: 0.3, namespace: '', metadata: {} },
+      ],
+      total: 2,
+    };
+    resetOutputState({ format: 'csv' });
+    captureConsole();
+    await cmdExport({ _: ['export'], since: '7d', format: 'csv' } as any);
+    restoreConsole();
+    resetOutputState();
+    // CSV output: first line is headers, rest are data rows
+    const lines = consoleOutput.filter(l => l.trim());
+    const dataLines = lines.filter(l => !l.startsWith('id,') && !l.includes('✓'));
+    expect(dataLines.length).toBe(1);
+    expect(dataLines[0]).toContain('recent-csv');
+    expect(dataLines.join('')).not.toContain('old-csv');
+  });
+});
+
+// ─── #135: copy command ──────────────────────────────────────────────────────
+
+describe('cmdCopy', () => {
+  test('duplicates a memory and returns new ID', async () => {
+    let callCount = 0;
+    mockFetchResponse = (url: string, init: any) => {
+      callCount++;
+      if (callCount === 1) {
+        // GET /v1/memories/:id
+        return { memory: { id: 'source-id', content: 'hello', importance: 0.8, namespace: 'ns1', metadata: { tags: ['a'] } } };
+      }
+      // POST /v1/store
+      return { id: 'new-copy-id' };
+    };
+    resetOutputState({ json: true });
+    captureConsole();
+    await cmdCopy('source-id', { _: ['copy'] } as any);
+    restoreConsole();
+    resetOutputState();
+    const parsed = JSON.parse(consoleOutput.join(''));
+    expect(parsed.source).toBe('source-id');
+    expect(parsed.id).toBe('new-copy-id');
+    expect(parsed.copied).toBe(true);
+  });
+
+  test('copy with namespace override', async () => {
+    let storeBody: any = null;
+    let callCount = 0;
+    mockFetchResponse = (url: string, init: any) => {
+      callCount++;
+      if (callCount === 1) {
+        return { memory: { id: 'src', content: 'data', namespace: 'old-ns' } };
+      }
+      storeBody = JSON.parse(init?.body || '{}');
+      return { id: 'new-id' };
+    };
+    resetOutputState({ json: true });
+    captureConsole();
+    await cmdCopy('src', { _: ['copy'], namespace: 'new-ns' } as any);
+    restoreConsole();
+    resetOutputState();
+    expect(storeBody.namespace).toBe('new-ns');
+  });
+});
+
+// ─── #136: move command ──────────────────────────────────────────────────────
+
+describe('cmdMove', () => {
+  test('moves memories to target namespace', async () => {
+    mockFetchResponse = { updated: true };
+    resetOutputState({ json: true });
+    captureConsole();
+    await cmdMove(['id1', 'id2'], { _: ['move'], namespace: 'production' } as any);
+    restoreConsole();
+    resetOutputState();
+    const parsed = JSON.parse(consoleOutput.join(''));
+    expect(parsed.moved).toBe(2);
+    expect(parsed.namespace).toBe('production');
+  });
+
+  test('throws if no namespace provided', async () => {
+    expect(() => cmdMove(['id1'], { _: ['move'] } as any)).toThrow('Target namespace required');
   });
 });
