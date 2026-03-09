@@ -22,7 +22,7 @@ import { printHelp } from './help.js';
 import { cmdStore, cmdStoreBatch, readFileContent } from './commands/store.js';
 import { cmdRecall } from './commands/recall.js';
 import { cmdList } from './commands/list.js';
-import { cmdGet, cmdDelete, cmdUpdate, cmdBulkDelete, cmdPin, cmdUnpin } from './commands/memory.js';
+import { cmdGet, cmdDelete, cmdUpdate, cmdBulkDelete, cmdPin, cmdUnpin, cmdLock, cmdUnlock, cmdEdit } from './commands/memory.js';
 
 import { cmdSearch, cmdContext, cmdExtract, cmdIngest, cmdConsolidate } from './commands/search.js';
 import { cmdRelations } from './commands/relations.js';
@@ -39,6 +39,7 @@ import { cmdCore } from './commands/core.js';
 import { cmdWhoami } from './commands/whoami.js';
 import { cmdUpgrade } from './commands/upgrade.js';
 import { cmdTags } from './commands/tags.js';
+import { cmdWatch } from './commands/watch.js';
 
 // ─── Main ────────────────────────────────────────────────────────────────────
 
@@ -140,6 +141,21 @@ try {
     case 'unpin':
       if (!rest[0]) throw new Error('Memory ID required. Usage: memoclaw unpin <id>');
       await cmdUnpin(rest[0], args);
+      break;
+    case 'lock':
+      if (!rest[0]) throw new Error('Memory ID required. Usage: memoclaw lock <id>');
+      await cmdLock(rest[0], args);
+      break;
+    case 'unlock':
+      if (!rest[0]) throw new Error('Memory ID required. Usage: memoclaw unlock <id>');
+      await cmdUnlock(rest[0], args);
+      break;
+    case 'edit':
+      if (!rest[0]) throw new Error('Memory ID required. Usage: memoclaw edit <id>');
+      await cmdEdit(rest[0], args);
+      break;
+    case 'watch':
+      await cmdWatch(args);
       break;
     case 'bulk-delete': {
       let ids = rest;

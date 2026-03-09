@@ -123,3 +123,79 @@ export async function cmdUnpin(id: string, opts?: ParsedArgs) {
     success(`Memory ${c.cyan}${id.slice(0, 8)}…${c.reset} unpinned`);
   }
 }
+
+export async function cmdLock(id: string, opts?: ParsedArgs) {
+  const result = await request('PATCH', `/v1/memories/${id}`, { immutable: true });
+  if (outputJson) {
+    out(result);
+  } else {
+    success(`Memory ${c.cyan}${id.slice(0, 8)}…${c.reset} locked (immutable)`);
+  }
+}
+
+export async function cmdUnlock(id: string, opts?: ParsedArgs) {
+  const result = await request('PATCH', `/v1/memories/${id}`, { immutable: false });
+  if (outputJson) {
+    out(result);
+  } else {
+    success(`Memory ${c.cyan}${id.slice(0, 8)}…${c.reset} unlocked (mutable)`);
+  }
+}
+
+export async function cmdEdit(id: string, opts?: ParsedArgs) {
+  const { execSync } = await import('child_process');
+  const { writeFileSync, readFileSync, unlinkSync } = await import('fs');
+  const { tmpdir } = await import('os');
+  const { join } = await import('path');
+
+  // Fetch the memory
+  const result = await request('GET', `/v1/memories/${id}`) as any;
+  const mem = result.memory || result;
+
+  // Refuse to edit immutable memories
+  if (mem.immutable) {
+    throw new Error(`Memory ${id.slice(0, 8)}… is immutable (locked). Use 'memoclaw unlock ${id}' first.`);
+  }
+
+  // Warn if pinned
+  if (mem.pinned) {
+    outputWrite(`${c.yellow}Warning:${c.reset} This memory is pinned.`);
+  }
+
+  // Determine editor
+  const editor = opts?.editor || process.env.EDITOR || process.env.VISUAL || 'vi';
+
+  // Write content to temp file
+  const tmpFile = join(tmpdir(), `memoclaw-edit-${id.slice(0, 8)}-${Date.now()}.md`);
+  const originalContent = mem.content || '';
+  writeFileSync(tmpFile, originalContent, 'utf-8');
+
+  try {
+    // Open in editor
+    execSync(`${editor} ${tmpFile}`, { stdio: 'inherit' });
+
+    // Read back
+    const newContent = readFileSync(tmpFile, 'utf-8');
+
+    if (newContent === originalContent) {
+      if (outputJson) {
+        out({ unchanged: true, id });
+      } else {
+        outputWrite(`${c.dim}No changes made.${c.reset}`);
+      }
+      return;
+    }
+
+    // Validate and update
+    validateContentLength(newContent);
+    const updateResult = await request('PATCH', `/v1/memories/${id}`, { content: newContent });
+    if (outputJson) {
+      out(updateResult);
+    } else {
+      success(`Memory ${c.cyan}${id.slice(0, 8)}…${c.reset} updated`);
+    }
+  } finally {
+    // Clean up temp file
+    try { unlinkSync(tmpFile); } catch {}
+  }
+}
