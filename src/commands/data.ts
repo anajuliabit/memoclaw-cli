@@ -5,7 +5,7 @@
 import type { ParsedArgs } from '../args.js';
 import { request } from '../http.js';
 import { c } from '../colors.js';
-import { outputJson, outputQuiet, outputFormat, out, success, warn, progressBar, outputWrite, readStdin } from '../output.js';
+import { outputJson, outputQuiet, outputFormat, outputFile, out, success, warn, progressBar, outputWrite, readStdin } from '../output.js';
 import { parseDate, filterByDateRange } from '../dates.js';
 
 export async function cmdExport(opts: ParsedArgs) {
@@ -76,7 +76,8 @@ export async function cmdExport(opts: ParsedArgs) {
   }
   if (!outputQuiet) {
     const filterNote = (sinceDate || untilDate) ? ` (filtered from ${allMemories.length})` : '';
-    console.error(`${c.green}✓${c.reset} Exported ${filteredMemories.length} memories${filterNote}`);
+    const destNote = outputFile ? ` → ${outputFile}` : '';
+    console.error(`${c.green}✓${c.reset} Exported ${filteredMemories.length} memories${filterNote}${destNote}`);
   }
 }
 
