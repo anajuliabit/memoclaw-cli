@@ -13,7 +13,7 @@
 
 import { parseArgs } from './args.js';
 import { VERSION, DEFAULT_NAMESPACE, DEFAULT_TIMEOUT } from './config.js';
-import { c } from './colors.js';
+import { c, setNoColor } from './colors.js';
 import { configureOutput, outputJson, readStdin } from './output.js';
 import { setRequestTimeout, setMaxRetries } from './http.js';
 import { printHelp } from './help.js';
@@ -40,10 +40,14 @@ import { cmdWhoami } from './commands/whoami.js';
 import { cmdUpgrade } from './commands/upgrade.js';
 import { cmdTags } from './commands/tags.js';
 
-// ─── Main ────────────────────────────────────────────────────────────────────
+// ─── Main ───────────────────────────────────────────────────────────────────
 
 const args = parseArgs(process.argv.slice(2));
 const [cmd, ...rest] = args._;
+
+if (args.noColor) {
+  setNoColor(true);
+}
 
 // Configure output state
 configureOutput(args);
