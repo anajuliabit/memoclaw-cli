@@ -192,6 +192,20 @@ Delete a memory by ID.
 
   ${c.dim}memoclaw delete abc123${c.reset}`,
 
+      pin: `${c.bold}memoclaw pin${c.reset} <id>
+
+Pin a memory. Shorthand for: memoclaw update <id> --pinned true
+
+  ${c.dim}memoclaw pin abc123${c.reset}
+  ${c.dim}memoclaw pin abc123 --json${c.reset}`,
+
+      unpin: `${c.bold}memoclaw unpin${c.reset} <id>
+
+Unpin a memory. Shorthand for: memoclaw update <id> --pinned false
+
+  ${c.dim}memoclaw unpin abc123${c.reset}
+  ${c.dim}memoclaw unpin abc123 --json${c.reset}`,
+
       'bulk-delete': `${c.bold}memoclaw bulk-delete${c.reset} <id1> <id2> ...
 
 Delete multiple memories at once. IDs can be provided as arguments
@@ -451,6 +465,8 @@ ${c.bold}Commands:${c.reset}
   ${c.cyan}update${c.reset} <id>            Update a memory
   ${c.cyan}delete${c.reset} <id>            Delete a memory
   ${c.cyan}bulk-delete${c.reset} <ids>       Delete multiple memories at once
+  ${c.cyan}pin${c.reset} <id>              Pin a memory
+  ${c.cyan}unpin${c.reset} <id>            Unpin a memory
   ${c.cyan}ingest${c.reset}                 Ingest raw text into memories
   ${c.cyan}extract${c.reset} "text"         Extract memories from text
   ${c.cyan}context${c.reset} "query"        Get GPT-powered contextual summary ($0.01/call)

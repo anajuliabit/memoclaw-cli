@@ -101,7 +101,7 @@ function resetOutputState(overrides: Record<string, any> = {}) {
 const { cmdStore, cmdStoreBatch } = await import('../src/commands/store.js');
 const { cmdRecall } = await import('../src/commands/recall.js');
 const { cmdList } = await import('../src/commands/list.js');
-const { cmdGet, cmdDelete, cmdUpdate, cmdBulkDelete } = await import('../src/commands/memory.js');
+const { cmdGet, cmdDelete, cmdUpdate, cmdBulkDelete, cmdPin, cmdUnpin } = await import('../src/commands/memory.js');
 const { cmdSearch, cmdContext, cmdExtract, cmdIngest, cmdConsolidate } = await import('../src/commands/search.js');
 const { cmdCount, cmdSuggested, cmdGraph } = await import('../src/commands/status.js');
 const { cmdHistory } = await import('../src/commands/history.js');
@@ -2374,5 +2374,75 @@ describe('cmdTags', () => {
     const output = consoleOutput.join('\n');
     expect(output).toContain('tag');
     expect(output).toContain('csv-tag');
+  });
+});
+
+// ─── #125: pin / unpin commands ──────────────────────────────────────────────
+
+describe('cmdPin', () => {
+  test('sends PATCH with pinned=true', async () => {
+    mockFetchResponse = { id: 'abc-12345678' };
+    allFetches.length = 0;
+    captureConsole();
+    await cmdPin('abc-12345678');
+    restoreConsole();
+    expect(lastFetchOptions.method).toBe('PATCH');
+    expect(lastFetchUrl).toContain('/v1/memories/abc-12345678');
+    expect(getLastBody()).toEqual({ pinned: true });
+  });
+
+  test('shows success message with truncated ID', async () => {
+    mockFetchResponse = { id: 'abc-12345678' };
+    captureConsole();
+    await cmdPin('abc-12345678');
+    restoreConsole();
+    const output = consoleOutput.join('\n');
+    expect(output).toContain('pinned');
+    expect(output).toContain('abc-1234');
+  });
+
+  test('JSON mode outputs raw response', async () => {
+    mockFetchResponse = { id: 'abc-12345678', pinned: true };
+    resetOutputState({ json: true });
+    captureConsole();
+    await cmdPin('abc-12345678');
+    restoreConsole();
+    resetOutputState();
+    const parsed = JSON.parse(consoleOutput.join(''));
+    expect(parsed.pinned).toBe(true);
+  });
+});
+
+describe('cmdUnpin', () => {
+  test('sends PATCH with pinned=false', async () => {
+    mockFetchResponse = { id: 'abc-12345678' };
+    allFetches.length = 0;
+    captureConsole();
+    await cmdUnpin('abc-12345678');
+    restoreConsole();
+    expect(lastFetchOptions.method).toBe('PATCH');
+    expect(lastFetchUrl).toContain('/v1/memories/abc-12345678');
+    expect(getLastBody()).toEqual({ pinned: false });
+  });
+
+  test('shows success message with truncated ID', async () => {
+    mockFetchResponse = { id: 'abc-12345678' };
+    captureConsole();
+    await cmdUnpin('abc-12345678');
+    restoreConsole();
+    const output = consoleOutput.join('\n');
+    expect(output).toContain('unpinned');
+    expect(output).toContain('abc-1234');
+  });
+
+  test('JSON mode outputs raw response', async () => {
+    mockFetchResponse = { id: 'abc-12345678', pinned: false };
+    resetOutputState({ json: true });
+    captureConsole();
+    await cmdUnpin('abc-12345678');
+    restoreConsole();
+    resetOutputState();
+    const parsed = JSON.parse(consoleOutput.join(''));
+    expect(parsed.pinned).toBe(false);
   });
 });

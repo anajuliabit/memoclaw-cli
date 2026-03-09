@@ -105,3 +105,21 @@ export async function cmdUpdate(id: string, opts: ParsedArgs) {
     success(`Memory ${c.cyan}${id.slice(0, 8)}…${c.reset} updated`);
   }
 }
+
+export async function cmdPin(id: string, opts?: ParsedArgs) {
+  const result = await request('PATCH', `/v1/memories/${id}`, { pinned: true });
+  if (outputJson) {
+    out(result);
+  } else {
+    success(`Memory ${c.cyan}${id.slice(0, 8)}…${c.reset} pinned`);
+  }
+}
+
+export async function cmdUnpin(id: string, opts?: ParsedArgs) {
+  const result = await request('PATCH', `/v1/memories/${id}`, { pinned: false });
+  if (outputJson) {
+    out(result);
+  } else {
+    success(`Memory ${c.cyan}${id.slice(0, 8)}…${c.reset} unpinned`);
+  }
+}
