@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'bun:test';
-import { parseDate, filterByDateRange } from '../src/dates';
+import { parseDate, filterByDateRange, overfetchLimit } from '../src/dates';
 
 describe('parseDate', () => {
   test('parses ISO 8601 date', () => {
@@ -74,6 +74,27 @@ describe('parseDate', () => {
     expect(parseDate('')).toBeNull();
     expect(parseDate(null as any)).toBeNull();
     expect(parseDate(undefined as any)).toBeNull();
+  });
+});
+
+describe('overfetchLimit', () => {
+  test('returns 3x the requested limit', () => {
+    expect(overfetchLimit(20)).toBe(100); // 60 < min 100
+    expect(overfetchLimit(50)).toBe(150);
+  });
+
+  test('minimum is 100', () => {
+    expect(overfetchLimit(10)).toBe(100);
+    expect(overfetchLimit(1)).toBe(100);
+  });
+
+  test('maximum is 1000', () => {
+    expect(overfetchLimit(500)).toBe(1000);
+    expect(overfetchLimit(400)).toBe(1000);
+  });
+
+  test('defaults to 20 when undefined', () => {
+    expect(overfetchLimit(undefined)).toBe(100); // 20*3=60, min 100
   });
 });
 

@@ -2,7 +2,7 @@ import type { ParsedArgs } from '../args.js';
 import { request } from '../http.js';
 import { c } from '../colors.js';
 import { outputJson, outputTruncate, outputFormat, out, outputWrite, truncate } from '../output.js';
-import { parseDate, filterByDateRange } from '../dates.js';
+import { parseDate, filterByDateRange, overfetchLimit } from '../dates.js';
 
 /** Render a list of recall memories to stdout (shared between normal and watch mode) */
 function renderMemories(memories: any[], opts: { showId?: boolean } = {}) {
@@ -40,6 +40,16 @@ export async function cmdRecall(query: string, opts: ParsedArgs) {
       `Invalid date format. Use ISO 8601 (2025-01-01) or relative shorthand (1h, 7d, 2w, 1mo, 1y).`
     );
   }
+
+  // Over-fetch when date filters are active (#140)
+  const hasDateFilter = !!(sinceDate || untilDate);
+  const userLimit = body.limit;
+  if (hasDateFilter) {
+    body.limit = overfetchLimit(userLimit);
+    if (sinceDate) body.since = sinceDate.toISOString();
+    if (untilDate) body.until = untilDate.toISOString();
+  }
+  const trimLimit = hasDateFilter && userLimit ? userLimit : undefined;
 
   // Watch mode
   if (opts.watch) {
@@ -90,8 +100,9 @@ export async function cmdRecall(query: string, opts: ParsedArgs) {
   const result = await request('POST', '/v1/recall', body) as any;
 
   if (outputJson) {
-    if (sinceDate || untilDate) {
-      const filtered = filterByDateRange(result.memories || [], 'created_at', sinceDate, untilDate);
+    if (hasDateFilter) {
+      let filtered = filterByDateRange(result.memories || [], 'created_at', sinceDate, untilDate);
+      if (trimLimit) filtered = filtered.slice(0, trimLimit);
       out({ ...result, memories: filtered });
     } else {
       out(result);
@@ -99,6 +110,7 @@ export async function cmdRecall(query: string, opts: ParsedArgs) {
   } else if (outputFormat === 'csv' || outputFormat === 'tsv' || outputFormat === 'yaml') {
     let memories = result.memories || [];
     memories = filterByDateRange(memories, 'created_at', sinceDate, untilDate);
+    if (trimLimit) memories = memories.slice(0, trimLimit);
     const rows = memories.map((m: any) => ({
       id: m.id || '',
       similarity: m.similarity?.toFixed(3) || '',
@@ -110,12 +122,14 @@ export async function cmdRecall(query: string, opts: ParsedArgs) {
   } else if (opts.raw) {
     let memories = result.memories || [];
     memories = filterByDateRange(memories, 'created_at', sinceDate, untilDate);
+    if (trimLimit) memories = memories.slice(0, trimLimit);
     for (const mem of memories) {
       outputWrite(mem.content);
     }
   } else {
     let memories = result.memories || [];
     memories = filterByDateRange(memories, 'created_at', sinceDate, untilDate);
+    if (trimLimit) memories = memories.slice(0, trimLimit);
     renderMemories(memories, { showId: true });
   }
 }
