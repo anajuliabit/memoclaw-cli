@@ -148,6 +148,7 @@ export async function cmdList(opts: ParsedArgs) {
     let lastFingerprint = '';
     const pollInterval = parseInt(opts.watchInterval || '5000');
     const columns = buildColumns(opts);
+    const watchTrimLimit = hasDateFilter && userLimit ? userLimit : undefined;
 
     outputWrite(`${c.dim}Watching for changes... Press Ctrl+C to stop.${c.reset}`);
 
@@ -156,6 +157,7 @@ export async function cmdList(opts: ParsedArgs) {
         const result = await request('GET', `/v1/memories?${params}`) as any;
         let memories = result.memories || result.data || [];
         memories = filterByDateRange(memories, 'created_at', sinceDate, untilDate);
+        if (watchTrimLimit) memories = memories.slice(0, watchTrimLimit);
         const total = result.total ?? memories.length;
         const fingerprint = memories.map((m: any) => `${m.id}:${m.updated_at || ''}`).join('|');
 

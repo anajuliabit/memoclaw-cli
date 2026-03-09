@@ -92,7 +92,7 @@ function resetOutputState(overrides: Record<string, any> = {}) {
     truncate: overrides.truncate,
     noTruncate: false,
     field: null,
-    output: null,
+    output: overrides.output ?? null,
   });
 }
 
@@ -2717,5 +2717,58 @@ describe('cmdMove', () => {
 
   test('throws if no namespace provided', async () => {
     expect(() => cmdMove(['id1'], { _: ['move'] } as any)).toThrow('Target namespace required');
+  });
+});
+
+// ─── #145: export --output flag ──────────────────────────────────────────────
+
+import * as fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
+
+describe('export --output writes to file (#145)', () => {
+
+  test('export writes JSON to output file', async () => {
+    const tmpFile = path.join(os.tmpdir(), `memoclaw-test-export-${Date.now()}.json`);
+    const now = new Date().toISOString();
+    mockFetchResponse = {
+      memories: [
+        { id: 'exp1', content: 'hello', created_at: now, importance: 0.5, metadata: {} },
+      ],
+      total: 1,
+    };
+    resetOutputState({ output: tmpFile });
+    captureConsole();
+    await cmdExport({ _: ['export'], output: tmpFile } as any);
+    restoreConsole();
+    resetOutputState();
+    // File should exist and contain valid JSON with our memory
+    const content = fs.readFileSync(tmpFile, 'utf-8');
+    const parsed = JSON.parse(content.trim());
+    expect(parsed.memories.length).toBe(1);
+    expect(parsed.memories[0].id).toBe('exp1');
+    // Clean up
+    fs.unlinkSync(tmpFile);
+  });
+
+  test('export CSV writes to output file', async () => {
+    const tmpFile = path.join(os.tmpdir(), `memoclaw-test-export-csv-${Date.now()}.csv`);
+    const now = new Date().toISOString();
+    mockFetchResponse = {
+      memories: [
+        { id: 'csv1', content: 'data', created_at: now, importance: 0.7, namespace: '', metadata: { tags: ['a'] } },
+      ],
+      total: 1,
+    };
+    resetOutputState({ format: 'csv', output: tmpFile });
+    captureConsole();
+    await cmdExport({ _: ['export'], format: 'csv', output: tmpFile } as any);
+    restoreConsole();
+    resetOutputState();
+    const content = fs.readFileSync(tmpFile, 'utf-8');
+    const lines = content.trim().split('\n');
+    expect(lines[0]).toContain('id');
+    expect(lines[1]).toContain('csv1');
+    fs.unlinkSync(tmpFile);
   });
 });

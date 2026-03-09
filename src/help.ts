@@ -111,11 +111,13 @@ Examples:
 Export all memories as JSON. Useful for backups.
 
   ${c.dim}memoclaw export > backup.json${c.reset}
-  ${c.dim}memoclaw export --namespace project1 > project1.json${c.reset}
-  ${c.dim}memoclaw export --format csv > backup.csv${c.reset}
-  ${c.dim}memoclaw export --since 30d > recent.json${c.reset}
+  ${c.dim}memoclaw export -O backup.json${c.reset}
+  ${c.dim}memoclaw export --namespace project1 -O project1.json${c.reset}
+  ${c.dim}memoclaw export --format csv -O backup.csv${c.reset}
+  ${c.dim}memoclaw export --since 30d -O recent.json${c.reset}
 
 Options:
+  -O, --output <path>    Write directly to a file (instead of stdout)
   --namespace <name>     Filter by namespace
   --since <date>         Only memories created after date (ISO 8601 or 1h/7d/2w/1mo/1y)
   --until <date>         Only memories created before date
