@@ -38,6 +38,7 @@ import { cmdDiff } from './commands/diff.js';
 import { cmdCore } from './commands/core.js';
 import { cmdWhoami } from './commands/whoami.js';
 import { cmdUpgrade } from './commands/upgrade.js';
+import { cmdTags } from './commands/tags.js';
 
 // ─── Main ────────────────────────────────────────────────────────────────────
 
@@ -235,6 +236,9 @@ try {
       await cmdMigrate(rest[0], args);
       break;
     }
+    case 'tags':
+      await cmdTags(rest[0], rest.slice(1), args);
+      break;
     case 'upgrade':
       await cmdUpgrade(args);
       break;

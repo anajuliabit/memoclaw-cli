@@ -309,10 +309,10 @@ describe('export format', () => {
 describe('completions', () => {
   const commands = ['init', 'migrate', 'store', 'recall', 'search', 'list', 'get', 'update', 'delete', 'bulk-delete', 'ingest', 'extract',
     'context', 'consolidate', 'relations', 'core', 'suggested', 'status', 'export', 'import', 'stats', 'browse',
-    'completions', 'config', 'graph', 'history', 'purge', 'count', 'namespace', 'whoami', 'upgrade', 'help'];
+    'completions', 'config', 'graph', 'history', 'purge', 'count', 'tags', 'namespace', 'whoami', 'upgrade', 'help'];
 
   test('all commands present', () => {
-    expect(commands.length).toBe(32);
+    expect(commands.length).toBe(33);
     expect(commands).toContain('store');
     expect(commands).toContain('get');
     expect(commands).toContain('bulk-delete');
@@ -326,6 +326,7 @@ describe('completions', () => {
     expect(commands).toContain('graph');
     expect(commands).toContain('purge');
     expect(commands).toContain('count');
+    expect(commands).toContain('tags');
     expect(commands).toContain('init');
     expect(commands).toContain('migrate');
     expect(commands).toContain('namespace');

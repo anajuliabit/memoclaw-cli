@@ -402,6 +402,19 @@ Options:
   --yes, -y              Auto-install without prompting
   --json                 Machine-readable output`,
 
+      tags: `${c.bold}memoclaw tags${c.reset} [list]
+
+List all unique tags across your memories (FREE — no cost).
+
+  ${c.dim}memoclaw tags${c.reset}
+  ${c.dim}memoclaw tags list${c.reset}
+  ${c.dim}memoclaw tags --namespace project1${c.reset}
+  ${c.dim}memoclaw tags --json${c.reset}
+
+Options:
+  --namespace <name>     Filter by namespace
+  --format <fmt>         Output format: json, csv, tsv, yaml`,
+
       namespace: `${c.bold}memoclaw namespace${c.reset} [list|stats]
 
 Manage and view namespaces.
@@ -457,6 +470,7 @@ ${c.bold}Commands:${c.reset}
   ${c.cyan}diff${c.reset} <id>              Show content diff between memory versions
   ${c.cyan}graph${c.reset} <id>             ASCII visualization of memory relations
   ${c.cyan}purge${c.reset}                  Delete ALL memories (requires --force or confirm)
+  ${c.cyan}tags${c.reset} [list]            List all unique tags (free)
   ${c.cyan}namespace${c.reset} [list|stats] Manage and view namespaces
   ${c.cyan}count${c.reset}                  Quick memory count
   ${c.cyan}upgrade${c.reset}                Check for and install CLI updates
