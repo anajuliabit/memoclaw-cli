@@ -8,7 +8,7 @@ describe('printHelp', () => {
 
   const commands = [
     'store', 'recall', 'list', 'search', 'context', 'get', 'update', 'delete',
-    'pin', 'unpin', 'ingest', 'extract', 'consolidate', 'relations', 'suggested',
+    'pin', 'unpin', 'lock', 'unlock', 'edit', 'watch', 'ingest', 'extract', 'consolidate', 'relations', 'suggested',
     'export', 'import', 'stats', 'config', 'browse', 'graph', 'purge', 'count',
     'completions', 'history', 'tags', 'namespace', 'init', 'migrate',
   ];

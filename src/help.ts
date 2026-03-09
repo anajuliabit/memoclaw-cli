@@ -206,6 +206,54 @@ Unpin a memory. Shorthand for: memoclaw update <id> --pinned false
   ${c.dim}memoclaw unpin abc123${c.reset}
   ${c.dim}memoclaw unpin abc123 --json${c.reset}`,
 
+      lock: `${c.bold}memoclaw lock${c.reset} <id>
+
+Lock a memory (make immutable). Shorthand for: memoclaw update <id> --immutable true
+
+  ${c.dim}memoclaw lock abc123${c.reset}
+  ${c.dim}memoclaw lock abc123 --json${c.reset}`,
+
+      unlock: `${c.bold}memoclaw unlock${c.reset} <id>
+
+Unlock a memory (make mutable). Shorthand for: memoclaw update <id> --immutable false
+
+  ${c.dim}memoclaw unlock abc123${c.reset}
+  ${c.dim}memoclaw unlock abc123 --json${c.reset}`,
+
+      edit: `${c.bold}memoclaw edit${c.reset} <id> [options]
+
+Open a memory's content in your editor for interactive editing.
+Uses $EDITOR, $VISUAL, or falls back to vi.
+
+  ${c.dim}memoclaw edit abc123${c.reset}
+  ${c.dim}memoclaw edit abc123 --editor vim${c.reset}
+  ${c.dim}EDITOR=nano memoclaw edit abc123${c.reset}
+
+Options:
+  --editor <cmd>         Override editor (default: $EDITOR or vi)
+
+Notes:
+  - Refuses to edit immutable (locked) memories
+  - Warns if memory is pinned (but allows editing)
+  - Only updates if content actually changed`,
+
+      watch: `${c.bold}memoclaw watch${c.reset} [options]
+
+Watch for new memories in real-time. Polls the API and streams
+new memories to stdout as they appear.
+
+  ${c.dim}memoclaw watch${c.reset}
+  ${c.dim}memoclaw watch --namespace myproject${c.reset}
+  ${c.dim}memoclaw watch --tags important${c.reset}
+  ${c.dim}memoclaw watch --interval 5${c.reset}
+  ${c.dim}memoclaw watch --json | jq 'select(.importance > 0.8)'${c.reset}
+
+Options:
+  --namespace <ns>       Watch specific namespace
+  --tags <tags>          Filter by tags (comma-separated)
+  --interval <seconds>   Poll interval (default: 3)
+  --json                 Output JSON lines (for piping)`,
+
       'bulk-delete': `${c.bold}memoclaw bulk-delete${c.reset} <id1> <id2> ...
 
 Delete multiple memories at once. IDs can be provided as arguments
@@ -467,6 +515,10 @@ ${c.bold}Commands:${c.reset}
   ${c.cyan}bulk-delete${c.reset} <ids>       Delete multiple memories at once
   ${c.cyan}pin${c.reset} <id>              Pin a memory
   ${c.cyan}unpin${c.reset} <id>            Unpin a memory
+  ${c.cyan}lock${c.reset} <id>             Lock a memory (make immutable)
+  ${c.cyan}unlock${c.reset} <id>           Unlock a memory (make mutable)
+  ${c.cyan}edit${c.reset} <id>             Edit a memory in $EDITOR
+  ${c.cyan}watch${c.reset}                  Watch for new memories in real-time
   ${c.cyan}ingest${c.reset}                 Ingest raw text into memories
   ${c.cyan}extract${c.reset} "text"         Extract memories from text
   ${c.cyan}context${c.reset} "query"        Get GPT-powered contextual summary ($0.01/call)
