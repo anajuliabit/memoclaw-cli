@@ -2104,6 +2104,157 @@ describe('cmdWhoami', () => {
   });
 });
 
+// ─── #123: --since/--until date filters for recall, search, export ───────────
+
+describe('recall --since/--until', () => {
+  const now = Date.now();
+  const recentDate = new Date(now - 1000 * 60 * 60).toISOString(); // 1 hour ago
+  const oldDate = new Date(now - 1000 * 60 * 60 * 24 * 30).toISOString(); // 30 days ago
+
+  test('filters results by --since', async () => {
+    mockFetchResponse = {
+      memories: [
+        { id: 'recent-1', content: 'recent memory', similarity: 0.9, created_at: recentDate },
+        { id: 'old-1', content: 'old memory', similarity: 0.8, created_at: oldDate },
+      ],
+    };
+    resetOutputState({ json: true });
+    captureConsole();
+    await cmdRecall('test query', { _: ['recall', 'test query'], since: '7d' } as any);
+    restoreConsole();
+    resetOutputState();
+    const parsed = JSON.parse(consoleOutput.join(''));
+    expect(parsed.memories.length).toBe(1);
+    expect(parsed.memories[0].id).toBe('recent-1');
+  });
+
+  test('filters results by --until', async () => {
+    mockFetchResponse = {
+      memories: [
+        { id: 'recent-1', content: 'recent memory', similarity: 0.9, created_at: recentDate },
+        { id: 'old-1', content: 'old memory', similarity: 0.8, created_at: oldDate },
+      ],
+    };
+    resetOutputState({ json: true });
+    captureConsole();
+    await cmdRecall('test query', { _: ['recall', 'test query'], until: '7d' } as any);
+    restoreConsole();
+    resetOutputState();
+    const parsed = JSON.parse(consoleOutput.join(''));
+    expect(parsed.memories.length).toBe(1);
+    expect(parsed.memories[0].id).toBe('old-1');
+  });
+
+  test('rejects invalid date format', async () => {
+    mockFetchResponse = { memories: [] };
+    try {
+      await cmdRecall('test', { _: ['recall', 'test'], since: 'invalid-date' } as any);
+      expect(false).toBe(true); // should not reach
+    } catch (e: any) {
+      expect(e.message).toContain('Invalid date format');
+    }
+  });
+
+  test('no filter when --since/--until absent', async () => {
+    mockFetchResponse = {
+      memories: [
+        { id: 'a', content: 'a', similarity: 0.9, created_at: recentDate },
+        { id: 'b', content: 'b', similarity: 0.8, created_at: oldDate },
+      ],
+    };
+    resetOutputState({ json: true });
+    captureConsole();
+    await cmdRecall('test', { _: ['recall', 'test'] } as any);
+    restoreConsole();
+    resetOutputState();
+    const parsed = JSON.parse(consoleOutput.join(''));
+    expect(parsed.memories.length).toBe(2);
+  });
+});
+
+describe('search --since/--until', () => {
+  const now = Date.now();
+  const recentDate = new Date(now - 1000 * 60 * 60).toISOString();
+  const oldDate = new Date(now - 1000 * 60 * 60 * 24 * 30).toISOString();
+
+  test('filters results by --since', async () => {
+    mockFetchResponse = {
+      memories: [
+        { id: 'recent-s1', content: 'recent search hit', created_at: recentDate },
+        { id: 'old-s1', content: 'old search hit', created_at: oldDate },
+      ],
+    };
+    resetOutputState({ json: true });
+    captureConsole();
+    await cmdSearch('test', { _: ['search', 'test'], since: '7d' } as any);
+    restoreConsole();
+    resetOutputState();
+    const parsed = JSON.parse(consoleOutput.join(''));
+    expect(parsed.memories.length).toBe(1);
+    expect(parsed.memories[0].id).toBe('recent-s1');
+  });
+
+  test('filters raw output by --since', async () => {
+    mockFetchResponse = {
+      memories: [
+        { id: 'recent-s2', content: 'recent content', created_at: recentDate },
+        { id: 'old-s2', content: 'old content', created_at: oldDate },
+      ],
+    };
+    resetOutputState();
+    captureConsole();
+    await cmdSearch('test', { _: ['search', 'test'], since: '7d', raw: true } as any);
+    restoreConsole();
+    resetOutputState();
+    const output = consoleOutput.join('');
+    expect(output).toContain('recent content');
+    expect(output).not.toContain('old content');
+  });
+});
+
+describe('export --since/--until', () => {
+  const now = Date.now();
+  const recentDate = new Date(now - 1000 * 60 * 60).toISOString();
+  const oldDate = new Date(now - 1000 * 60 * 60 * 24 * 30).toISOString();
+
+  test('filters exported memories by --since', async () => {
+    mockFetchResponse = {
+      memories: [
+        { id: 'recent-e1', content: 'recent export', created_at: recentDate },
+        { id: 'old-e1', content: 'old export', created_at: oldDate },
+      ],
+      total: 2,
+    };
+    resetOutputState({ json: true });
+    captureConsole();
+    await cmdExport({ _: ['export'], since: '7d' } as any);
+    restoreConsole();
+    resetOutputState();
+    const parsed = JSON.parse(consoleOutput.join(''));
+    expect(parsed.count).toBe(1);
+    expect(parsed.memories.length).toBe(1);
+    expect(parsed.memories[0].id).toBe('recent-e1');
+  });
+
+  test('no filter when --since/--until absent', async () => {
+    mockFetchResponse = {
+      memories: [
+        { id: 'e-a', content: 'a', created_at: recentDate },
+        { id: 'e-b', content: 'b', created_at: oldDate },
+      ],
+      total: 2,
+    };
+    resetOutputState({ json: true });
+    captureConsole();
+    await cmdExport({ _: ['export'] } as any);
+    restoreConsole();
+    resetOutputState();
+    const parsed = JSON.parse(consoleOutput.join(''));
+    expect(parsed.count).toBe(2);
+    expect(parsed.memories.length).toBe(2);
+  });
+});
+
 // ─── #124: tags command ──────────────────────────────────────────────────────
 
 describe('cmdTags', () => {

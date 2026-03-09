@@ -7,6 +7,7 @@ import { request } from '../http.js';
 import { c } from '../colors.js';
 import { outputJson, outputFormat, outputTruncate, noTruncate, out, outputWrite, success, info, truncate, table, readStdin } from '../output.js';
 import { validateContentLength, validateBulkContentLength } from '../validate.js';
+import { parseDate, filterByDateRange } from '../dates.js';
 
 export async function cmdSearch(query: string, opts: ParsedArgs) {
   const params = new URLSearchParams({ q: query });
@@ -14,17 +15,33 @@ export async function cmdSearch(query: string, opts: ParsedArgs) {
   if (opts.namespace) params.set('namespace', opts.namespace);
   if (opts.tags) params.set('tags', opts.tags);
 
+  // Parse date filters
+  const sinceDate = opts.since ? parseDate(opts.since) : null;
+  const untilDate = opts.until ? parseDate(opts.until) : null;
+  if ((opts.since && !sinceDate) || (opts.until && !untilDate)) {
+    throw new Error(
+      `Invalid date format. Use ISO 8601 (2025-01-01) or relative shorthand (1h, 7d, 2w, 1mo, 1y).`
+    );
+  }
+
   const result = await request('GET', `/v1/memories/search?${params}`) as any;
 
   if (outputJson) {
-    out(result);
+    if (sinceDate || untilDate) {
+      const filtered = filterByDateRange(result.memories || result.data || [], 'created_at', sinceDate, untilDate);
+      out({ ...result, memories: filtered });
+    } else {
+      out(result);
+    }
   } else if (opts.raw) {
-    const memories = result.memories || result.data || [];
+    let memories = result.memories || result.data || [];
+    memories = filterByDateRange(memories, 'created_at', sinceDate, untilDate);
     for (const mem of memories) {
       outputWrite(mem.content);
     }
   } else if (outputFormat === 'csv' || outputFormat === 'tsv' || outputFormat === 'yaml') {
-    const memories = result.memories || result.data || [];
+    let memories = result.memories || result.data || [];
+    memories = filterByDateRange(memories, 'created_at', sinceDate, untilDate);
     const rows = memories.map((m: any) => ({
       id: m.id || '',
       content: m.content || '',
@@ -32,7 +49,8 @@ export async function cmdSearch(query: string, opts: ParsedArgs) {
     }));
     out(rows);
   } else {
-    const memories = result.memories || result.data || [];
+    let memories = result.memories || result.data || [];
+    memories = filterByDateRange(memories, 'created_at', sinceDate, untilDate);
     if (memories.length === 0) {
       outputWrite(`${c.dim}No memories found.${c.reset}`);
     } else {

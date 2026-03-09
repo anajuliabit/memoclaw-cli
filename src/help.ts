@@ -46,6 +46,8 @@ Options:
   --limit <n>            Max results (default: 10)
   --namespace <name>     Filter by namespace
   --tags <tag1,tag2>     Filter by tags
+  --since <date>         Only memories created after date (ISO 8601 or 1h/7d/2w/1mo/1y)
+  --until <date>         Only memories created before date
   --format <fmt>         Output format: json, csv, tsv, yaml
   --raw                  Output content only (for piping)`,
 
@@ -69,6 +71,8 @@ Options:
   --min-similarity <0-1> Similarity threshold (default: 0.5)
   --namespace <name>     Filter by namespace
   --tags <tag1,tag2>     Filter by tags
+  --since <date>         Only memories created after date (ISO 8601 or 1h/7d/2w/1mo/1y)
+  --until <date>         Only memories created before date
   --raw                  Output content only (for piping)
   --watch                Watch for changes (continuous polling)
   --watch-interval <ms>  Polling interval (default: 5000)`,
@@ -109,10 +113,12 @@ Export all memories as JSON. Useful for backups.
   ${c.dim}memoclaw export > backup.json${c.reset}
   ${c.dim}memoclaw export --namespace project1 > project1.json${c.reset}
   ${c.dim}memoclaw export --format csv > backup.csv${c.reset}
-  ${c.dim}memoclaw export --format yaml > backup.yaml${c.reset}
+  ${c.dim}memoclaw export --since 30d > recent.json${c.reset}
 
 Options:
   --namespace <name>     Filter by namespace
+  --since <date>         Only memories created after date (ISO 8601 or 1h/7d/2w/1mo/1y)
+  --until <date>         Only memories created before date
   --limit <n>            Max per page (default: 1000)
   --format <fmt>         Output format: json, csv, tsv, yaml`,
 
