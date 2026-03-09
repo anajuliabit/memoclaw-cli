@@ -2,7 +2,7 @@ import type { ParsedArgs } from '../args.js';
 import { request } from '../http.js';
 import { c } from '../colors.js';
 import { outputJson, outputFormat, outputTruncate, noTruncate, out, table, outputWrite } from '../output.js';
-import { parseDate, filterByDateRange } from '../dates.js';
+import { parseDate, filterByDateRange, overfetchLimit } from '../dates.js';
 
 /** Apply client-side sorting to memories array */
 function sortMemories(memories: any[], opts: ParsedArgs): any[] {
@@ -132,6 +132,17 @@ export async function cmdList(opts: ParsedArgs) {
     );
   }
 
+  // Over-fetch when date filters are active so client-side filtering
+  // doesn't leave the user with fewer results than requested (#140)
+  const hasDateFilter = !!(sinceDate || untilDate);
+  const userLimit = opts.limit != null && opts.limit !== true ? parseInt(opts.limit) : undefined;
+  if (hasDateFilter) {
+    params.set('limit', String(overfetchLimit(userLimit)));
+    // Pass dates to server too (best-effort, server may ignore)
+    if (sinceDate) params.set('since', sinceDate.toISOString());
+    if (untilDate) params.set('until', untilDate.toISOString());
+  }
+
   // Watch mode
   if (opts.watch) {
     let lastFingerprint = '';
@@ -183,10 +194,12 @@ export async function cmdList(opts: ParsedArgs) {
   }
 
   const result = await request('GET', `/v1/memories?${params}`) as any;
+  const trimLimit = hasDateFilter && userLimit ? userLimit : undefined;
 
   if (outputJson) {
-    if (sinceDate || untilDate) {
-      const filtered = filterByDateRange(result.memories || result.data || [], 'created_at', sinceDate, untilDate);
+    if (hasDateFilter) {
+      let filtered = filterByDateRange(result.memories || result.data || [], 'created_at', sinceDate, untilDate);
+      if (trimLimit) filtered = filtered.slice(0, trimLimit);
       out({ ...result, memories: filtered, total: filtered.length });
     } else {
       out(result);
@@ -194,12 +207,14 @@ export async function cmdList(opts: ParsedArgs) {
   } else if (opts.raw) {
     let memories = result.memories || result.data || [];
     memories = filterByDateRange(memories, 'created_at', sinceDate, untilDate);
+    if (trimLimit) memories = memories.slice(0, trimLimit);
     for (const mem of memories) {
       outputWrite(mem.content || '');
     }
   } else if (outputFormat === 'csv' || outputFormat === 'tsv' || outputFormat === 'yaml') {
     let memories = result.memories || result.data || [];
     memories = filterByDateRange(memories, 'created_at', sinceDate, untilDate);
+    if (trimLimit) memories = memories.slice(0, trimLimit);
     memories = sortMemories(memories, opts);
     const rows = memories.map((m: any) => ({
       id: m.id || '',
@@ -213,8 +228,9 @@ export async function cmdList(opts: ParsedArgs) {
   } else {
     let memories = result.memories || result.data || [];
     memories = filterByDateRange(memories, 'created_at', sinceDate, untilDate);
+    if (trimLimit) memories = memories.slice(0, trimLimit);
     memories = sortMemories(memories, opts);
     const columns = buildColumns(opts);
-    renderTable(memories, columns, opts, sinceDate || untilDate ? memories.length : result.total);
+    renderTable(memories, columns, opts, hasDateFilter ? memories.length : result.total);
   }
 }

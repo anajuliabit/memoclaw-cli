@@ -7,7 +7,7 @@ import { request } from '../http.js';
 import { c } from '../colors.js';
 import { outputJson, outputFormat, outputTruncate, noTruncate, out, outputWrite, success, info, truncate, table, readStdin } from '../output.js';
 import { validateContentLength, validateBulkContentLength } from '../validate.js';
-import { parseDate, filterByDateRange } from '../dates.js';
+import { parseDate, filterByDateRange, overfetchLimit } from '../dates.js';
 
 export async function cmdSearch(query: string, opts: ParsedArgs) {
   const params = new URLSearchParams({ q: query });
@@ -24,11 +24,22 @@ export async function cmdSearch(query: string, opts: ParsedArgs) {
     );
   }
 
+  // Over-fetch when date filters are active (#140)
+  const hasDateFilter = !!(sinceDate || untilDate);
+  const userLimit = opts.limit != null && opts.limit !== true ? parseInt(opts.limit) : undefined;
+  if (hasDateFilter) {
+    params.set('limit', String(overfetchLimit(userLimit)));
+    if (sinceDate) params.set('since', sinceDate.toISOString());
+    if (untilDate) params.set('until', untilDate.toISOString());
+  }
+  const trimLimit = hasDateFilter && userLimit ? userLimit : undefined;
+
   const result = await request('GET', `/v1/memories/search?${params}`) as any;
 
   if (outputJson) {
-    if (sinceDate || untilDate) {
-      const filtered = filterByDateRange(result.memories || result.data || [], 'created_at', sinceDate, untilDate);
+    if (hasDateFilter) {
+      let filtered = filterByDateRange(result.memories || result.data || [], 'created_at', sinceDate, untilDate);
+      if (trimLimit) filtered = filtered.slice(0, trimLimit);
       out({ ...result, memories: filtered });
     } else {
       out(result);
@@ -36,12 +47,14 @@ export async function cmdSearch(query: string, opts: ParsedArgs) {
   } else if (opts.raw) {
     let memories = result.memories || result.data || [];
     memories = filterByDateRange(memories, 'created_at', sinceDate, untilDate);
+    if (trimLimit) memories = memories.slice(0, trimLimit);
     for (const mem of memories) {
       outputWrite(mem.content);
     }
   } else if (outputFormat === 'csv' || outputFormat === 'tsv' || outputFormat === 'yaml') {
     let memories = result.memories || result.data || [];
     memories = filterByDateRange(memories, 'created_at', sinceDate, untilDate);
+    if (trimLimit) memories = memories.slice(0, trimLimit);
     const rows = memories.map((m: any) => ({
       id: m.id || '',
       content: m.content || '',
@@ -51,6 +64,7 @@ export async function cmdSearch(query: string, opts: ParsedArgs) {
   } else {
     let memories = result.memories || result.data || [];
     memories = filterByDateRange(memories, 'created_at', sinceDate, untilDate);
+    if (trimLimit) memories = memories.slice(0, trimLimit);
     if (memories.length === 0) {
       outputWrite(`${c.dim}No memories found.${c.reset}`);
     } else {

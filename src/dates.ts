@@ -47,6 +47,16 @@ export function parseDate(input: string): Date | null {
 }
 
 /**
+ * Compute an over-fetch limit when client-side date filtering is active.
+ * Fetches 3x the requested limit (min 100, max 1000) to compensate for
+ * records that will be removed by date filtering.
+ */
+export function overfetchLimit(requestedLimit: number | undefined): number {
+  const base = requestedLimit ?? 20;
+  return Math.min(Math.max(base * 3, 100), 1000);
+}
+
+/**
  * Filter an array of objects by date range.
  * @param items - Array of objects
  * @param dateKey - Key containing the date string (e.g. 'created_at')

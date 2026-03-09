@@ -2566,6 +2566,66 @@ describe('cmdWatch', () => {
   });
 });
 
+// ─── #140: over-fetch when date filters active ──────────────────────────────
+
+describe('list over-fetches with --since (#140)', () => {
+  const now = Date.now();
+  const recentDate = new Date(now - 1000 * 60 * 60).toISOString(); // 1h ago
+  const oldDate = new Date(now - 1000 * 60 * 60 * 24 * 30).toISOString(); // 30d ago
+
+  test('sends larger limit to API when --since is used', async () => {
+    mockFetchResponse = {
+      memories: [
+        { id: 'r1', content: 'recent1', created_at: recentDate },
+        { id: 'r2', content: 'recent2', created_at: recentDate },
+        { id: 'old1', content: 'old', created_at: oldDate },
+      ],
+      total: 3,
+    };
+    allFetches.length = 0;
+    resetOutputState({ json: true });
+    captureConsole();
+    await cmdList({ _: ['list'], limit: '5', since: '7d' } as any);
+    restoreConsole();
+    resetOutputState();
+    // Should have over-fetched (limit > 5)
+    expect(lastFetchUrl).toContain('limit=100');
+    // Should pass since to server
+    expect(lastFetchUrl).toContain('since=');
+    // Output should only contain recent memories
+    const parsed = JSON.parse(consoleOutput.join(''));
+    expect(parsed.memories.length).toBe(2);
+    expect(parsed.memories.every((m: any) => m.id.startsWith('r'))).toBe(true);
+  });
+
+  test('trims results to user limit after filtering', async () => {
+    // 10 recent memories, user requests 3
+    const recent = Array.from({ length: 10 }, (_, i) => ({
+      id: `mem-${i}`, content: `mem ${i}`, created_at: recentDate,
+    }));
+    mockFetchResponse = { memories: recent, total: 10 };
+    resetOutputState({ json: true });
+    captureConsole();
+    await cmdList({ _: ['list'], limit: '3', since: '7d' } as any);
+    restoreConsole();
+    resetOutputState();
+    const parsed = JSON.parse(consoleOutput.join(''));
+    expect(parsed.memories.length).toBe(3);
+  });
+
+  test('does not over-fetch when no date filters', async () => {
+    mockFetchResponse = { memories: [], total: 0 };
+    allFetches.length = 0;
+    resetOutputState({ json: true });
+    captureConsole();
+    await cmdList({ _: ['list'], limit: '5' } as any);
+    restoreConsole();
+    resetOutputState();
+    expect(lastFetchUrl).toContain('limit=5');
+    expect(lastFetchUrl).not.toContain('since=');
+  });
+});
+
 // ─── #133: export CSV/TSV date filter fix ────────────────────────────────────
 
 describe('export CSV respects --since filter', () => {
