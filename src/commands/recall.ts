@@ -87,7 +87,7 @@ export async function cmdRecall(query: string, opts: ParsedArgs) {
               outputWrite(mem.content);
             }
           } else {
-            renderMemories(memories);
+            renderMemories(memories, { showId: true });
           }
         }
 

@@ -210,6 +210,7 @@ export async function cmdList(opts: ParsedArgs) {
     let memories = result.memories || result.data || [];
     memories = filterByDateRange(memories, 'created_at', sinceDate, untilDate);
     if (trimLimit) memories = memories.slice(0, trimLimit);
+    memories = sortMemories(memories, opts);
     for (const mem of memories) {
       outputWrite(mem.content || '');
     }
