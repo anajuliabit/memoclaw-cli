@@ -87,16 +87,48 @@ export async function checkForUpdate(forceRefresh = false): Promise<VersionCheck
   };
 }
 
-/** Install the latest version */
-export function installUpdate(): { success: boolean; output: string } {
+/** Detect which package manager was used to install the CLI */
+export function detectPackageManager(): string {
+  // Check the resolved path of the running CLI to guess the installer
   try {
-    const output = execSync('npm install -g memoclaw@latest 2>&1', {
+    const cliPath = process.argv[1] || '';
+    if (cliPath.includes('.bun')) return 'bun';
+    if (cliPath.includes('pnpm')) return 'pnpm';
+    if (cliPath.includes('yarn')) return 'yarn';
+  } catch {}
+
+  // Fallback: check if common managers are available, prefer bun if present
+  try {
+    execSync('bun --version', { stdio: 'ignore', timeout: 3000 });
+    // Only prefer bun if npm path suggests non-npm install
+    // Default to npm since it's the published registry
+  } catch {}
+
+  return 'npm';
+}
+
+/** Build the install command for a given package manager */
+export function buildInstallCommand(pm: string): string {
+  switch (pm) {
+    case 'bun': return 'bun install -g memoclaw@latest';
+    case 'pnpm': return 'pnpm add -g memoclaw@latest';
+    case 'yarn': return 'yarn global add memoclaw@latest';
+    default: return 'npm install -g memoclaw@latest';
+  }
+}
+
+/** Install the latest version */
+export function installUpdate(): { success: boolean; output: string; packageManager: string } {
+  const pm = detectPackageManager();
+  const cmd = buildInstallCommand(pm);
+  try {
+    const output = execSync(`${cmd} 2>&1`, {
       encoding: 'utf-8',
       timeout: 60_000,
     });
-    return { success: true, output: output.trim() };
+    return { success: true, output: output.trim(), packageManager: pm };
   } catch (err: any) {
-    return { success: false, output: err.message || String(err) };
+    return { success: false, output: err.message || String(err), packageManager: pm };
   }
 }
 
@@ -192,7 +224,8 @@ export async function cmdUpgrade(opts: ParsedArgs) {
     } else {
       outputWrite(`${c.red}Error:${c.reset} Failed to install update.`);
       outputWrite(`${c.dim}${installResult.output}${c.reset}`);
-      outputWrite(`\nTry manually: ${c.cyan}npm install -g memoclaw@latest${c.reset}`);
+      const manualCmd = buildInstallCommand(installResult.packageManager);
+      outputWrite(`\nTry manually: ${c.cyan}${manualCmd}${c.reset}`);
     }
     process.exit(1);
   }
