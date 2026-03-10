@@ -646,6 +646,41 @@ describe('cmdUpdate', () => {
     restoreConsole();
   });
 
+  test('handles pinned as string "false"', async () => {
+    mockFetchResponse = { id: 'abc' };
+    await cmdUpdate('abc', { _: [], pinned: 'false' } as any);
+    expect(getLastBody().pinned).toBe(false);
+    restoreConsole();
+  });
+
+  test('handles pinned as truthy string like "yes" (#157)', async () => {
+    mockFetchResponse = { id: 'abc' };
+    await cmdUpdate('abc', { _: [], pinned: 'yes' } as any);
+    expect(getLastBody().pinned).toBe(true);
+    restoreConsole();
+  });
+
+  test('handles immutable boolean true in update', async () => {
+    mockFetchResponse = { id: 'abc' };
+    await cmdUpdate('abc', { _: [], immutable: true } as any);
+    expect(getLastBody().immutable).toBe(true);
+    restoreConsole();
+  });
+
+  test('handles immutable string "false" in update', async () => {
+    mockFetchResponse = { id: 'abc' };
+    await cmdUpdate('abc', { _: [], immutable: 'false' } as any);
+    expect(getLastBody().immutable).toBe(false);
+    restoreConsole();
+  });
+
+  test('handles immutable truthy string like "yes" in update (#157)', async () => {
+    mockFetchResponse = { id: 'abc' };
+    await cmdUpdate('abc', { _: [], immutable: 'yes' } as any);
+    expect(getLastBody().immutable).toBe(true);
+    restoreConsole();
+  });
+
   test('handles namespace and memoryType', async () => {
     mockFetchResponse = { id: 'abc' };
     await cmdUpdate('abc', { _: [], namespace: 'ns', memoryType: 'episodic' } as any);
