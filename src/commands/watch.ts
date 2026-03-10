@@ -94,6 +94,9 @@ export async function cmdWatch(opts: ParsedArgs) {
     }
   }
 
+  process.removeListener('SIGINT', cleanup);
+  process.removeListener('SIGTERM', cleanup);
+
   if (!outputJson) {
     outputWrite(`\n${c.dim}Stopped watching.${c.reset}`);
   }
