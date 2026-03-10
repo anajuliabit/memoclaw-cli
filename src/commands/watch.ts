@@ -5,7 +5,7 @@
 import type { ParsedArgs } from '../args.js';
 import { request } from '../http.js';
 import { c } from '../colors.js';
-import { outputJson, outputFormat, out, outputWrite } from '../output.js';
+import { outputJson, outputFormat, out, outputWrite, table } from '../output.js';
 
 export async function cmdWatch(opts: ParsedArgs) {
   const interval = parseInt(opts.interval || '3') * 1000;
@@ -55,6 +55,16 @@ export async function cmdWatch(opts: ParsedArgs) {
           if (outputJson) {
             // JSON lines output
             outputWrite(JSON.stringify(mem));
+          } else if (outputFormat === 'csv' || outputFormat === 'tsv' || outputFormat === 'yaml') {
+            const rows = [{
+              id: mem.id || '',
+              content: (mem.content || '').replace(/\n/g, ' '),
+              importance: mem.importance?.toFixed(2) || '',
+              namespace: mem.namespace || '',
+              tags: mem.metadata?.tags?.join(', ') || '',
+              created: mem.created_at || '',
+            }];
+            out(rows);
           } else {
             const ts = mem.created_at ? new Date(mem.created_at).toLocaleTimeString() : '';
             const imp = mem.importance !== undefined ? ` ${c.dim}imp:${mem.importance}${c.reset}` : '';

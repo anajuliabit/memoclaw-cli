@@ -115,10 +115,12 @@ Export all memories as JSON. Useful for backups.
   ${c.dim}memoclaw export --namespace project1 -O project1.json${c.reset}
   ${c.dim}memoclaw export --format csv -O backup.csv${c.reset}
   ${c.dim}memoclaw export --since 30d -O recent.json${c.reset}
+  ${c.dim}memoclaw export --tags important,project-x -O tagged.json${c.reset}
 
 Options:
   -O, --output <path>    Write directly to a file (instead of stdout)
   --namespace <name>     Filter by namespace
+  --tags <tag1,tag2>     Filter by tags (comma-separated)
   --since <date>         Only memories created after date (ISO 8601 or 1h/7d/2w/1mo/1y)
   --until <date>         Only memories created before date
   --limit <n>            Max per page (default: 1000)

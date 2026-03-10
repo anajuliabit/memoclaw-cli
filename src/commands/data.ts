@@ -11,6 +11,7 @@ import { parseDate, filterByDateRange } from '../dates.js';
 export async function cmdExport(opts: ParsedArgs) {
   const params = new URLSearchParams();
   if (opts.namespace) params.set('namespace', opts.namespace);
+  if (opts.tags) params.set('tags', opts.tags);
   params.set('limit', opts.limit || '1000');
   let offset = 0;
   const allMemories: any[] = [];
@@ -172,10 +173,21 @@ export async function cmdPurge(opts: ParsedArgs) {
     if (!process.stdin.isTTY) {
       throw new Error('Use --force or --yes to confirm purge in non-interactive mode');
     }
+
+    // Fetch count before confirming so the user knows the impact
+    let countLabel = '';
+    try {
+      const countParams = new URLSearchParams({ limit: '1' });
+      if (opts.namespace) countParams.set('namespace', opts.namespace);
+      const countResult = await request('GET', `/v1/memories?${countParams}`) as any;
+      const total = countResult.total;
+      if (total !== undefined) countLabel = ` ${total}`;
+    } catch {}
+
     const readline = await import('readline');
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
     const answer = await new Promise<string>(r => rl.question(
-      `${c.red}⚠ Delete ALL memories${opts.namespace ? ` in namespace "${opts.namespace}"` : ''}? Type "yes" to confirm: ${c.reset}`,
+      `${c.red}⚠ Delete ALL${countLabel} memories${opts.namespace ? ` in namespace "${opts.namespace}"` : ''}? Type "yes" to confirm: ${c.reset}`,
       r
     ));
     rl.close();
