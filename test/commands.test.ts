@@ -1521,14 +1521,9 @@ describe('cmdCore', () => {
     expect(output).not.toContain('Month old');
   });
 
-  test('invalid date format shows error', async () => {
+  test('invalid date format throws error', async () => {
     mockFetchResponse = { memories: [], total: 0 };
-    captureConsole();
-    await cmdCore({ _: [], since: 'not-a-date' } as any);
-    restoreConsole();
-    expect(consoleOutput.join('\n')).toContain('Invalid date format');
-    expect(process.exitCode).toBe(1);
-    process.exitCode = undefined as any;
+    expect(cmdCore({ _: [], since: 'not-a-date' } as any)).rejects.toThrow('Invalid date format');
   });
 
   test('--since with --json filters and returns JSON', async () => {

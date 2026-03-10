@@ -16,9 +16,9 @@ export async function cmdCore(opts: ParsedArgs) {
   const sinceDate = opts.since ? parseDate(opts.since) : null;
   const untilDate = opts.until ? parseDate(opts.until) : null;
   if ((opts.since && !sinceDate) || (opts.until && !untilDate)) {
-    outputWrite(`${c.red}Invalid date format. Use ISO 8601 (2025-01-01) or relative (7d, 2w, 1mo).${c.reset}`);
-    process.exitCode = 1;
-    return;
+    throw new Error(
+      `Invalid date format. Use ISO 8601 (2025-01-01) or relative shorthand (1h, 7d, 2w, 1mo, 1y).`
+    );
   }
 
   const hasDateFilter = !!(sinceDate || untilDate);
