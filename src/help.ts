@@ -445,10 +445,14 @@ key facts, preferences, or identity. This endpoint is free to call.
   ${c.dim}memoclaw core --namespace project1${c.reset}
   ${c.dim}memoclaw core --limit 5 --json${c.reset}
   ${c.dim}memoclaw core --raw | head -5${c.reset}
+  ${c.dim}memoclaw core --since 7d${c.reset}
+  ${c.dim}memoclaw core --since 2025-01-01 --until 2025-06-01${c.reset}
 
 Options:
   --limit <n>            Max results
   --namespace <name>     Filter by namespace
+  --since <date>         Only memories after date (ISO or relative: 7d, 2w, 1mo)
+  --until <date>         Only memories before date
   --raw                  Output content only (for piping)`,
 
       history: `${c.bold}memoclaw history${c.reset} <id>

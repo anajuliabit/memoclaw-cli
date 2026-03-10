@@ -1470,6 +1470,107 @@ describe('cmdCore', () => {
     restoreConsole();
     expect(consoleOutput.join('\n')).toContain('raw content here');
   });
+
+  test('--since filters core memories by date', async () => {
+    mockFetchResponse = {
+      memories: [
+        { id: 'old-1111', content: 'Old memory', importance: 0.8, metadata: {}, created_at: '2025-01-01T00:00:00Z' },
+        { id: 'new-2222', content: 'New memory', importance: 0.9, metadata: {}, created_at: '2026-03-01T00:00:00Z' },
+      ],
+      total: 2,
+    };
+    captureConsole();
+    await cmdCore({ _: [], since: '2026-01-01' } as any);
+    restoreConsole();
+    const output = consoleOutput.join('\n');
+    expect(output).toContain('New memory');
+    expect(output).not.toContain('Old memory');
+  });
+
+  test('--until filters core memories by date', async () => {
+    mockFetchResponse = {
+      memories: [
+        { id: 'old-1111', content: 'Old memory', importance: 0.8, metadata: {}, created_at: '2025-01-01T00:00:00Z' },
+        { id: 'new-2222', content: 'New memory', importance: 0.9, metadata: {}, created_at: '2026-03-01T00:00:00Z' },
+      ],
+      total: 2,
+    };
+    captureConsole();
+    await cmdCore({ _: [], until: '2025-06-01' } as any);
+    restoreConsole();
+    const output = consoleOutput.join('\n');
+    expect(output).toContain('Old memory');
+    expect(output).not.toContain('New memory');
+  });
+
+  test('--since with relative date (7d) works', async () => {
+    const recent = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(); // 2 days ago
+    const old = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(); // 30 days ago
+    mockFetchResponse = {
+      memories: [
+        { id: 'old-rel', content: 'Month old', importance: 0.5, metadata: {}, created_at: old },
+        { id: 'new-rel', content: 'Recent one', importance: 0.7, metadata: {}, created_at: recent },
+      ],
+      total: 2,
+    };
+    captureConsole();
+    await cmdCore({ _: [], since: '7d' } as any);
+    restoreConsole();
+    const output = consoleOutput.join('\n');
+    expect(output).toContain('Recent one');
+    expect(output).not.toContain('Month old');
+  });
+
+  test('invalid date format throws error', async () => {
+    mockFetchResponse = { memories: [], total: 0 };
+    expect(cmdCore({ _: [], since: 'not-a-date' } as any)).rejects.toThrow('Invalid date format');
+  });
+
+  test('--since with --json filters and returns JSON', async () => {
+    mockFetchResponse = {
+      memories: [
+        { id: 'old-j', content: 'Old JSON', importance: 0.5, metadata: {}, created_at: '2025-01-01T00:00:00Z' },
+        { id: 'new-j', content: 'New JSON', importance: 0.8, metadata: {}, created_at: '2026-03-01T00:00:00Z' },
+      ],
+      total: 2,
+    };
+    resetOutputState();
+    const { configureOutput } = await import('../src/output.js');
+    configureOutput({ json: true });
+    captureConsole();
+    await cmdCore({ _: [], since: '2026-01-01', json: true } as any);
+    restoreConsole();
+    resetOutputState();
+    const parsed = JSON.parse(consoleOutput[0]);
+    expect(parsed.memories).toHaveLength(1);
+    expect(parsed.memories[0].content).toBe('New JSON');
+  });
+
+  test('--since overfetches limit', async () => {
+    mockFetchResponse = { memories: [], total: 0 };
+    allFetches.length = 0;
+    captureConsole();
+    await cmdCore({ _: [], since: '7d', limit: '10' } as any);
+    restoreConsole();
+    const url = allFetches.find(f => f.url.includes('/v1/core'))?.url || '';
+    expect(url).toContain('limit=100');
+  });
+
+  test('--since with raw mode filters content', async () => {
+    mockFetchResponse = {
+      memories: [
+        { id: 'old-r', content: 'Old raw', created_at: '2025-01-01T00:00:00Z' },
+        { id: 'new-r', content: 'New raw', created_at: '2026-03-01T00:00:00Z' },
+      ],
+      total: 2,
+    };
+    captureConsole();
+    await cmdCore({ _: [], since: '2026-01-01', raw: true } as any);
+    restoreConsole();
+    const output = consoleOutput.join('\n');
+    expect(output).toContain('New raw');
+    expect(output).not.toContain('Old raw');
+  });
 });
 
 // ─── #43: bulk-delete tests ──────────────────────────────────────────────────

@@ -6,28 +6,59 @@ import type { ParsedArgs } from '../args.js';
 import { request } from '../http.js';
 import { c } from '../colors.js';
 import { outputJson, outputFormat, outputTruncate, noTruncate, out, table, outputWrite } from '../output.js';
+import { parseDate, filterByDateRange, overfetchLimit } from '../dates.js';
 
 export async function cmdCore(opts: ParsedArgs) {
   const params = new URLSearchParams();
-  if (opts.limit != null && opts.limit !== true) params.set('limit', opts.limit);
   if (opts.namespace) params.set('namespace', opts.namespace);
+
+  // Parse --since / --until date filters
+  const sinceDate = opts.since ? parseDate(opts.since) : null;
+  const untilDate = opts.until ? parseDate(opts.until) : null;
+  if ((opts.since && !sinceDate) || (opts.until && !untilDate)) {
+    throw new Error(
+      `Invalid date format. Use ISO 8601 (2025-01-01) or relative shorthand (1h, 7d, 2w, 1mo, 1y).`
+    );
+  }
+
+  const hasDateFilter = !!(sinceDate || untilDate);
+  const userLimit = opts.limit != null && opts.limit !== true ? Number(opts.limit) : undefined;
+
+  if (hasDateFilter) {
+    // Over-fetch when date-filtering client-side
+    params.set('limit', String(overfetchLimit(userLimit)));
+  } else if (userLimit != null) {
+    params.set('limit', String(userLimit));
+  }
 
   const result = await request('GET', `/v1/core?${params}`) as any;
 
   if (outputJson) {
-    out(result);
+    let data = result;
+    if (hasDateFilter) {
+      const items = result.memories || result.core_memories || result.data || [];
+      const filtered = filterByDateRange(items, 'created_at', sinceDate, untilDate);
+      data = { ...result, memories: filtered, total: filtered.length };
+    }
+    out(data);
     return;
   }
 
   if (opts.raw) {
-    const memories = result.memories || result.core_memories || result.data || [];
+    let memories = result.memories || result.core_memories || result.data || [];
+    memories = filterByDateRange(memories, 'created_at', sinceDate, untilDate);
     for (const mem of memories) {
       outputWrite(mem.content || '');
     }
     return;
   }
 
-  const memories = result.memories || result.core_memories || result.data || [];
+  let memories = result.memories || result.core_memories || result.data || [];
+  memories = filterByDateRange(memories, 'created_at', sinceDate, untilDate);
+
+  if (userLimit != null && hasDateFilter) {
+    memories = memories.slice(0, userLimit);
+  }
 
   if (memories.length === 0) {
     outputWrite(`${c.dim}No core memories found.${c.reset}`);
