@@ -48,6 +48,8 @@ Options:
   --tags <tag1,tag2>     Filter by tags
   --since <date>         Only memories created after date (ISO 8601 or 1h/7d/2w/1mo/1y)
   --until <date>         Only memories created before date
+  --sort-by <field>      Sort by field (id, importance, created, updated)
+  --reverse              Reverse sort order
   --format <fmt>         Output format: json, csv, tsv, yaml
   --raw                  Output content only (for piping)`,
 

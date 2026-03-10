@@ -120,7 +120,9 @@ export function out(data: any) {
           const val = row[h];
           const str = val === null || val === undefined ? '' : String(val);
           if (outputFormat === 'csv') {
-            return str.includes(',') || str.includes('"') ? `"${str.replace(/"/g, '""')}"` : str;
+            // Replace newlines with spaces for CSV portability (matches TSV behavior)
+            const flat = str.replace(/\r?\n/g, ' ');
+            return flat.includes(',') || flat.includes('"') ? `"${flat.replace(/"/g, '""')}"` : flat;
           }
           return str.replace(/\t/g, ' ').replace(/\n/g, ' ');
         }).join(sep));

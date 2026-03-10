@@ -5,7 +5,7 @@ import { outputJson, outputFormat, outputTruncate, noTruncate, out, table, outpu
 import { parseDate, filterByDateRange, overfetchLimit } from '../dates.js';
 
 /** Apply client-side sorting to memories array */
-function sortMemories(memories: any[], opts: ParsedArgs): any[] {
+export function sortMemories(memories: any[], opts: ParsedArgs): any[] {
   if (!opts.sortBy || memories.length === 0) return memories;
 
   const sortKey = opts.sortBy;

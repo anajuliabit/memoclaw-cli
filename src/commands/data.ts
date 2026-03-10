@@ -61,8 +61,10 @@ export async function cmdExport(opts: ParsedArgs) {
           m.metadata?.tags?.join(';') || '',
           m.created_at || '',
         ].map(v => {
-          if (outputFormat === 'csv' && (v.includes(',') || v.includes('"') || v.includes('\n'))) {
-            return `"${v.replace(/"/g, '""')}"`;
+          if (outputFormat === 'csv') {
+            // Flatten newlines to spaces for CSV portability (#172)
+            const flat = v.replace(/\r?\n/g, ' ');
+            return flat.includes(',') || flat.includes('"') ? `"${flat.replace(/"/g, '""')}"` : flat;
           }
           return outputFormat === 'tsv' ? v.replace(/[\t\n]/g, ' ') : v;
         });
