@@ -67,7 +67,7 @@ export async function cmdConfig(subcmd: string, rest: string[]) {
 
     const configPath = CONFIG_FILE;
 
-    fs.writeFileSync(configPath, yaml.dump(sampleConfig, { indent: 2 }));
+    fs.writeFileSync(configPath, yaml.dump(sampleConfig, { indent: 2 }), { mode: 0o600 });
     success(`Config file created at ${c.cyan}${configPath}${c.reset}`);
     outputWrite(`${c.dim}Edit this file and remove the privateKey line (set via MEMOCLAW_PRIVATE_KEY env var)${c.reset}`);
     return;

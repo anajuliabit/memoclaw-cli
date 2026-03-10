@@ -89,8 +89,8 @@ export async function cmdUpdate(id: string, opts: ParsedArgs) {
   if (opts.namespace) body.namespace = opts.namespace;
   if (opts.tags) body.metadata = { tags: opts.tags.split(',').map((t: string) => t.trim()) };
   if (opts.expiresAt) body.expires_at = opts.expiresAt;
-  if (opts.pinned !== undefined) body.pinned = opts.pinned === 'true' || opts.pinned === true;
-  if (opts.immutable !== undefined) body.immutable = opts.immutable === 'true' || opts.immutable === true;
+  if (opts.pinned !== undefined) body.pinned = opts.pinned !== 'false' && opts.pinned !== false;
+  if (opts.immutable !== undefined) body.immutable = opts.immutable !== 'false' && opts.immutable !== false;
   if (opts.sessionId) body.session_id = opts.sessionId;
   if (opts.agentId) body.agent_id = opts.agentId;
 
