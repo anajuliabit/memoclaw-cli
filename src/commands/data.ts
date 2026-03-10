@@ -226,12 +226,13 @@ export async function cmdPurge(opts: ParsedArgs) {
 
     // Apply date filters client-side when --since/--until are provided
     if (hasDateFilter) {
+      const pageSize = result.memories?.length || result.data?.length || memories.length;
       const filtered = filterByDateRange(memories, 'created_at', sinceDate, untilDate);
-      const skipped = memories.length - filtered.length;
+      const skipped = pageSize - filtered.length;
       memories = filtered;
-      // Advance offset past non-matching memories
+      // Advance offset past non-matching memories only
       if (memories.length === 0) {
-        offset += result.memories?.length || result.data?.length || 100;
+        offset += pageSize;
         // If we've gone past all results, stop
         if (result.total !== undefined && offset >= result.total) break;
         failedInRow++;
@@ -279,10 +280,13 @@ export async function cmdPurge(opts: ParsedArgs) {
       }
     }
 
-    // When date filtering, advance offset since we're not deleting everything in the page
+    // When date filtering, advance offset past only the non-deleted (skipped) items.
+    // Deleted items are removed from the dataset, so the remaining items shift
+    // forward. We only need to advance past items we did NOT delete.
     if (hasDateFilter) {
-      offset += 100;
-      if (result.total !== undefined && offset >= result.total) break;
+      const origPageSize = (result.memories || result.data || []).length;
+      offset += (origPageSize - batchDeleted);
+      if (result.total !== undefined && offset >= result.total - deleted) break;
     }
   }
 
