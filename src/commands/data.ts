@@ -167,6 +167,16 @@ export async function cmdImport(opts: ParsedArgs) {
 }
 
 export async function cmdPurge(opts: ParsedArgs) {
+  // Parse date filters
+  const sinceDate = opts.since ? parseDate(opts.since) : null;
+  const untilDate = opts.until ? parseDate(opts.until) : null;
+  if ((opts.since && !sinceDate) || (opts.until && !untilDate)) {
+    throw new Error(
+      `Invalid date format. Use ISO 8601 (2025-01-01) or relative shorthand (1h, 7d, 2w, 1mo, 1y).`
+    );
+  }
+  const hasDateFilter = !!(sinceDate || untilDate);
+
   const confirmed = opts.force || opts.yes;
 
   if (!confirmed) {
@@ -184,10 +194,13 @@ export async function cmdPurge(opts: ParsedArgs) {
       if (total !== undefined) countLabel = ` ${total}`;
     } catch {}
 
+    const dateNote = hasDateFilter
+      ? ` matching date range${sinceDate ? ` since ${sinceDate.toISOString().slice(0, 10)}` : ''}${untilDate ? ` until ${untilDate.toISOString().slice(0, 10)}` : ''}`
+      : '';
     const readline = await import('readline');
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
     const answer = await new Promise<string>(r => rl.question(
-      `${c.red}⚠ Delete ALL${countLabel} memories${opts.namespace ? ` in namespace "${opts.namespace}"` : ''}? Type "yes" to confirm: ${c.reset}`,
+      `${c.red}⚠ Delete${hasDateFilter ? '' : ' ALL'}${countLabel} memories${opts.namespace ? ` in namespace "${opts.namespace}"` : ''}${dateNote}? Type "yes" to confirm: ${c.reset}`,
       r
     ));
     rl.close();
@@ -203,12 +216,30 @@ export async function cmdPurge(opts: ParsedArgs) {
   let failedInRow = 0;
   const MAX_CONSECUTIVE_FAILURES = 3;
   let useBulk = true;
+  let offset = 0;
 
   while (true) {
-    params.set('offset', '0');
+    params.set('offset', hasDateFilter ? String(offset) : '0');
     const result = await request('GET', `/v1/memories?${params}`) as any;
-    const memories = result.memories || result.data || [];
+    let memories = result.memories || result.data || [];
     if (memories.length === 0) break;
+
+    // Apply date filters client-side when --since/--until are provided
+    if (hasDateFilter) {
+      const filtered = filterByDateRange(memories, 'created_at', sinceDate, untilDate);
+      const skipped = memories.length - filtered.length;
+      memories = filtered;
+      // Advance offset past non-matching memories
+      if (memories.length === 0) {
+        offset += result.memories?.length || result.data?.length || 100;
+        // If we've gone past all results, stop
+        if (result.total !== undefined && offset >= result.total) break;
+        failedInRow++;
+        if (failedInRow >= MAX_CONSECUTIVE_FAILURES * 2) break;
+        continue;
+      }
+      failedInRow = 0;
+    }
 
     const ids = memories.map((m: any) => m.id);
     let batchDeleted = 0;
@@ -219,7 +250,7 @@ export async function cmdPurge(opts: ParsedArgs) {
         batchDeleted = bulkResult.deleted ?? ids.length;
         deleted += batchDeleted;
         failedInRow = 0;
-        if (!outputQuiet) process.stderr.write(`\r  ${progressBar(deleted, result.total || deleted)}`);
+        if (!outputQuiet) process.stderr.write(`\r  ${progressBar(deleted, hasDateFilter ? deleted : (result.total || deleted))}`);
       } catch {
         // Bulk delete not available, fall back to one-by-one
         useBulk = false;
@@ -233,7 +264,7 @@ export async function cmdPurge(opts: ParsedArgs) {
           deleted++;
           batchDeleted++;
           failedInRow = 0;
-          if (!outputQuiet) process.stderr.write(`\r  ${progressBar(deleted, result.total || deleted)}`);
+          if (!outputQuiet) process.stderr.write(`\r  ${progressBar(deleted, hasDateFilter ? deleted : (result.total || deleted))}`);
         } catch (e: any) {
           if (process.env.DEBUG) console.error(`\nFailed to delete ${mem.id}: ${e.message}`);
         }
@@ -247,12 +278,18 @@ export async function cmdPurge(opts: ParsedArgs) {
         break;
       }
     }
+
+    // When date filtering, advance offset since we're not deleting everything in the page
+    if (hasDateFilter) {
+      offset += 100;
+      if (result.total !== undefined && offset >= result.total) break;
+    }
   }
 
   if (!outputQuiet) process.stderr.write('\n');
   if (outputJson) {
-    out({ deleted });
+    out({ deleted, ...(hasDateFilter ? { filtered: true } : {}) });
   } else {
-    success(`Purged ${deleted} memories`);
+    success(`Purged ${deleted} memories${hasDateFilter ? ' (date-filtered)' : ''}`);
   }
 }
