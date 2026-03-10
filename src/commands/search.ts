@@ -8,6 +8,7 @@ import { c } from '../colors.js';
 import { outputJson, outputFormat, outputTruncate, noTruncate, out, outputWrite, success, info, truncate, table, readStdin } from '../output.js';
 import { validateContentLength, validateBulkContentLength } from '../validate.js';
 import { parseDate, filterByDateRange, overfetchLimit } from '../dates.js';
+import { sortMemories } from './list.js';
 
 export async function cmdSearch(query: string, opts: ParsedArgs) {
   const params = new URLSearchParams({ q: query });
@@ -40,14 +41,18 @@ export async function cmdSearch(query: string, opts: ParsedArgs) {
     if (hasDateFilter) {
       let filtered = filterByDateRange(result.memories || result.data || [], 'created_at', sinceDate, untilDate);
       if (trimLimit) filtered = filtered.slice(0, trimLimit);
+      filtered = sortMemories(filtered, opts);
       out({ ...result, memories: filtered });
     } else {
-      out(result);
+      let memories = result.memories || result.data || [];
+      memories = sortMemories(memories, opts);
+      out({ ...result, memories });
     }
   } else if (opts.raw) {
     let memories = result.memories || result.data || [];
     memories = filterByDateRange(memories, 'created_at', sinceDate, untilDate);
     if (trimLimit) memories = memories.slice(0, trimLimit);
+    memories = sortMemories(memories, opts);
     for (const mem of memories) {
       outputWrite(mem.content);
     }
@@ -55,6 +60,7 @@ export async function cmdSearch(query: string, opts: ParsedArgs) {
     let memories = result.memories || result.data || [];
     memories = filterByDateRange(memories, 'created_at', sinceDate, untilDate);
     if (trimLimit) memories = memories.slice(0, trimLimit);
+    memories = sortMemories(memories, opts);
     const rows = memories.map((m: any) => ({
       id: m.id || '',
       content: m.content || '',
@@ -65,6 +71,7 @@ export async function cmdSearch(query: string, opts: ParsedArgs) {
     let memories = result.memories || result.data || [];
     memories = filterByDateRange(memories, 'created_at', sinceDate, untilDate);
     if (trimLimit) memories = memories.slice(0, trimLimit);
+    memories = sortMemories(memories, opts);
     if (memories.length === 0) {
       outputWrite(`${c.dim}No memories found.${c.reset}`);
     } else {

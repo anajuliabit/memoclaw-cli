@@ -3028,3 +3028,149 @@ describe('watch respects --format flag (Fixes #154)', () => {
     expect(typeof watchMod.cmdWatch).toBe('function');
   });
 });
+
+// ─── #171: search --sort-by and --reverse ─────────────────────────────────────
+
+describe('search --sort-by and --reverse (Fixes #171)', () => {
+  test('sorts search results by importance', async () => {
+    mockFetchResponse = {
+      memories: [
+        { id: 'sort-aaa', content: 'low', importance: 0.2, metadata: {} },
+        { id: 'sort-bbb', content: 'high', importance: 0.9, metadata: {} },
+        { id: 'sort-ccc', content: 'mid', importance: 0.5, metadata: {} },
+      ],
+    };
+    resetOutputState({ json: true });
+    captureConsole();
+    await cmdSearch('test', { _: [], sortBy: 'importance' } as any);
+    restoreConsole();
+    resetOutputState();
+    const parsed = JSON.parse(consoleOutput.join(''));
+    const importances = parsed.memories.map((m: any) => m.importance);
+    expect(importances).toEqual([0.2, 0.5, 0.9]);
+  });
+
+  test('sorts search results by importance reversed', async () => {
+    mockFetchResponse = {
+      memories: [
+        { id: 'sort-aaa', content: 'low', importance: 0.2, metadata: {} },
+        { id: 'sort-bbb', content: 'high', importance: 0.9, metadata: {} },
+        { id: 'sort-ccc', content: 'mid', importance: 0.5, metadata: {} },
+      ],
+    };
+    resetOutputState({ json: true });
+    captureConsole();
+    await cmdSearch('test', { _: [], sortBy: 'importance', reverse: true } as any);
+    restoreConsole();
+    resetOutputState();
+    const parsed = JSON.parse(consoleOutput.join(''));
+    const importances = parsed.memories.map((m: any) => m.importance);
+    expect(importances).toEqual([0.9, 0.5, 0.2]);
+  });
+
+  test('sorts search results by created date', async () => {
+    mockFetchResponse = {
+      memories: [
+        { id: 'sort-aaa', content: 'newer', created_at: '2026-03-10T00:00:00Z', metadata: {} },
+        { id: 'sort-bbb', content: 'older', created_at: '2026-01-01T00:00:00Z', metadata: {} },
+      ],
+    };
+    resetOutputState({ json: true });
+    captureConsole();
+    await cmdSearch('test', { _: [], sortBy: 'created' } as any);
+    restoreConsole();
+    resetOutputState();
+    const parsed = JSON.parse(consoleOutput.join(''));
+    expect(parsed.memories[0].id).toBe('sort-bbb');
+    expect(parsed.memories[1].id).toBe('sort-aaa');
+  });
+
+  test('sort applies in raw mode', async () => {
+    mockFetchResponse = {
+      memories: [
+        { id: 'sort-aaa', content: 'low-imp', importance: 0.2, metadata: {} },
+        { id: 'sort-bbb', content: 'high-imp', importance: 0.9, metadata: {} },
+      ],
+    };
+    resetOutputState();
+    captureConsole();
+    await cmdSearch('test', { _: [], sortBy: 'importance', reverse: true, raw: true } as any);
+    restoreConsole();
+    resetOutputState();
+    expect(consoleOutput[0]).toBe('high-imp');
+    expect(consoleOutput[1]).toBe('low-imp');
+  });
+
+  test('sort applies in csv mode', async () => {
+    mockFetchResponse = {
+      memories: [
+        { id: 'sort-aaa', content: 'low-imp', importance: 0.2, metadata: {} },
+        { id: 'sort-bbb', content: 'high-imp', importance: 0.9, metadata: {} },
+      ],
+    };
+    resetOutputState();
+    const { configureOutput } = await import('../src/output.js');
+    configureOutput({ format: 'csv' });
+    captureConsole();
+    await cmdSearch('test', { _: [], sortBy: 'importance', reverse: true } as any);
+    restoreConsole();
+    resetOutputState();
+    const output = consoleOutput.join('\n');
+    const lines = output.split('\n');
+    // Header + 2 rows; first data row should be high-imp
+    expect(lines[1]).toContain('high-imp');
+    expect(lines[2]).toContain('low-imp');
+  });
+});
+
+// ─── #172: CSV export newline escaping ────────────────────────────────────────
+
+describe('CSV newline escaping (Fixes #172)', () => {
+  test('out() flattens newlines in CSV content', async () => {
+    resetOutputState();
+    const { configureOutput, out } = await import('../src/output.js');
+    configureOutput({ format: 'csv' });
+    captureConsole();
+    out([{ id: 'test-1', content: 'line one\nline two\nline three' }]);
+    restoreConsole();
+    resetOutputState();
+    const output = consoleOutput.join('\n');
+    // Should NOT contain literal newlines within a row
+    const lines = output.split('\n');
+    // Header + 1 data row = 2 lines
+    expect(lines.length).toBe(2);
+    expect(lines[1]).toContain('line one line two line three');
+  });
+
+  test('out() flattens \\r\\n in CSV content', async () => {
+    resetOutputState();
+    const { configureOutput, out } = await import('../src/output.js');
+    configureOutput({ format: 'csv' });
+    captureConsole();
+    out([{ id: 'test-1', content: 'first\r\nsecond' }]);
+    restoreConsole();
+    resetOutputState();
+    const lines = consoleOutput.join('\n').split('\n');
+    expect(lines.length).toBe(2);
+    expect(lines[1]).toContain('first second');
+  });
+
+  test('search CSV output flattens newlines in content', async () => {
+    mockFetchResponse = {
+      memories: [
+        { id: 'nl-1111-2222', content: 'hello\nworld\nfoo', metadata: { tags: ['t1'] } },
+      ],
+    };
+    resetOutputState();
+    const { configureOutput } = await import('../src/output.js');
+    configureOutput({ format: 'csv' });
+    captureConsole();
+    await cmdSearch('hello', { _: [] } as any);
+    restoreConsole();
+    resetOutputState();
+    const lines = consoleOutput.join('\n').split('\n');
+    // Header + 1 data row = 2 lines
+    expect(lines.length).toBe(2);
+    expect(lines[1]).toContain('hello world foo');
+  });
+});
