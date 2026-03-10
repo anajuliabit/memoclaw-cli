@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'bun:test';
-import { compareSemver, type VersionCheckResult } from '../src/commands/upgrade';
+import { compareSemver, detectPackageManager, buildInstallCommand, type VersionCheckResult } from '../src/commands/upgrade';
 import { parseArgs, BOOLEAN_FLAGS } from '../src/args';
 
 // ─── Version comparison ─────────────────────────────────────────────────────
@@ -74,6 +74,38 @@ describe('VersionCheckResult', () => {
       updateAvailable: compareSemver('2.0.0', '1.9.0') < 0,
     };
     expect(result.updateAvailable).toBe(false);
+  });
+});
+
+// ─── Package manager detection (Fixes #152) ──────────────────────────────────
+
+describe('detectPackageManager', () => {
+  test('returns a string', () => {
+    const pm = detectPackageManager();
+    expect(typeof pm).toBe('string');
+    expect(['npm', 'bun', 'pnpm', 'yarn']).toContain(pm);
+  });
+});
+
+describe('buildInstallCommand', () => {
+  test('npm', () => {
+    expect(buildInstallCommand('npm')).toBe('npm install -g memoclaw@latest');
+  });
+
+  test('bun', () => {
+    expect(buildInstallCommand('bun')).toBe('bun install -g memoclaw@latest');
+  });
+
+  test('pnpm', () => {
+    expect(buildInstallCommand('pnpm')).toBe('pnpm add -g memoclaw@latest');
+  });
+
+  test('yarn', () => {
+    expect(buildInstallCommand('yarn')).toBe('yarn global add memoclaw@latest');
+  });
+
+  test('unknown defaults to npm', () => {
+    expect(buildInstallCommand('unknown')).toBe('npm install -g memoclaw@latest');
   });
 });
 
