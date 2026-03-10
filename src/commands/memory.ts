@@ -168,7 +168,7 @@ export async function cmdEdit(id: string, opts?: ParsedArgs) {
   // Write content to temp file
   const tmpFile = join(tmpdir(), `memoclaw-edit-${id.slice(0, 8)}-${Date.now()}.md`);
   const originalContent = mem.content || '';
-  writeFileSync(tmpFile, originalContent, 'utf-8');
+  writeFileSync(tmpFile, originalContent, { encoding: 'utf-8', mode: 0o600 });
 
   try {
     // Open in editor (quote path to handle spaces in tmpdir)

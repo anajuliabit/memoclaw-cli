@@ -1311,6 +1311,58 @@ describe('cmdPurge', () => {
     // No throw means it accepted --yes
     restoreConsole();
   });
+
+  test('respects --since date filter when purging', async () => {
+    const now = new Date();
+    const old = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000); // 7 days ago
+    const recent = new Date(now.getTime() - 1 * 60 * 60 * 1000); // 1 hour ago
+
+    let listCallCount = 0;
+    const deletedIds: string[] = [];
+    mockFetchResponse = (url: string, init: any) => {
+      if (init?.method === 'POST' && url.includes('bulk-delete')) {
+        const body = JSON.parse(init.body);
+        deletedIds.push(...body.ids);
+        return { deleted: body.ids.length };
+      }
+      listCallCount++;
+      if (listCallCount === 1) {
+        return {
+          memories: [
+            { id: 'old-one', created_at: old.toISOString() },
+            { id: 'recent-one', created_at: recent.toISOString() },
+          ],
+          total: 2,
+        };
+      }
+      return { memories: [], total: 2 };
+    };
+
+    await cmdPurge({ _: [], force: true, since: '2d' } as any);
+    // Only the recent memory (within last 2 days) should be deleted
+    expect(deletedIds).toContain('recent-one');
+    expect(deletedIds).not.toContain('old-one');
+    restoreConsole();
+  });
+
+  test('throws on invalid date format in --since', async () => {
+    await expect(
+      cmdPurge({ _: [], force: true, since: 'notadate' } as any)
+    ).rejects.toThrow('Invalid date format');
+    restoreConsole();
+  });
+
+  test('JSON output includes filtered flag when date filter used', async () => {
+    resetOutputState({ json: true });
+    mockFetchResponse = (url: string, init: any) => {
+      if (init?.method === 'POST') return { deleted: 0 };
+      return { memories: [], total: 0 };
+    };
+    await cmdPurge({ _: [], force: true, since: '1d' } as any);
+    const parsed = JSON.parse(consoleOutput.join(''));
+    expect(parsed.filtered).toBe(true);
+    restoreConsole();
+  });
 });
 
 // ─── Validate module ─────────────────────────────────────────────────────────

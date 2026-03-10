@@ -1,7 +1,7 @@
 export async function cmdCompletions(shell: string) {
   const commands = ['init', 'migrate', 'store', 'recall', 'search', 'list', 'get', 'update', 'delete', 'bulk-delete', 'pin', 'unpin', 'lock', 'unlock', 'edit', 'watch', 'copy', 'move', 'ingest', 'extract',
     'context', 'consolidate', 'relations', 'core', 'suggested', 'status', 'export', 'import', 'stats', 'browse',
-    'completions', 'config', 'graph', 'history', 'purge', 'count', 'tags', 'namespace', 'whoami', 'upgrade', 'help'];
+    'completions', 'config', 'graph', 'history', 'diff', 'purge', 'count', 'tags', 'namespace', 'whoami', 'upgrade', 'help'];
 
   const globalFlags = ['--help', '--version', '--json', '--quiet', '--namespace', '--limit', '--offset',
     '--tags', '--format', '--pretty', '--watch', '--watch-interval', '--raw', '--force', '--output', '--truncate',
@@ -38,6 +38,8 @@ _memoclaw() {
     COMPREPLY=( $(compgen -W "list stats" -- "\$cur") )
   elif [[ "\${COMP_WORDS[1]}" == "completions" && "\$COMP_CWORD" -eq 2 ]]; then
     COMPREPLY=( $(compgen -W "bash zsh fish" -- "\$cur") )
+  elif [[ "\$prev" == "--category" ]]; then
+    COMPREPLY=( $(compgen -W "stale fresh hot decaying" -- "\$cur") )
   fi
 }
 complete -F _memoclaw memoclaw`);
@@ -57,6 +59,10 @@ _memoclaw() {
       tags)       _values 'subcommand' list ;;
       namespace)  _values 'subcommand' list stats ;;
       completions) _values 'shell' bash zsh fish ;;
+      suggested)
+        case \${words[CURRENT-1]} in
+          --category) _values 'category' stale fresh hot decaying ;;
+        esac ;;
       store|list|update) 
         case \${words[CURRENT-1]} in
           --memory-type|-M) _values 'type' core episodic semantic procedural ;;
@@ -80,6 +86,9 @@ complete -c memoclaw -n '__fish_seen_subcommand_from config' -a 'show check init
 complete -c memoclaw -n '__fish_seen_subcommand_from tags' -a 'list'
 complete -c memoclaw -n '__fish_seen_subcommand_from namespace' -a 'list stats'
 complete -c memoclaw -n '__fish_seen_subcommand_from completions' -a 'bash zsh fish'
+
+# Command-specific completions
+complete -c memoclaw -n '__fish_seen_subcommand_from suggested' -l category -xa 'stale fresh hot decaying'
 
 # Global flags
 ${globalFlags.map(f => `complete -c memoclaw -l '${f.replace(/^--/, '')}'`).join('\n')}`);
