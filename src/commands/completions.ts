@@ -4,9 +4,12 @@ export async function cmdCompletions(shell: string) {
     'completions', 'config', 'graph', 'history', 'purge', 'count', 'tags', 'namespace', 'whoami', 'upgrade', 'help'];
 
   const globalFlags = ['--help', '--version', '--json', '--quiet', '--namespace', '--limit', '--offset',
-    '--tags', '--format', '--pretty', '--watch', '--raw', '--force', '--output', '--truncate',
+    '--tags', '--format', '--pretty', '--watch', '--watch-interval', '--raw', '--force', '--output', '--truncate',
     '--no-truncate', '--columns', '--sort-by', '--reverse', '--wide', '--concurrency', '--yes',
-    '--timeout', '--field', '--dry-run'];
+    '--timeout', '--field', '--dry-run', '--since', '--until', '--retries', '--no-retry',
+    '--min-similarity', '--memory-type', '--batch', '--id-only', '--content', '--file',
+    '--importance', '--immutable', '--pinned', '--session-id', '--agent-id', '--expires-at',
+    '--editor', '--interval', '--no-color', '--check', '--all', '--revision'];
 
   if (shell === 'bash') {
     console.log(`# Add to ~/.bashrc:

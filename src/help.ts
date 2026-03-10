@@ -269,7 +269,8 @@ Options:
   --namespace <name>     Target namespace (default: same as source)
   --importance <0-1>     Override importance score
   --tags <tag1,tag2>     Override tags
-  --memory-type <type>   Override memory type`,
+  --memory-type <type>   Override memory type
+  --id-only              Print only the new memory ID (for scripting)`,
 
       move: `${c.bold}memoclaw move${c.reset} <id> [<id2> ...] --namespace <target>
 

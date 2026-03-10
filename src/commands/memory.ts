@@ -171,8 +171,8 @@ export async function cmdEdit(id: string, opts?: ParsedArgs) {
   writeFileSync(tmpFile, originalContent, 'utf-8');
 
   try {
-    // Open in editor
-    execSync(`${editor} ${tmpFile}`, { stdio: 'inherit' });
+    // Open in editor (quote path to handle spaces in tmpdir)
+    execSync(`${editor} "${tmpFile}"`, { stdio: 'inherit' });
 
     // Read back
     const newContent = readFileSync(tmpFile, 'utf-8');
@@ -228,7 +228,9 @@ export async function cmdCopy(id: string, opts: ParsedArgs) {
   // Deliberately do NOT copy immutable flag — new memory should be mutable
 
   const storeResult = await request('POST', '/v1/store', body) as any;
-  if (outputJson) {
+  if (opts.idOnly) {
+    outputWrite(storeResult.id || '');
+  } else if (outputJson) {
     out({ source: id, id: storeResult.id, copied: true });
   } else {
     success(`Copied ${c.cyan}${id.slice(0, 8)}…${c.reset} → ${c.cyan}${(storeResult.id || '?').slice(0, 8)}…${c.reset}`);
