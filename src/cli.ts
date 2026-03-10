@@ -103,8 +103,14 @@ try {
   switch (cmd) {
     case 'store': {
       if (args.batch) {
-        const stdin = await readStdin();
-        const lines = stdin ? stdin.split('\n') : [];
+        let batchText: string | null = null;
+        if (args.file) {
+          batchText = readFileContent(args.file);
+        }
+        if (!batchText) {
+          batchText = await readStdin();
+        }
+        const lines = batchText ? batchText.split('\n') : [];
         await cmdStoreBatch(args, lines);
         break;
       }

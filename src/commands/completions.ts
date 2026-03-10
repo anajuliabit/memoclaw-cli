@@ -9,7 +9,8 @@ export async function cmdCompletions(shell: string) {
     '--timeout', '--field', '--dry-run', '--since', '--until', '--retries', '--no-retry',
     '--min-similarity', '--memory-type', '--batch', '--id-only', '--content', '--file',
     '--importance', '--immutable', '--pinned', '--session-id', '--agent-id', '--expires-at',
-    '--editor', '--interval', '--no-color', '--check', '--all', '--revision'];
+    '--editor', '--interval', '--no-color', '--check', '--all', '--revision',
+    '--auto-relate', '--category', '--url'];
 
   if (shell === 'bash') {
     console.log(`# Add to ~/.bashrc:
