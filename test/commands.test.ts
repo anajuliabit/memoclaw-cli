@@ -2698,6 +2698,23 @@ describe('cmdCopy', () => {
     resetOutputState();
     expect(storeBody.namespace).toBe('new-ns');
   });
+
+  test('copy with --id-only outputs only the new ID', async () => {
+    let callCount = 0;
+    mockFetchResponse = (url: string, init: any) => {
+      callCount++;
+      if (callCount === 1) {
+        return { memory: { id: 'source-id', content: 'hello' } };
+      }
+      return { id: 'new-copy-id' };
+    };
+    resetOutputState({});
+    captureConsole();
+    await cmdCopy('source-id', { _: ['copy'], idOnly: true } as any);
+    restoreConsole();
+    resetOutputState();
+    expect(consoleOutput.join('').trim()).toBe('new-copy-id');
+  });
 });
 
 // ─── #136: move command ──────────────────────────────────────────────────────
