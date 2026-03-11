@@ -17,8 +17,9 @@ async function fetchNamespaces(): Promise<{ name: string; count?: number }[]> {
   }
 }
 
-/** Fallback: fetch all memories and compute namespaces client-side */
-async function fetchNamespacesFromMemories(): Promise<{ name: string; count: number }[]> {
+/** Fallback: fetch all memories and compute namespaces client-side.
+ *  @param includeDefault - include the default (empty) namespace in results */
+async function fetchNamespacesFromMemories(includeDefault = false): Promise<{ name: string; count: number }[]> {
   const nsCounts: Record<string, number> = {};
   const pageSize = 1000;
   let offset = 0;
@@ -36,7 +37,7 @@ async function fetchNamespacesFromMemories(): Promise<{ name: string; count: num
   }
 
   return Object.entries(nsCounts)
-    .filter(([ns]) => ns !== '')
+    .filter(([ns]) => includeDefault || ns !== '')
     .map(([ns, count]) => ({ name: ns, count }))
     .sort((a, b) => a.name.localeCompare(b.name));
 }
@@ -61,8 +62,8 @@ export async function cmdNamespace(subcmd: string, rest: string[], opts: ParsedA
     let rows: { namespace: string; count: string }[];
 
     if (hasNoCounts) {
-      // API returned names only, need to fetch memories for counts
-      const withCounts = await fetchNamespacesFromMemories();
+      // API returned names only, need to fetch memories for counts (include default namespace)
+      const withCounts = await fetchNamespacesFromMemories(true);
       rows = withCounts.map(ns => ({ namespace: ns.name || '(default)', count: String(ns.count) }));
     } else {
       rows = namespaces.map(ns => ({ namespace: ns.name || '(default)', count: String(ns.count) }));

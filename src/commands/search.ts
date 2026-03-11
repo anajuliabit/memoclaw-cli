@@ -64,7 +64,10 @@ export async function cmdSearch(query: string, opts: ParsedArgs) {
     const rows = memories.map((m: any) => ({
       id: m.id || '',
       content: m.content || '',
+      importance: m.importance?.toFixed(2) || '',
+      namespace: m.namespace || '',
       tags: m.metadata?.tags?.join(', ') || '',
+      created: m.created_at || '',
     }));
     out(rows);
   } else {
