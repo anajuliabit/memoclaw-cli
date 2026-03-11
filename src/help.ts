@@ -517,6 +517,46 @@ Options:
   --namespace <name>     Filter by namespace
   --format <fmt>         Output format: json, csv, tsv, yaml`,
 
+      alias: `${c.bold}memoclaw alias${c.reset} <set|list|rm> [args]
+
+Manage human-readable shortcuts for memory IDs.
+Aliases are stored locally in ~/.memoclaw/aliases.json (free, no API calls).
+
+Subcommands:
+  set <name> <id>    Create or update an alias
+  list               List all aliases with memory previews
+  rm <name>          Remove an alias
+
+  ${c.dim}memoclaw alias set project-ctx abc12345-6789-...${c.reset}
+  ${c.dim}memoclaw alias list${c.reset}
+  ${c.dim}memoclaw alias rm project-ctx${c.reset}
+
+Use aliases anywhere a memory ID is expected:
+  ${c.dim}memoclaw get @project-ctx${c.reset}
+  ${c.dim}memoclaw update @project-ctx --content "updated context"${c.reset}
+  ${c.dim}memoclaw history @project-ctx${c.reset}
+  ${c.dim}memoclaw diff @project-ctx${c.reset}`,
+
+      snapshot: `${c.bold}memoclaw snapshot${c.reset} <create|list|restore|delete> [options]
+
+Point-in-time namespace backups. Create snapshots before destructive
+operations like purge or consolidate.
+
+Subcommands:
+  create [--name <label>] [--namespace <ns>]   Create a snapshot
+  list                                          List all snapshots
+  restore <name>                                Restore from a snapshot
+  delete <name>                                 Delete a snapshot
+
+  ${c.dim}memoclaw snapshot create${c.reset}
+  ${c.dim}memoclaw snapshot create --name before-purge --namespace project1${c.reset}
+  ${c.dim}memoclaw snapshot list${c.reset}
+  ${c.dim}memoclaw snapshot restore before-purge${c.reset}
+  ${c.dim}memoclaw snapshot delete before-purge${c.reset}
+
+Snapshots are stored locally at ~/.memoclaw/snapshots/.
+Create is free (uses export). Restore uses the import path (paid).`,
+
       namespace: `${c.bold}memoclaw namespace${c.reset} [list|stats]
 
 Manage and view namespaces.
@@ -583,6 +623,8 @@ ${c.bold}Commands:${c.reset}
   ${c.cyan}tags${c.reset} [list]            List all unique tags (free)
   ${c.cyan}namespace${c.reset} [list|stats] Manage and view namespaces
   ${c.cyan}count${c.reset}                  Quick memory count
+  ${c.cyan}alias${c.reset} <set|list|rm>    Manage memory aliases (local shortcuts)
+  ${c.cyan}snapshot${c.reset} <sub>          Point-in-time namespace backups
   ${c.cyan}upgrade${c.reset}                Check for and install CLI updates
   ${c.cyan}help${c.reset} [command]          Show help for a command
 
