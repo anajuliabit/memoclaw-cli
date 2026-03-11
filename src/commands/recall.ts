@@ -3,6 +3,7 @@ import { request } from '../http.js';
 import { c } from '../colors.js';
 import { outputJson, outputTruncate, outputFormat, out, outputWrite, truncate } from '../output.js';
 import { parseDate, filterByDateRange, overfetchLimit } from '../dates.js';
+import { sortMemories } from './list.js';
 
 /** Render a list of recall memories to stdout (shared between normal and watch mode) */
 function renderMemories(memories: any[], opts: { showId?: boolean } = {}) {
@@ -106,14 +107,17 @@ export async function cmdRecall(query: string, opts: ParsedArgs) {
   if (outputJson) {
     if (hasDateFilter) {
       let filtered = filterByDateRange(result.memories || [], 'created_at', sinceDate, untilDate);
+      filtered = sortMemories(filtered, opts);
       if (trimLimit) filtered = filtered.slice(0, trimLimit);
       out({ ...result, memories: filtered });
     } else {
-      out(result);
+      let memories = sortMemories(result.memories || [], opts);
+      out({ ...result, memories });
     }
   } else if (outputFormat === 'csv' || outputFormat === 'tsv' || outputFormat === 'yaml') {
     let memories = result.memories || [];
     memories = filterByDateRange(memories, 'created_at', sinceDate, untilDate);
+    memories = sortMemories(memories, opts);
     if (trimLimit) memories = memories.slice(0, trimLimit);
     const rows = memories.map((m: any) => ({
       id: m.id || '',
@@ -128,6 +132,7 @@ export async function cmdRecall(query: string, opts: ParsedArgs) {
   } else if (opts.raw) {
     let memories = result.memories || [];
     memories = filterByDateRange(memories, 'created_at', sinceDate, untilDate);
+    memories = sortMemories(memories, opts);
     if (trimLimit) memories = memories.slice(0, trimLimit);
     for (const mem of memories) {
       outputWrite(mem.content);
@@ -135,6 +140,7 @@ export async function cmdRecall(query: string, opts: ParsedArgs) {
   } else {
     let memories = result.memories || [];
     memories = filterByDateRange(memories, 'created_at', sinceDate, untilDate);
+    memories = sortMemories(memories, opts);
     if (trimLimit) memories = memories.slice(0, trimLimit);
     renderMemories(memories, { showId: true });
   }

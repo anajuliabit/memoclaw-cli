@@ -1484,6 +1484,37 @@ describe('store batch flags', () => {
     expect(parsed.ids).toEqual(['id-aaa', 'id-bbb']);
     expect(parsed.stored).toBe(2);
   });
+
+  test('batch respects explicit empty-string namespace per item (#189)', async () => {
+    const { cmdStoreBatch } = await import('../src/commands/store.js');
+    mockFetchResponse = { stored: 2 };
+    allFetches.length = 0;
+
+    await cmdStoreBatch(
+      { _: [], namespace: 'fallback', quiet: true } as any,
+      ['[{"content":"hello","namespace":""},{"content":"world","namespace":"project1"}]']
+    );
+
+    const body = JSON.parse(allFetches.find(f => f.url.includes('/store/batch'))?.options?.body || '{}');
+    // Item with explicit empty namespace should keep it, not be overridden by fallback
+    expect(body.memories[0].namespace).toBe('');
+    // Item with explicit namespace should keep it
+    expect(body.memories[1].namespace).toBe('project1');
+  });
+
+  test('batch applies global --namespace when item has no namespace field (#189)', async () => {
+    const { cmdStoreBatch } = await import('../src/commands/store.js');
+    mockFetchResponse = { stored: 1 };
+    allFetches.length = 0;
+
+    await cmdStoreBatch(
+      { _: [], namespace: 'fallback', quiet: true } as any,
+      ['[{"content":"no ns field"}]']
+    );
+
+    const body = JSON.parse(allFetches.find(f => f.url.includes('/store/batch'))?.options?.body || '{}');
+    expect(body.memories[0].namespace).toBe('fallback');
+  });
 });
 
 describe('list tags filter', () => {
