@@ -160,7 +160,7 @@ export async function request(method: string, path: string, body: any = null) {
       try {
         res = await fetch(url, {
           method,
-          headers: { 'Content-Type': 'application/json', ...paymentHeaders },
+          headers: { 'Content-Type': 'application/json', 'x-wallet-auth': walletAuth, ...paymentHeaders },
           body: body ? JSON.stringify(body) : undefined,
           signal: retryController.signal,
         });

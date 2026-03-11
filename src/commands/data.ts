@@ -7,6 +7,7 @@ import { request } from '../http.js';
 import { c } from '../colors.js';
 import { outputJson, outputQuiet, outputFormat, outputFile, out, success, warn, progressBar, outputWrite, readStdin } from '../output.js';
 import { parseDate, filterByDateRange } from '../dates.js';
+import { sortMemories } from './list.js';
 
 export async function cmdExport(opts: ParsedArgs) {
   const params = new URLSearchParams();
@@ -36,7 +37,10 @@ export async function cmdExport(opts: ParsedArgs) {
     );
   }
 
-  const filteredMemories = filterByDateRange(allMemories, 'created_at', sinceDate, untilDate);
+  const filteredMemories = sortMemories(
+    filterByDateRange(allMemories, 'created_at', sinceDate, untilDate),
+    opts
+  );
 
   const exportData = {
     version: 1,

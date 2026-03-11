@@ -7,6 +7,7 @@ import { request } from '../http.js';
 import { c } from '../colors.js';
 import { outputJson, outputFormat, outputTruncate, noTruncate, out, table, outputWrite } from '../output.js';
 import { parseDate, filterByDateRange, overfetchLimit } from '../dates.js';
+import { sortMemories } from './list.js';
 
 export async function cmdCore(opts: ParsedArgs) {
   const params = new URLSearchParams();
@@ -36,9 +37,14 @@ export async function cmdCore(opts: ParsedArgs) {
   if (outputJson) {
     let data = result;
     if (hasDateFilter) {
-      const items = result.memories || result.core_memories || result.data || [];
-      const filtered = filterByDateRange(items, 'created_at', sinceDate, untilDate);
-      data = { ...result, memories: filtered, total: filtered.length };
+      let items = result.memories || result.core_memories || result.data || [];
+      items = filterByDateRange(items, 'created_at', sinceDate, untilDate);
+      items = sortMemories(items, opts);
+      data = { ...result, memories: items, total: items.length };
+    } else {
+      let items = result.memories || result.core_memories || result.data || [];
+      items = sortMemories(items, opts);
+      data = { ...result, memories: items };
     }
     out(data);
     return;
@@ -47,6 +53,7 @@ export async function cmdCore(opts: ParsedArgs) {
   if (opts.raw) {
     let memories = result.memories || result.core_memories || result.data || [];
     memories = filterByDateRange(memories, 'created_at', sinceDate, untilDate);
+    memories = sortMemories(memories, opts);
     for (const mem of memories) {
       outputWrite(mem.content || '');
     }
@@ -55,6 +62,7 @@ export async function cmdCore(opts: ParsedArgs) {
 
   let memories = result.memories || result.core_memories || result.data || [];
   memories = filterByDateRange(memories, 'created_at', sinceDate, untilDate);
+  memories = sortMemories(memories, opts);
 
   if (userLimit != null && hasDateFilter) {
     memories = memories.slice(0, userLimit);
