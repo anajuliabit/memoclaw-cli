@@ -1,7 +1,7 @@
 export async function cmdCompletions(shell: string) {
   const commands = ['init', 'migrate', 'store', 'recall', 'search', 'list', 'get', 'update', 'delete', 'bulk-delete', 'pin', 'unpin', 'lock', 'unlock', 'edit', 'watch', 'copy', 'move', 'ingest', 'extract',
     'context', 'consolidate', 'relations', 'core', 'suggested', 'status', 'export', 'import', 'stats', 'browse',
-    'completions', 'config', 'graph', 'history', 'diff', 'purge', 'count', 'tags', 'namespace', 'whoami', 'upgrade', 'help'];
+    'completions', 'config', 'graph', 'history', 'diff', 'purge', 'count', 'tags', 'namespace', 'alias', 'snapshot', 'whoami', 'upgrade', 'help'];
 
   const globalFlags = ['--help', '--version', '--json', '--quiet', '--namespace', '--limit', '--offset',
     '--tags', '--format', '--pretty', '--watch', '--watch-interval', '--raw', '--force', '--output', '--truncate',
@@ -37,6 +37,10 @@ _memoclaw() {
     COMPREPLY=( $(compgen -W "list" -- "\$cur") )
   elif [[ "\${COMP_WORDS[1]}" == "namespace" && "\$COMP_CWORD" -eq 2 ]]; then
     COMPREPLY=( $(compgen -W "list stats" -- "\$cur") )
+  elif [[ "\${COMP_WORDS[1]}" == "alias" && "\$COMP_CWORD" -eq 2 ]]; then
+    COMPREPLY=( $(compgen -W "set list rm" -- "\$cur") )
+  elif [[ "\${COMP_WORDS[1]}" == "snapshot" && "\$COMP_CWORD" -eq 2 ]]; then
+    COMPREPLY=( $(compgen -W "create list restore delete" -- "\$cur") )
   elif [[ "\${COMP_WORDS[1]}" == "completions" && "\$COMP_CWORD" -eq 2 ]]; then
     COMPREPLY=( $(compgen -W "bash zsh fish" -- "\$cur") )
   elif [[ "\$prev" == "--category" ]]; then
@@ -59,6 +63,8 @@ _memoclaw() {
       config)     _values 'subcommand' show check init path ;;
       tags)       _values 'subcommand' list ;;
       namespace)  _values 'subcommand' list stats ;;
+      alias)      _values 'subcommand' set list rm ;;
+      snapshot)   _values 'subcommand' create list restore delete ;;
       completions) _values 'shell' bash zsh fish ;;
       suggested)
         case \${words[CURRENT-1]} in
@@ -86,6 +92,8 @@ complete -c memoclaw -n '__fish_seen_subcommand_from relations' -a 'list create 
 complete -c memoclaw -n '__fish_seen_subcommand_from config' -a 'show check init path'
 complete -c memoclaw -n '__fish_seen_subcommand_from tags' -a 'list'
 complete -c memoclaw -n '__fish_seen_subcommand_from namespace' -a 'list stats'
+complete -c memoclaw -n '__fish_seen_subcommand_from alias' -a 'set list rm'
+complete -c memoclaw -n '__fish_seen_subcommand_from snapshot' -a 'create list restore delete'
 complete -c memoclaw -n '__fish_seen_subcommand_from completions' -a 'bash zsh fish'
 
 # Command-specific completions

@@ -40,11 +40,17 @@ import { cmdWhoami } from './commands/whoami.js';
 import { cmdUpgrade } from './commands/upgrade.js';
 import { cmdTags } from './commands/tags.js';
 import { cmdWatch } from './commands/watch.js';
+import { cmdAlias } from './commands/alias.js';
+import { cmdSnapshot } from './commands/snapshot.js';
+import { resolveAlias } from './alias.js';
 
 // ─── Main ────────────────────────────────────────────────────────────────────
 
 const args = parseArgs(process.argv.slice(2));
-const [cmd, ...rest] = args._;
+const [cmd, ...rawRest] = args._;
+
+// Resolve @alias references in positional arguments
+const rest = rawRest.map(r => resolveAlias(r));
 
 // Disable colors if --no-color flag is passed
 if (args.noColor) {
@@ -290,6 +296,12 @@ try {
       break;
     case 'upgrade':
       await cmdUpgrade(args);
+      break;
+    case 'alias':
+      await cmdAlias(rest[0], rest.slice(1), args);
+      break;
+    case 'snapshot':
+      await cmdSnapshot(rest[0], rest.slice(1), args);
       break;
     case 'help':
       printHelp(rest[0]);
