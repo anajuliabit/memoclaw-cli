@@ -9,12 +9,20 @@ import { outputJson, outputFormat, out, outputWrite, table } from '../output.js'
 
 export async function cmdHistory(id: string, opts?: ParsedArgs) {
   const result = await request('GET', `/v1/memories/${id}/history`) as any;
+
+  let history = result.history || [];
+
+  // Apply --limit: show only the N most recent entries
+  const userLimit = opts?.limit != null && opts.limit !== true ? parseInt(opts.limit) : undefined;
+  if (userLimit != null && userLimit > 0) {
+    history = history.slice(-userLimit);
+  }
+
   if (outputJson) {
-    out(result);
+    out({ ...result, history });
     return;
   }
 
-  const history = result.history || [];
   if (history.length === 0) {
     outputWrite(`${c.dim}No history entries found.${c.reset}`);
     return;

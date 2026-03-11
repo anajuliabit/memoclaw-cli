@@ -216,83 +216,109 @@ export async function cmdPurge(opts: ParsedArgs) {
     }
   }
 
+  // When date-filtering, collect all matching IDs first to avoid offset drift (#185)
+  let idsToDelete: string[] = [];
+
+  if (hasDateFilter) {
+    const params = new URLSearchParams({ limit: '1000' });
+    if (opts.namespace) params.set('namespace', opts.namespace);
+    let offset = 0;
+
+    while (true) {
+      params.set('offset', String(offset));
+      const result = await request('GET', `/v1/memories?${params}`) as any;
+      const memories = result.memories || result.data || [];
+      if (memories.length === 0) break;
+      const matching = filterByDateRange(memories, 'created_at', sinceDate, untilDate);
+      idsToDelete.push(...matching.map((m: any) => m.id));
+      if (memories.length < 1000) break;
+      offset += 1000;
+      if (!outputQuiet) process.stderr.write(`\r  ${c.dim}Scanning... ${idsToDelete.length} matching${c.reset}`);
+    }
+    if (!outputQuiet && idsToDelete.length > 0) process.stderr.write('\r' + ' '.repeat(60) + '\r');
+  }
+
   const params = new URLSearchParams({ limit: '100' });
   if (opts.namespace) params.set('namespace', opts.namespace);
   let deleted = 0;
   let failedInRow = 0;
   const MAX_CONSECUTIVE_FAILURES = 3;
   let useBulk = true;
-  let offset = 0;
 
-  while (true) {
-    params.set('offset', hasDateFilter ? String(offset) : '0');
-    const result = await request('GET', `/v1/memories?${params}`) as any;
-    let memories = result.memories || result.data || [];
-    if (memories.length === 0) break;
+  if (hasDateFilter) {
+    // Delete collected IDs in batches
+    for (let i = 0; i < idsToDelete.length; i += 100) {
+      const batch = idsToDelete.slice(i, i + 100);
+      let batchDeleted = 0;
 
-    // Apply date filters client-side when --since/--until are provided
-    if (hasDateFilter) {
-      const pageSize = result.memories?.length || result.data?.length || memories.length;
-      const filtered = filterByDateRange(memories, 'created_at', sinceDate, untilDate);
-      const skipped = pageSize - filtered.length;
-      memories = filtered;
-      // Advance offset past non-matching memories only
-      if (memories.length === 0) {
-        offset += pageSize;
-        // If we've gone past all results, stop
-        if (result.total !== undefined && offset >= result.total) break;
-        failedInRow++;
-        if (failedInRow >= MAX_CONSECUTIVE_FAILURES * 2) break;
-        continue;
-      }
-      failedInRow = 0;
-    }
-
-    const ids = memories.map((m: any) => m.id);
-    let batchDeleted = 0;
-
-    if (useBulk) {
-      try {
-        const bulkResult = await request('POST', '/v1/memories/bulk-delete', { ids }) as any;
-        batchDeleted = bulkResult.deleted ?? ids.length;
-        deleted += batchDeleted;
-        failedInRow = 0;
-        if (!outputQuiet) process.stderr.write(`\r  ${progressBar(deleted, hasDateFilter ? deleted : (result.total || deleted))}`);
-      } catch {
-        // Bulk delete not available, fall back to one-by-one
-        useBulk = false;
-      }
-    }
-
-    if (!useBulk) {
-      for (const mem of memories) {
+      if (useBulk) {
         try {
-          await request('DELETE', `/v1/memories/${mem.id}`);
-          deleted++;
-          batchDeleted++;
-          failedInRow = 0;
-          if (!outputQuiet) process.stderr.write(`\r  ${progressBar(deleted, hasDateFilter ? deleted : (result.total || deleted))}`);
-        } catch (e: any) {
-          if (process.env.DEBUG) console.error(`\nFailed to delete ${mem.id}: ${e.message}`);
+          const bulkResult = await request('POST', '/v1/memories/bulk-delete', { ids: batch }) as any;
+          batchDeleted = bulkResult.deleted ?? batch.length;
+          deleted += batchDeleted;
+        } catch {
+          useBulk = false;
         }
       }
-    }
 
-    if (batchDeleted === 0) {
-      failedInRow++;
-      if (failedInRow >= MAX_CONSECUTIVE_FAILURES) {
-        warn(`Aborting: ${MAX_CONSECUTIVE_FAILURES} consecutive batches failed to delete any memories`);
-        break;
+      if (!useBulk) {
+        for (const id of batch) {
+          try {
+            await request('DELETE', `/v1/memories/${id}`);
+            deleted++;
+            batchDeleted++;
+          } catch (e: any) {
+            if (process.env.DEBUG) console.error(`\nFailed to delete ${id}: ${e.message}`);
+          }
+        }
       }
-    }
 
-    // When date filtering, advance offset past only the non-deleted (skipped) items.
-    // Deleted items are removed from the dataset, so the remaining items shift
-    // forward. We only need to advance past items we did NOT delete.
-    if (hasDateFilter) {
-      const origPageSize = (result.memories || result.data || []).length;
-      offset += (origPageSize - batchDeleted);
-      if (result.total !== undefined && offset >= result.total - deleted) break;
+      if (!outputQuiet) process.stderr.write(`\r  ${progressBar(deleted, idsToDelete.length)}`);
+    }
+  } else {
+    // No date filter — delete all, page from offset 0 each time
+    while (true) {
+      params.set('offset', '0');
+      const result = await request('GET', `/v1/memories?${params}`) as any;
+      const memories = result.memories || result.data || [];
+      if (memories.length === 0) break;
+
+      const ids = memories.map((m: any) => m.id);
+      let batchDeleted = 0;
+
+      if (useBulk) {
+        try {
+          const bulkResult = await request('POST', '/v1/memories/bulk-delete', { ids }) as any;
+          batchDeleted = bulkResult.deleted ?? ids.length;
+          deleted += batchDeleted;
+          failedInRow = 0;
+        } catch {
+          useBulk = false;
+        }
+      }
+
+      if (!useBulk) {
+        for (const mem of memories) {
+          try {
+            await request('DELETE', `/v1/memories/${mem.id}`);
+            deleted++;
+            batchDeleted++;
+            failedInRow = 0;
+          } catch (e: any) {
+            if (process.env.DEBUG) console.error(`\nFailed to delete ${mem.id}: ${e.message}`);
+          }
+        }
+      }
+
+      if (batchDeleted === 0) {
+        failedInRow++;
+        if (failedInRow >= MAX_CONSECUTIVE_FAILURES) {
+          warn(`Aborting: ${MAX_CONSECUTIVE_FAILURES} consecutive batches failed to delete any memories`);
+          break;
+        }
+      }
+
+      if (!outputQuiet) process.stderr.write(`\r  ${progressBar(deleted, result.total || deleted)}`);
     }
   }
 

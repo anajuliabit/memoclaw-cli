@@ -79,7 +79,9 @@ export async function cmdRecall(query: string, opts: ParsedArgs) {
               similarity: m.similarity?.toFixed(3) || '',
               content: m.content || '',
               importance: m.importance?.toFixed(2) || '',
+              namespace: m.namespace || '',
               tags: m.metadata?.tags?.join(', ') || '',
+              created: m.created_at || '',
             }));
             out(rows);
           } else if (opts.raw) {
@@ -118,7 +120,9 @@ export async function cmdRecall(query: string, opts: ParsedArgs) {
       similarity: m.similarity?.toFixed(3) || '',
       content: m.content || '',
       importance: m.importance?.toFixed(2) || '',
+      namespace: m.namespace || '',
       tags: m.metadata?.tags?.join(', ') || '',
+      created: m.created_at || '',
     }));
     out(rows);
   } else if (opts.raw) {
