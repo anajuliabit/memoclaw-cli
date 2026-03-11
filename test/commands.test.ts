@@ -2495,7 +2495,11 @@ describe('cmdTags', () => {
     restoreConsole();
     resetOutputState();
     const parsed = JSON.parse(consoleOutput.join(''));
-    expect(parsed.tags).toEqual(['alpha', 'beta', 'gamma']);
+    expect(parsed.tags).toEqual([
+      { tag: 'alpha', count: 1 },
+      { tag: 'beta', count: 2 },
+      { tag: 'gamma', count: 1 },
+    ]);
     expect(parsed.count).toBe(3);
   });
 
@@ -2529,7 +2533,7 @@ describe('cmdTags', () => {
     restoreConsole();
     resetOutputState();
     const parsed = JSON.parse(consoleOutput.join(''));
-    expect(parsed.tags).toEqual(['same']);
+    expect(parsed.tags).toEqual([{ tag: 'same', count: 3 }]);
     expect(parsed.count).toBe(1);
   });
 
@@ -2546,7 +2550,7 @@ describe('cmdTags', () => {
     restoreConsole();
     resetOutputState();
     const parsed = JSON.parse(consoleOutput.join(''));
-    expect(parsed.tags).toEqual(['apple', 'mango', 'zebra']);
+    expect(parsed.tags.map((t: any) => t.tag)).toEqual(['apple', 'mango', 'zebra']);
   });
 
   test('csv format outputs rows', async () => {

@@ -6,6 +6,7 @@ import type { ParsedArgs } from '../args.js';
 import { request } from '../http.js';
 import { c } from '../colors.js';
 import { outputJson, outputFormat, out, outputWrite, table } from '../output.js';
+import { sortMemories } from './list.js';
 
 export async function cmdWatch(opts: ParsedArgs) {
   const interval = parseInt(opts.interval || '3') * 1000;
@@ -48,8 +49,8 @@ export async function cmdWatch(opts: ParsedArgs) {
         // Update last-seen to the newest
         lastSeenTimestamp = newMemories[0].created_at || lastSeenTimestamp;
 
-        // Display newest-last (chronological order)
-        const sorted = [...newMemories].reverse();
+        // Apply user sorting if specified, otherwise chronological (newest-last)
+        const sorted = (opts.sortBy) ? sortMemories([...newMemories], opts) : [...newMemories].reverse();
 
         for (const mem of sorted) {
           if (outputJson) {
