@@ -201,10 +201,12 @@ export async function cmdList(opts: ParsedArgs) {
   if (outputJson) {
     if (hasDateFilter) {
       let filtered = filterByDateRange(result.memories || result.data || [], 'created_at', sinceDate, untilDate);
+      filtered = sortMemories(filtered, opts);
       if (trimLimit) filtered = filtered.slice(0, trimLimit);
       out({ ...result, memories: filtered, total: filtered.length });
     } else {
-      out(result);
+      let memories = sortMemories(result.memories || result.data || [], opts);
+      out({ ...result, memories });
     }
   } else if (opts.raw) {
     let memories = result.memories || result.data || [];
