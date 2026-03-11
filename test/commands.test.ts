@@ -3572,3 +3572,30 @@ describe('cmdSnapshot', () => {
     expect(parsed.snapshots).toBeDefined();
   });
 });
+
+// ─── #197: recall --watch should apply --sort-by sorting ──────────────────────
+
+describe('recall watch mode sorting (#197)', () => {
+  test('recall watch code path includes sortMemories call', async () => {
+    const fs = require('fs');
+    const source = fs.readFileSync('src/commands/recall.ts', 'utf-8');
+    // Extract the watch mode block: from "if (opts.watch)" to the end of
+    // the outer while loop. The non-watch path starts with a separate
+    // `const result = await request(...)` that is NOT indented inside the if.
+    const watchBlock = source.split('if (opts.watch)')[1]?.split('\n  const result')[0];
+    expect(watchBlock).toBeDefined();
+    // sortMemories must appear in the watch loop (not just the non-watch path)
+    expect(watchBlock).toContain('sortMemories');
+  });
+});
+
+// ─── #199: auth error should suggest memoclaw init ────────────────────────────
+
+describe('auth error message (#199)', () => {
+  test('auth.ts error message mentions memoclaw init', async () => {
+    const fs = require('fs');
+    const source = fs.readFileSync('src/auth.ts', 'utf-8');
+    expect(source).toContain('memoclaw init');
+    expect(source).toContain('No wallet configured');
+  });
+});

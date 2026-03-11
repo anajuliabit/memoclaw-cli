@@ -12,8 +12,8 @@ import { PRIVATE_KEY } from './config.js';
 
 function ensureAuth() {
   if (!PRIVATE_KEY) {
-    console.error(`${c.red}Error:${c.reset} MEMOCLAW_PRIVATE_KEY environment variable required`);
-    console.error(`${c.dim}Set it with: export MEMOCLAW_PRIVATE_KEY=0x...${c.reset}`);
+    console.error(`${c.red}Error:${c.reset} No wallet configured.`);
+    console.error(`${c.dim}Run \`memoclaw init\` to create a wallet, or set MEMOCLAW_PRIVATE_KEY=0x...${c.reset}`);
     process.exit(1);
   }
 }
