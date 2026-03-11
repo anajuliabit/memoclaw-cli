@@ -37,7 +37,7 @@ export async function cmdStoreBatch(opts: ParsedArgs, lines: string[]) {
       mem.importance = validateImportance(opts.importance);
     if (opts.tags && !mem.metadata)
       mem.metadata = { tags: opts.tags.split(',').map((t: string) => t.trim()) };
-    if (opts.namespace && !mem.namespace) mem.namespace = opts.namespace;
+    if (opts.namespace && mem.namespace === undefined) mem.namespace = opts.namespace;
     if (opts.memoryType && !mem.memory_type) mem.memory_type = opts.memoryType;
     if (opts.immutable !== undefined && mem.immutable === undefined) mem.immutable = opts.immutable !== 'false' && opts.immutable !== false;
     if (opts.pinned !== undefined && mem.pinned === undefined) mem.pinned = opts.pinned !== 'false' && opts.pinned !== false;
