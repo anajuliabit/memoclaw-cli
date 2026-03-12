@@ -65,6 +65,7 @@ export async function cmdRecall(query: string, opts: ParsedArgs) {
         const result = await request('POST', '/v1/recall', body) as any;
         let memories = result.memories || [];
         memories = filterByDateRange(memories, 'created_at', sinceDate, untilDate);
+        memories = sortMemories(memories, opts);
         if (watchTrimLimit) memories = memories.slice(0, watchTrimLimit);
         const fingerprint = memories.map((m: any) => `${m.id}:${m.updated_at || ''}`).join('|');
 
