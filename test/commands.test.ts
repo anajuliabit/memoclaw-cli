@@ -3691,3 +3691,77 @@ describe('import --dry-run (#200)', () => {
     fs.unlinkSync(tmpFile);
   });
 });
+
+// ─── #201: move command filter-based bulk selection ───────────────────────────
+
+describe('move filter-based bulk selection (#201)', () => {
+  test('move source supports --from-namespace filter', () => {
+    const fs = require('fs');
+    const source = fs.readFileSync('src/commands/memory.ts', 'utf-8');
+    expect(source).toContain('fromNamespace');
+    expect(source).toContain('resolveFilteredIds');
+  });
+
+  test('move with --from-namespace fetches and moves matching memories', async () => {
+    // First call returns memories from source namespace, subsequent calls are PATCH moves
+    let callCount = 0;
+    globalThis.fetch = (async (input: any, init?: any) => {
+      callCount++;
+      const url = typeof input === 'string' ? input : input.url;
+      if (url.includes('/v1/memories?') && (!init || init.method === 'GET' || !init.method)) {
+        return new Response(JSON.stringify({
+          memories: [
+            { id: 'filter-1', content: 'mem1', created_at: new Date().toISOString() },
+            { id: 'filter-2', content: 'mem2', created_at: new Date().toISOString() },
+          ],
+          total: 2,
+        }), { status: 200 });
+      }
+      // PATCH calls for move
+      return new Response(JSON.stringify({ updated: true }), { status: 200 });
+    }) as any;
+
+    resetOutputState({ json: true });
+    captureConsole();
+    await cmdMove([], { _: ['move'], namespace: 'archive', fromNamespace: 'old-project' } as any);
+    restoreConsole();
+    resetOutputState();
+
+    const parsed = JSON.parse(consoleOutput.join(''));
+    expect(parsed.moved).toBe(2);
+    expect(parsed.namespace).toBe('archive');
+
+    // Restore mock
+    setupMockFetch();
+  });
+
+  test('move with filters but no matches returns 0', async () => {
+    globalThis.fetch = (async () => {
+      return new Response(JSON.stringify({ memories: [], total: 0 }), { status: 200 });
+    }) as any;
+
+    resetOutputState({ json: true });
+    captureConsole();
+    await cmdMove([], { _: ['move'], namespace: 'archive', fromNamespace: 'empty-ns' } as any);
+    restoreConsole();
+    resetOutputState();
+
+    const parsed = JSON.parse(consoleOutput.join(''));
+    expect(parsed.moved).toBe(0);
+
+    setupMockFetch();
+  });
+
+  test('move without ids or filters throws', async () => {
+    await expect(
+      cmdMove([], { _: ['move'], namespace: 'target' } as any)
+    ).rejects.toThrow('filter flags required');
+  });
+
+  test('cli.ts allows move without ids when filter flags present', () => {
+    const fs = require('fs');
+    const source = fs.readFileSync('src/cli.ts', 'utf-8');
+    expect(source).toContain('hasFilters');
+    expect(source).toContain('fromNamespace');
+  });
+});

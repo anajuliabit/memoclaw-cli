@@ -184,7 +184,9 @@ try {
         const stdin = await readStdin();
         if (stdin) ids = stdin.split(/[\n,\s]+/).map(s => s.trim()).filter(Boolean);
       }
-      if (ids.length === 0) throw new Error('Memory ID(s) required. Usage: memoclaw move <id> --namespace <target>');
+      // Allow empty ids when filter flags are present (resolved inside cmdMove)
+      const hasFilters = !!(args.fromNamespace || args.tags || args.since || args.until);
+      if (ids.length === 0 && !hasFilters) throw new Error('Memory ID(s) or filter flags required. Usage: memoclaw move <id> --namespace <target>\n  Or: memoclaw move --from-namespace <src> --namespace <target>');
       await cmdMove(ids, args);
       break;
     }

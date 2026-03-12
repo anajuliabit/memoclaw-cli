@@ -5,8 +5,9 @@
 import type { ParsedArgs } from '../args.js';
 import { request } from '../http.js';
 import { c } from '../colors.js';
-import { outputJson, outputFormat, out, outputWrite, success, readStdin } from '../output.js';
+import { outputJson, outputQuiet, outputFormat, out, outputWrite, success, progressBar, readStdin } from '../output.js';
 import { validateContentLength, validateImportance, warnIfBooleanImportance } from '../validate.js';
+import { parseDate, filterByDateRange } from '../dates.js';
 import { readFileContent } from './store.js';
 
 export async function cmdGet(id: string, opts?: ParsedArgs) {
@@ -242,15 +243,74 @@ export async function cmdMove(ids: string[], opts: ParsedArgs) {
     throw new Error('Target namespace required. Usage: memoclaw move <id> --namespace <target>');
   }
 
+  // If no explicit IDs but filter flags provided, resolve IDs from filters
+  if (ids.length === 0 && (opts.fromNamespace || opts.tags || opts.since || opts.until)) {
+    ids = await resolveFilteredIds(opts);
+    if (ids.length === 0) {
+      if (outputJson) {
+        out({ moved: 0, namespace: opts.namespace, ids: [] });
+      } else {
+        success(`No memories matched the filter criteria`);
+      }
+      return;
+    }
+    if (!outputQuiet) {
+      process.stderr.write(`${c.dim}Found ${ids.length} matching memor${ids.length === 1 ? 'y' : 'ies'}${c.reset}\n`);
+    }
+  }
+
+  if (ids.length === 0) {
+    throw new Error('Memory ID(s) or filter flags required. Usage: memoclaw move <id> --namespace <target>\n  Or: memoclaw move --from-namespace <src> --namespace <target>');
+  }
+
   let moved = 0;
   for (const id of ids) {
     await request('PATCH', `/v1/memories/${id}`, { namespace: opts.namespace });
     moved++;
+    if (!outputQuiet && ids.length > 10) {
+      process.stderr.write(`\r  ${progressBar(moved, ids.length)}`);
+    }
   }
+  if (!outputQuiet && ids.length > 10) process.stderr.write('\n');
 
   if (outputJson) {
     out({ moved, namespace: opts.namespace, ids });
   } else {
     success(`Moved ${c.cyan}${moved}${c.reset} memor${moved === 1 ? 'y' : 'ies'} to namespace ${c.cyan}${opts.namespace}${c.reset}`);
   }
+}
+
+/** Fetch memory IDs matching filter flags (--from-namespace, --tags, --since, --until) */
+async function resolveFilteredIds(opts: ParsedArgs): Promise<string[]> {
+  const params = new URLSearchParams({ limit: '1000' });
+  if (opts.fromNamespace) params.set('namespace', opts.fromNamespace);
+  if (opts.tags) params.set('tags', opts.tags);
+
+  const sinceDate = opts.since ? parseDate(opts.since) : null;
+  const untilDate = opts.until ? parseDate(opts.until) : null;
+  if ((opts.since && !sinceDate) || (opts.until && !untilDate)) {
+    throw new Error('Invalid date format. Use ISO 8601 (2025-01-01) or relative shorthand (1h, 7d, 2w, 1mo, 1y).');
+  }
+
+  const allIds: string[] = [];
+  let offset = 0;
+
+  while (true) {
+    params.set('offset', String(offset));
+    const result = await request('GET', `/v1/memories?${params}`) as any;
+    const memories = result.memories || result.data || [];
+    if (memories.length === 0) break;
+
+    const filtered = (sinceDate || untilDate)
+      ? filterByDateRange(memories, 'created_at', sinceDate, untilDate)
+      : memories;
+    allIds.push(...filtered.map((m: any) => m.id));
+
+    if (memories.length < 1000) break;
+    offset += 1000;
+    if (!outputQuiet) process.stderr.write(`\r  ${c.dim}Scanning... ${allIds.length} matching${c.reset}`);
+  }
+  if (!outputQuiet && allIds.length > 0) process.stderr.write('\r' + ' '.repeat(60) + '\r');
+
+  return allIds;
 }
