@@ -54,18 +54,40 @@ export async function cmdAlias(subcmd: string | undefined, rest: string[], opts:
         return;
       }
 
-      // Optionally fetch memory previews (best-effort, don't fail if API is down)
+      // Fetch memory previews in parallel (best-effort, skip with --no-preview)
       const rows: Record<string, any>[] = [];
-      for (const [name, id] of entries) {
-        let preview = '';
-        try {
-          const mem = await request('GET', `/v1/memories/${id}`) as any;
-          const content = mem?.memory?.content || mem?.content || '';
-          preview = content.length > 50 ? content.slice(0, 47) + '...' : content;
-        } catch {
-          preview = `${c.dim}(unavailable)${c.reset}`;
+      if (opts.noPreview) {
+        for (const [name, id] of entries) {
+          rows.push({ alias: `@${name}`, id: id.slice(0, 12) + '…', preview: `${c.dim}—${c.reset}` });
         }
-        rows.push({ alias: `@${name}`, id: id.slice(0, 12) + '…', preview });
+      } else {
+        const CONCURRENCY = 5;
+        const previews = new Map<string, string>();
+
+        for (let i = 0; i < entries.length; i += CONCURRENCY) {
+          const batch = entries.slice(i, i + CONCURRENCY);
+          const results = await Promise.allSettled(
+            batch.map(async ([, id]) => {
+              const mem = await request('GET', `/v1/memories/${id}`) as any;
+              const content = mem?.memory?.content || mem?.content || '';
+              return { id, content };
+            })
+          );
+          for (let j = 0; j < batch.length; j++) {
+            const [, id] = batch[j];
+            const r = results[j];
+            if (r.status === 'fulfilled') {
+              const content = r.value.content;
+              previews.set(id, content.length > 50 ? content.slice(0, 47) + '...' : content);
+            } else {
+              previews.set(id, `${c.dim}(unavailable)${c.reset}`);
+            }
+          }
+        }
+
+        for (const [name, id] of entries) {
+          rows.push({ alias: `@${name}`, id: id.slice(0, 12) + '…', preview: previews.get(id) || '' });
+        }
       }
 
       table(rows, [
