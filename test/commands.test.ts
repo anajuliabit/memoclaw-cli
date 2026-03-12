@@ -3599,3 +3599,95 @@ describe('auth error message (#199)', () => {
     expect(source).toContain('No wallet configured');
   });
 });
+
+// ─── #198: alias list parallel fetches + --no-preview ─────────────────────────
+
+describe('alias list performance (#198)', () => {
+  test('alias list source uses Promise.allSettled for parallel fetches', () => {
+    const fs = require('fs');
+    const source = fs.readFileSync('src/commands/alias.ts', 'utf-8');
+    expect(source).toContain('Promise.allSettled');
+    expect(source).toContain('CONCURRENCY');
+  });
+
+  test('alias list source supports --no-preview flag', () => {
+    const fs = require('fs');
+    const source = fs.readFileSync('src/commands/alias.ts', 'utf-8');
+    expect(source).toContain('noPreview');
+  });
+
+  test('--no-preview skips API calls', async () => {
+    saveAliases({ 'test-np': 'id-np-123' });
+    allFetches.length = 0;
+    captureConsole();
+    await cmdAlias('list', [], { _: [], noPreview: true } as any);
+    restoreConsole();
+    // Should not have fetched any memory previews
+    const previewFetches = allFetches.filter(f => f.url.includes('/v1/memories/'));
+    expect(previewFetches.length).toBe(0);
+    expect(consoleOutput.join('\n')).toContain('@test-np');
+  });
+
+  test('noPreview is in BOOLEAN_FLAGS', () => {
+    const { BOOLEAN_FLAGS } = require('../src/args.js');
+    expect(BOOLEAN_FLAGS.has('noPreview')).toBe(true);
+  });
+});
+
+// ─── #200: import --dry-run ──────────────────────────────────────────────────
+
+describe('import --dry-run (#200)', () => {
+  test('dry-run validates without calling API', async () => {
+    const tmpFile = path.join(os.tmpdir(), `memoclaw-import-dryrun-${Date.now()}.json`);
+    fs.writeFileSync(tmpFile, JSON.stringify({
+      memories: [
+        { content: 'memory one' },
+        { content: 'memory two' },
+        { content: 'memory three' },
+      ]
+    }));
+
+    allFetches.length = 0;
+    resetOutputState({ json: true });
+    captureConsole();
+    await cmdImport({ _: [], file: tmpFile, dryRun: true } as any);
+    restoreConsole();
+    resetOutputState();
+
+    // No API calls should have been made
+    const storeFetches = allFetches.filter(f => f.url.includes('/v1/store'));
+    expect(storeFetches.length).toBe(0);
+
+    const parsed = JSON.parse(consoleOutput.join(''));
+    expect(parsed.dryRun).toBe(true);
+    expect(parsed.valid).toBe(3);
+    expect(parsed.errors).toBe(0);
+    expect(parsed.estimatedBatches).toBe(1);
+
+    fs.unlinkSync(tmpFile);
+  });
+
+  test('dry-run reports validation errors', async () => {
+    const tmpFile = path.join(os.tmpdir(), `memoclaw-import-dryrun-err-${Date.now()}.json`);
+    fs.writeFileSync(tmpFile, JSON.stringify({
+      memories: [
+        { content: 'valid memory' },
+        { content: 123 },  // non-string
+        { notContent: 'missing content field' },  // missing content
+      ]
+    }));
+
+    resetOutputState({ json: true });
+    captureConsole();
+    await cmdImport({ _: [], file: tmpFile, dryRun: true } as any);
+    restoreConsole();
+    resetOutputState();
+
+    const parsed = JSON.parse(consoleOutput.join(''));
+    expect(parsed.dryRun).toBe(true);
+    expect(parsed.valid).toBe(1);
+    expect(parsed.errors).toBe(2);
+
+    fs.unlinkSync(tmpFile);
+  });
+});

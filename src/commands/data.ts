@@ -104,6 +104,34 @@ export async function cmdImport(opts: ParsedArgs) {
   const memories = data.memories || data;
   if (!Array.isArray(memories)) throw new Error('Invalid format: expected { memories: [...] } or [...]');
 
+  // --dry-run: validate and report without calling API
+  if (opts.dryRun) {
+    const MAX_CONTENT_LENGTH = 8192;
+    let valid = 0;
+    let errors: string[] = [];
+    for (let i = 0; i < memories.length; i++) {
+      const mem = memories[i];
+      if (!mem.content || typeof mem.content !== 'string') {
+        errors.push(`Memory ${i}: missing or non-string content`);
+      } else if (mem.content.length > MAX_CONTENT_LENGTH) {
+        errors.push(`Memory ${i}: content too long (${mem.content.length} chars, max ${MAX_CONTENT_LENGTH})`);
+      } else {
+        valid++;
+      }
+    }
+    const batchCount = Math.ceil(valid / 100);
+    if (outputJson) {
+      out({ dryRun: true, total: memories.length, valid, errors: errors.length, errorDetails: errors.slice(0, 20), estimatedBatches: batchCount });
+    } else {
+      if (errors.length > 0) {
+        for (const e of errors.slice(0, 10)) warn(e);
+        if (errors.length > 10) warn(`... and ${errors.length - 10} more errors`);
+      }
+      success(`Dry run: ${valid} memories would be imported in ~${batchCount} batch${batchCount !== 1 ? 'es' : ''} (${errors.length} validation error${errors.length !== 1 ? 's' : ''})`);
+    }
+    return;
+  }
+
   const BATCH_SIZE = 100; // API max per batch request
   const concurrency = Math.max(1, parseInt(opts.concurrency || '1'));
 

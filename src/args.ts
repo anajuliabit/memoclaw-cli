@@ -11,7 +11,7 @@ export interface ParsedArgs {
 export const BOOLEAN_FLAGS = new Set([
   'help', 'version', 'raw', 'json', 'quiet', 'dryRun', 'verbose', 'noColor',
   'force', 'count', 'wide', 'pretty', 'watch', 'interactive', 'yes', 'reverse',
-  'noTruncate', 'batch', 'idOnly', 'noRetry', 'all', 'check',
+  'noTruncate', 'batch', 'idOnly', 'noRetry', 'all', 'check', 'noPreview',
 ]);
 
 /** Short flag aliases */
