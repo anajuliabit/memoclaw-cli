@@ -278,17 +278,24 @@ Options:
   --memory-type <type>   Override memory type
   --id-only              Print only the new memory ID (for scripting)`,
 
-      move: `${c.bold}memoclaw move${c.reset} <id> [<id2> ...] --namespace <target>
+      move: `${c.bold}memoclaw move${c.reset} [<id> ...] --namespace <target> [filters]
 
 Move one or more memories to a different namespace.
-IDs can be provided as arguments or piped via stdin.
+IDs can be provided as arguments, piped via stdin, or resolved from filter flags.
 
   ${c.dim}memoclaw move abc123 --namespace production${c.reset}
   ${c.dim}memoclaw move abc123 def456 --namespace archive${c.reset}
+  ${c.dim}memoclaw move --from-namespace old-project --namespace archive${c.reset}
+  ${c.dim}memoclaw move --tags stale --namespace archive${c.reset}
+  ${c.dim}memoclaw move --from-namespace staging --since 30d --namespace recent${c.reset}
   ${c.dim}memoclaw list --namespace staging --json | jq -r '.memories[].id' | memoclaw move --namespace production${c.reset}
 
 Options:
-  --namespace <name>     Target namespace (required)`,
+  --namespace <name>        Target namespace (required)
+  --from-namespace <name>   Select memories from this namespace
+  --tags <t1,t2>            Select memories matching these tags
+  --since <date>            Select memories created after date (ISO 8601 or relative: 1h, 7d, 2w, 1mo, 1y)
+  --until <date>            Select memories created before date`,
 
       'bulk-delete': `${c.bold}memoclaw bulk-delete${c.reset} <id1> <id2> ...
 
@@ -600,7 +607,7 @@ ${c.bold}Commands:${c.reset}
   ${c.cyan}edit${c.reset} <id>             Edit a memory in $EDITOR
   ${c.cyan}watch${c.reset}                  Watch for new memories in real-time
   ${c.cyan}copy${c.reset} <id>             Duplicate a memory
-  ${c.cyan}move${c.reset} <id> --namespace  Move memory to another namespace
+  ${c.cyan}move${c.reset} [id] --namespace  Move memories to another namespace (supports filters)
   ${c.cyan}ingest${c.reset}                 Ingest raw text into memories
   ${c.cyan}extract${c.reset} "text"         Extract memories from text
   ${c.cyan}context${c.reset} "query"        Get GPT-powered contextual summary ($0.01/call)
