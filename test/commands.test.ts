@@ -3699,7 +3699,7 @@ describe('move filter-based bulk selection (#201)', () => {
     const fs = require('fs');
     const source = fs.readFileSync('src/commands/memory.ts', 'utf-8');
     expect(source).toContain('fromNamespace');
-    expect(source).toContain('resolveFilteredIds');
+    expect(source).toContain('resolveFilteredMemories');
   });
 
   test('move with --from-namespace fetches and moves matching memories', async () => {
@@ -3763,5 +3763,161 @@ describe('move filter-based bulk selection (#201)', () => {
     const source = fs.readFileSync('src/cli.ts', 'utf-8');
     expect(source).toContain('hasFilters');
     expect(source).toContain('fromNamespace');
+  });
+});
+
+// ─── #207: move --dry-run ────────────────────────────────────────────────────
+
+describe('move --dry-run (#207)', () => {
+  test('--dry-run with --json returns preview without moving', async () => {
+    let patchCalled = false;
+    globalThis.fetch = (async (input: any, init?: any) => {
+      const url = typeof input === 'string' ? input : input.url;
+      if (url.includes('/v1/memories?') && (!init || init.method === 'GET' || !init.method)) {
+        return new Response(JSON.stringify({
+          memories: [
+            { id: 'dry-1', content: 'First memory content', created_at: new Date().toISOString() },
+            { id: 'dry-2', content: 'Second memory content', created_at: new Date().toISOString() },
+            { id: 'dry-3', content: 'Third memory content', created_at: new Date().toISOString() },
+          ],
+          total: 3,
+        }), { status: 200 });
+      }
+      patchCalled = true;
+      return new Response(JSON.stringify({ updated: true }), { status: 200 });
+    }) as any;
+
+    resetOutputState({ json: true });
+    captureConsole();
+    await cmdMove([], { _: ['move'], namespace: 'archive', fromNamespace: 'staging', dryRun: true } as any);
+    restoreConsole();
+    resetOutputState();
+
+    const parsed = JSON.parse(consoleOutput.join(''));
+    expect(parsed.dry_run).toBe(true);
+    expect(parsed.would_move).toBe(3);
+    expect(parsed.namespace).toBe('archive');
+    expect(parsed.ids).toEqual(['dry-1', 'dry-2', 'dry-3']);
+    expect(patchCalled).toBe(false);
+
+    setupMockFetch();
+  });
+
+  test('--dry-run with no matches returns 0', async () => {
+    globalThis.fetch = (async () => {
+      return new Response(JSON.stringify({ memories: [], total: 0 }), { status: 200 });
+    }) as any;
+
+    resetOutputState({ json: true });
+    captureConsole();
+    await cmdMove([], { _: ['move'], namespace: 'archive', fromNamespace: 'empty', dryRun: true } as any);
+    restoreConsole();
+    resetOutputState();
+
+    const parsed = JSON.parse(consoleOutput.join(''));
+    expect(parsed.dry_run).toBe(true);
+    expect(parsed.would_move).toBe(0);
+
+    setupMockFetch();
+  });
+
+  test('help text includes --dry-run', () => {
+    const fs = require('fs');
+    const source = fs.readFileSync('src/help.ts', 'utf-8');
+    expect(source).toContain('--dry-run');
+    expect(source).toContain('Preview which memories would be moved');
+  });
+});
+
+// ─── #206: move confirmation prompt ──────────────────────────────────────────
+
+describe('move confirmation prompt (#206)', () => {
+  test('--yes skips confirmation and moves directly (json mode)', async () => {
+    globalThis.fetch = (async (input: any, init?: any) => {
+      const url = typeof input === 'string' ? input : input.url;
+      if (url.includes('/v1/memories?') && (!init || init.method === 'GET' || !init.method)) {
+        return new Response(JSON.stringify({
+          memories: [
+            { id: 'yes-1', content: 'Memory one', created_at: new Date().toISOString() },
+            { id: 'yes-2', content: 'Memory two', created_at: new Date().toISOString() },
+            { id: 'yes-3', content: 'Memory three', created_at: new Date().toISOString() },
+          ],
+          total: 3,
+        }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ updated: true }), { status: 200 });
+    }) as any;
+
+    resetOutputState({ json: true });
+    captureConsole();
+    await cmdMove([], { _: ['move'], namespace: 'prod', fromNamespace: 'staging', yes: true } as any);
+    restoreConsole();
+    resetOutputState();
+
+    const parsed = JSON.parse(consoleOutput.join(''));
+    expect(parsed.moved).toBe(3);
+    expect(parsed.namespace).toBe('prod');
+
+    setupMockFetch();
+  });
+
+  test('json mode skips confirmation', async () => {
+    globalThis.fetch = (async (input: any, init?: any) => {
+      const url = typeof input === 'string' ? input : input.url;
+      if (url.includes('/v1/memories?') && (!init || init.method === 'GET' || !init.method)) {
+        return new Response(JSON.stringify({
+          memories: [
+            { id: 'json-1', content: 'Memory', created_at: new Date().toISOString() },
+            { id: 'json-2', content: 'Memory', created_at: new Date().toISOString() },
+          ],
+          total: 2,
+        }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ updated: true }), { status: 200 });
+    }) as any;
+
+    resetOutputState({ json: true });
+    captureConsole();
+    // JSON mode should skip prompt automatically
+    await cmdMove([], { _: ['move'], namespace: 'prod', fromNamespace: 'staging' } as any);
+    restoreConsole();
+    resetOutputState();
+
+    const parsed = JSON.parse(consoleOutput.join(''));
+    expect(parsed.moved).toBe(2);
+
+    setupMockFetch();
+  });
+
+  test('single match skips confirmation', async () => {
+    globalThis.fetch = (async (input: any, init?: any) => {
+      const url = typeof input === 'string' ? input : input.url;
+      if (url.includes('/v1/memories?') && (!init || init.method === 'GET' || !init.method)) {
+        return new Response(JSON.stringify({
+          memories: [{ id: 'solo-1', content: 'Only memory', created_at: new Date().toISOString() }],
+          total: 1,
+        }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ updated: true }), { status: 200 });
+    }) as any;
+
+    resetOutputState({ json: true });
+    captureConsole();
+    await cmdMove([], { _: ['move'], namespace: 'prod', fromNamespace: 'staging' } as any);
+    restoreConsole();
+    resetOutputState();
+
+    const parsed = JSON.parse(consoleOutput.join(''));
+    expect(parsed.moved).toBe(1);
+
+    setupMockFetch();
+  });
+
+  test('source includes askConfirm function', () => {
+    const fs = require('fs');
+    const source = fs.readFileSync('src/commands/memory.ts', 'utf-8');
+    expect(source).toContain('askConfirm');
+    expect(source).toContain('skipConfirm');
+    expect(source).toContain('process.stdin.isTTY');
   });
 });

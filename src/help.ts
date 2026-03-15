@@ -288,6 +288,8 @@ IDs can be provided as arguments, piped via stdin, or resolved from filter flags
   ${c.dim}memoclaw move --from-namespace old-project --namespace archive${c.reset}
   ${c.dim}memoclaw move --tags stale --namespace archive${c.reset}
   ${c.dim}memoclaw move --from-namespace staging --since 30d --namespace recent${c.reset}
+  ${c.dim}memoclaw move --from-namespace staging --namespace prod --dry-run${c.reset}
+  ${c.dim}memoclaw move --from-namespace old --namespace archive --yes${c.reset}
   ${c.dim}memoclaw list --namespace staging --json | jq -r '.memories[].id' | memoclaw move --namespace production${c.reset}
 
 Options:
@@ -295,7 +297,9 @@ Options:
   --from-namespace <name>   Select memories from this namespace
   --tags <t1,t2>            Select memories matching these tags
   --since <date>            Select memories created after date (ISO 8601 or relative: 1h, 7d, 2w, 1mo, 1y)
-  --until <date>            Select memories created before date`,
+  --until <date>            Select memories created before date
+  --dry-run, -d             Preview which memories would be moved without moving them
+  --yes, -y                 Skip confirmation prompt for bulk moves`,
 
       'bulk-delete': `${c.bold}memoclaw bulk-delete${c.reset} <id1> <id2> ...
 
