@@ -159,7 +159,7 @@ export async function cmdSnapshot(subcmd: string | undefined, rest: string[], op
 
     case 'restore': {
       const query = rest[0];
-      if (!query) throw new Error('Usage: memoclaw snapshot restore <name>');
+      if (!query) throw new Error('Usage: memoclaw snapshot restore <name> [--namespace <ns>] [--dry-run] [--yes]');
 
       const snapshot = findSnapshot(query);
       if (!snapshot) throw new Error(`Snapshot "${query}" not found. Run "memoclaw snapshot list" to see available snapshots.`);
@@ -170,6 +170,44 @@ export async function cmdSnapshot(subcmd: string | undefined, rest: string[], op
 
       if (memories.length === 0) {
         warn('Snapshot contains no memories');
+        return;
+      }
+
+      // --namespace override: remap all memories to a different namespace (#209)
+      const namespaceOverride = opts.namespace || undefined;
+
+      // --dry-run: preview what would be restored without importing (#210)
+      if (opts.dryRun) {
+        if (outputJson) {
+          const sample = memories.slice(0, 10).map((m: any) => ({
+            id: m.id,
+            content: (m.content || '').slice(0, 80),
+            namespace: namespaceOverride || m.namespace || null,
+          }));
+          out({
+            dry_run: true,
+            would_restore: memories.length,
+            snapshot: snapshot.name,
+            namespace: namespaceOverride || snapshot.namespace || null,
+            sample,
+          });
+        } else {
+          const nsLabel = namespaceOverride
+            ? ` to namespace "${c.cyan}${namespaceOverride}${c.reset}"`
+            : '';
+          out(`Dry run — would restore ${memories.length} memor${memories.length === 1 ? 'y' : 'ies'} from "${c.cyan}${snapshot.name}${c.reset}"${nsLabel}:`);
+          const showCount = Math.min(memories.length, 10);
+          for (let i = 0; i < showCount; i++) {
+            const m = memories[i];
+            const preview = (m.content || '').slice(0, 60).replace(/\n/g, ' ');
+            const ns = namespaceOverride || m.namespace || '';
+            const nsTag = ns ? ` ${c.dim}(${ns})${c.reset}` : '';
+            outputWrite(`  ${c.cyan}${(m.id || '').slice(0, 8)}${c.reset}  ${preview}${(m.content || '').length > 60 ? '…' : ''}${nsTag}`);
+          }
+          if (memories.length > showCount) {
+            outputWrite(`  ${c.dim}... and ${memories.length - showCount} more${c.reset}`);
+          }
+        }
         return;
       }
 
@@ -184,7 +222,8 @@ export async function cmdSnapshot(subcmd: string | undefined, rest: string[], op
           const entry: Record<string, any> = { content: mem.content };
           if (mem.importance !== undefined) entry.importance = mem.importance;
           if (mem.metadata) entry.metadata = mem.metadata;
-          if (mem.namespace) entry.namespace = mem.namespace;
+          // Use namespace override if provided, otherwise original namespace (#209)
+          entry.namespace = namespaceOverride || mem.namespace || undefined;
           if (mem.memory_type) entry.memory_type = mem.memory_type;
           if (mem.session_id) entry.session_id = mem.session_id;
           if (mem.agent_id) entry.agent_id = mem.agent_id;
@@ -204,7 +243,7 @@ export async function cmdSnapshot(subcmd: string | undefined, rest: string[], op
               const body: Record<string, any> = { content: mem.content };
               if (mem.importance !== undefined) body.importance = mem.importance;
               if (mem.metadata) body.metadata = mem.metadata;
-              if (mem.namespace) body.namespace = mem.namespace;
+              body.namespace = namespaceOverride || mem.namespace || undefined;
               await request('POST', '/v1/store', body);
               imported++;
             } catch {
@@ -220,10 +259,18 @@ export async function cmdSnapshot(subcmd: string | undefined, rest: string[], op
 
       if (!outputQuiet) process.stderr.write('\n');
 
+      const nsInfo = namespaceOverride ? `, namespace: "${namespaceOverride}"` : '';
       if (outputJson) {
-        out({ restored: imported, failed, total: memories.length, snapshot: snapshot.name });
+        out({
+          restored: imported,
+          failed,
+          total: memories.length,
+          snapshot: snapshot.name,
+          ...(namespaceOverride ? { namespace: namespaceOverride } : {}),
+        });
       } else {
-        success(`Restored ${imported}/${memories.length} memories from "${c.cyan}${snapshot.name}${c.reset}"${failed ? ` (${c.red}${failed} failed${c.reset})` : ''}`);
+        const nsMsg = namespaceOverride ? ` → namespace "${c.cyan}${namespaceOverride}${c.reset}"` : '';
+        success(`Restored ${imported}/${memories.length} memories from "${c.cyan}${snapshot.name}${c.reset}"${nsMsg}${failed ? ` (${c.red}${failed} failed${c.reset})` : ''}`);
       }
       break;
     }
@@ -248,6 +295,6 @@ export async function cmdSnapshot(subcmd: string | undefined, rest: string[], op
     }
 
     default:
-      throw new Error(`Usage: memoclaw snapshot <create|list|restore|delete> [args]\n\n  create [--name <label>] [--namespace <ns>]   Create a snapshot\n  list                                          List all snapshots\n  restore <name>                                Restore from snapshot\n  delete <name>                                 Delete a snapshot`);
+      throw new Error(`Usage: memoclaw snapshot <create|list|restore|delete> [args]\n\n  create [--name <label>] [--namespace <ns>]           Create a snapshot\n  list                                                  List all snapshots\n  restore <name> [--namespace <ns>] [--dry-run]         Restore from snapshot\n  delete <name>                                         Delete a snapshot`);
   }
 }
