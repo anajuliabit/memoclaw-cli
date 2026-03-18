@@ -11,10 +11,27 @@ import { parseDate, filterByDateRange, overfetchLimit } from '../dates.js';
 import { sortMemories } from './list.js';
 
 export async function cmdSearch(query: string, opts: ParsedArgs) {
-  const params = new URLSearchParams({ q: query });
-  if (opts.limit != null && opts.limit !== true) params.set('limit', opts.limit);
-  if (opts.namespace) params.set('namespace', opts.namespace);
-  if (opts.tags) params.set('tags', opts.tags);
+  const body: Record<string, any> = { query };
+  let userLimit: number | undefined;
+
+  if (opts.limit != null && opts.limit !== true) {
+    const parsedLimit = parseInt(String(opts.limit));
+    if (!isNaN(parsedLimit) && parsedLimit > 0) {
+      userLimit = parsedLimit;
+      body.limit = parsedLimit;
+    }
+  }
+  if (opts.namespace) body.namespace = opts.namespace;
+  if (opts.memoryType) body.memory_type = opts.memoryType;
+  if (opts.sessionId) body.session_id = opts.sessionId;
+  if (opts.agentId) body.agent_id = opts.agentId;
+  if (opts.tags && opts.tags !== true) {
+    const tags = String(opts.tags)
+      .split(',')
+      .map((tag) => tag.trim())
+      .filter(Boolean);
+    if (tags.length > 0) body.tags = tags;
+  }
 
   // Parse date filters
   const sinceDate = opts.since ? parseDate(opts.since) : null;
@@ -27,15 +44,12 @@ export async function cmdSearch(query: string, opts: ParsedArgs) {
 
   // Over-fetch when date filters are active (#140)
   const hasDateFilter = !!(sinceDate || untilDate);
-  const userLimit = opts.limit != null && opts.limit !== true ? parseInt(opts.limit) : undefined;
   if (hasDateFilter) {
-    params.set('limit', String(overfetchLimit(userLimit)));
-    if (sinceDate) params.set('since', sinceDate.toISOString());
-    if (untilDate) params.set('until', untilDate.toISOString());
+    body.limit = overfetchLimit(userLimit);
   }
   const trimLimit = hasDateFilter && userLimit ? userLimit : undefined;
 
-  const result = await request('GET', `/v1/memories/search?${params}`) as any;
+  const result = await request('POST', '/v1/search', body) as any;
 
   if (outputJson) {
     if (hasDateFilter) {
