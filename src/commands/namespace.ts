@@ -51,7 +51,10 @@ export async function cmdNamespace(subcmd: string, rest: string[], opts: ParsedA
     } else if (namespaces.length === 0) {
       outputWrite(`${c.dim}No namespaces found.${c.reset}`);
     } else {
-      table(namespaces.map(ns => ({ namespace: ns.name })), [{ key: 'namespace', label: 'NAMESPACE', width: 30 }]);
+      table(
+        namespaces.map(ns => ({ namespace: ns.name || '(default)' })),
+        [{ key: 'namespace', label: 'NAMESPACE', width: 30 }]
+      );
       outputWrite(`${c.dim}─ ${namespaces.length} namespace${namespaces.length !== 1 ? 's' : ''}${c.reset}`);
     }
   } else if (subcmd === 'stats') {
