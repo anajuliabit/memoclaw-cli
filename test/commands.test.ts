@@ -481,20 +481,19 @@ describe('cmdList', () => {
 // ─── Search ──────────────────────────────────────────────────────────────────
 
 describe('cmdSearch', () => {
-  test('sends GET /v1/memories/search with query', async () => {
+  test('sends POST /v1/search with query body', async () => {
     mockFetchResponse = { memories: [] };
     await cmdSearch('hello', { _: [] } as any);
-    expect(lastFetchUrl).toContain('/v1/memories/search');
-    expect(lastFetchUrl).toContain('q=hello');
+    expect(lastFetchUrl).toContain('/v1/search');
+    expect(lastFetchOptions.method).toBe('POST');
+    expect(getLastBody()).toMatchObject({ query: 'hello' });
     restoreConsole();
   });
 
-  test('includes limit, namespace, tags', async () => {
+  test('includes limit, namespace, tags, session and agent filters', async () => {
     mockFetchResponse = { memories: [] };
-    await cmdSearch('q', { _: [], limit: '5', namespace: 'ns', tags: 'a' } as any);
-    expect(lastFetchUrl).toContain('limit=5');
-    expect(lastFetchUrl).toContain('namespace=ns');
-    expect(lastFetchUrl).toContain('tags=a');
+    await cmdSearch('q', { _: [], limit: '5', namespace: 'ns', tags: 'a,b', sessionId: 'sess', agentId: 'agent', memoryType: 'decision' } as any);
+    expect(getLastBody()).toMatchObject({ query: 'q', limit: 5, namespace: 'ns', tags: ['a', 'b'], session_id: 'sess', agent_id: 'agent', memory_type: 'decision' });
     restoreConsole();
   });
 
