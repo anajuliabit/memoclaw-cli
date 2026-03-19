@@ -3571,6 +3571,109 @@ describe('cmdSnapshot', () => {
     const parsed = JSON.parse(consoleOutput.join(''));
     expect(parsed.snapshots).toBeDefined();
   });
+
+  test('restore --dry-run previews without importing (#210)', async () => {
+    // Create a snapshot first
+    mockFetchResponse = {
+      memories: [
+        { id: 'dry-1', content: 'first memory', importance: 0.5, namespace: 'proj1' },
+        { id: 'dry-2', content: 'second memory', importance: 0.8, namespace: 'proj1' },
+      ],
+      total: 2,
+    };
+    resetOutputState({ json: true });
+    captureConsole();
+    await cmdSnapshot('create', [], { _: [], name: 'dryrun-test' } as any);
+    restoreConsole();
+
+    // Now restore with --dry-run
+    allFetches.length = 0;
+    captureConsole();
+    await cmdSnapshot('restore', ['dryrun-test'], { _: [], dryRun: true } as any);
+    restoreConsole();
+    resetOutputState();
+    const parsed = JSON.parse(consoleOutput.join(''));
+    expect(parsed.dry_run).toBe(true);
+    expect(parsed.would_restore).toBe(2);
+    expect(parsed.snapshot).toBe('dryrun-test');
+    expect(parsed.sample).toBeDefined();
+    expect(parsed.sample.length).toBe(2);
+    // Verify no batch import was called (dry run should not call store)
+    const storeCall = allFetches.find(f => f.url.includes('/v1/store'));
+    expect(storeCall).toBeUndefined();
+
+    // Cleanup
+    await cmdSnapshot('delete', ['dryrun-test'], { _: [] } as any);
+  });
+
+  test('restore --namespace remaps memories to different namespace (#209)', async () => {
+    // Create a snapshot
+    mockFetchResponse = {
+      memories: [
+        { id: 'ns-1', content: 'memory one', importance: 0.5, namespace: 'original' },
+        { id: 'ns-2', content: 'memory two', importance: 0.8, namespace: 'original' },
+      ],
+      total: 2,
+    };
+    resetOutputState({ json: true });
+    captureConsole();
+    await cmdSnapshot('create', [], { _: [], name: 'ns-remap-test' } as any);
+    restoreConsole();
+
+    // Restore with --namespace override
+    mockFetchResponse = { stored: 2 };
+    allFetches.length = 0;
+    captureConsole();
+    await cmdSnapshot('restore', ['ns-remap-test'], { _: [], namespace: 'staging' } as any);
+    restoreConsole();
+    resetOutputState();
+    const parsed = JSON.parse(consoleOutput.join(''));
+    expect(parsed.restored).toBe(2);
+    expect(parsed.namespace).toBe('staging');
+
+    // Verify the batch body used the override namespace
+    const batchCall = allFetches.find(f => f.url.includes('/v1/store/batch'));
+    expect(batchCall).toBeDefined();
+    const body = JSON.parse(batchCall!.options.body);
+    for (const mem of body.memories) {
+      expect(mem.namespace).toBe('staging');
+    }
+
+    // Cleanup
+    await cmdSnapshot('delete', ['ns-remap-test'], { _: [] } as any);
+  });
+
+  test('restore --dry-run with --namespace shows override namespace (#209, #210)', async () => {
+    // Create a snapshot
+    mockFetchResponse = {
+      memories: [
+        { id: 'both-1', content: 'memory data', importance: 0.5, namespace: 'old-ns' },
+      ],
+      total: 1,
+    };
+    resetOutputState({ json: true });
+    captureConsole();
+    await cmdSnapshot('create', [], { _: [], name: 'both-flags-test' } as any);
+    restoreConsole();
+
+    // Restore with both --dry-run and --namespace
+    allFetches.length = 0;
+    captureConsole();
+    await cmdSnapshot('restore', ['both-flags-test'], { _: [], dryRun: true, namespace: 'new-ns' } as any);
+    restoreConsole();
+    resetOutputState();
+    const parsed = JSON.parse(consoleOutput.join(''));
+    expect(parsed.dry_run).toBe(true);
+    expect(parsed.would_restore).toBe(1);
+    expect(parsed.namespace).toBe('new-ns');
+    expect(parsed.sample[0].namespace).toBe('new-ns');
+    // No actual store call
+    const storeCall = allFetches.find(f => f.url.includes('/v1/store'));
+    expect(storeCall).toBeUndefined();
+
+    // Cleanup
+    await cmdSnapshot('delete', ['both-flags-test'], { _: [] } as any);
+  });
 });
 
 // ─── #197: recall --watch should apply --sort-by sorting ──────────────────────

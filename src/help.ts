@@ -556,13 +556,19 @@ operations like purge or consolidate.
 Subcommands:
   create [--name <label>] [--namespace <ns>]   Create a snapshot
   list                                          List all snapshots
-  restore <name>                                Restore from a snapshot
+  restore <name> [--namespace <ns>] [--dry-run] Restore from a snapshot
   delete <name>                                 Delete a snapshot
+
+Restore flags:
+  --namespace <ns>   Remap all memories to a different namespace
+  --dry-run, -d      Preview what would be restored without importing
 
   ${c.dim}memoclaw snapshot create${c.reset}
   ${c.dim}memoclaw snapshot create --name before-purge --namespace project1${c.reset}
   ${c.dim}memoclaw snapshot list${c.reset}
   ${c.dim}memoclaw snapshot restore before-purge${c.reset}
+  ${c.dim}memoclaw snapshot restore before-purge --namespace staging${c.reset}
+  ${c.dim}memoclaw snapshot restore before-purge --dry-run${c.reset}
   ${c.dim}memoclaw snapshot delete before-purge${c.reset}
 
 Snapshots are stored locally at ~/.memoclaw/snapshots/.
