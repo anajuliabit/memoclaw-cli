@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.9.1 (unreleased)
+
+### Fixes
+- Allow \`memoclaw store --batch <file>\` to read from the provided file path again (Fixes #217). Tutorials that show \`memoclaw store --batch data.json\` now work without requiring stdin piping, and the help text documents the usage.
+
 ## 1.8.1
 
 ### New Global Options

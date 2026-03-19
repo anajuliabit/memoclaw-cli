@@ -22,6 +22,7 @@ Batch mode (pipe multiple memories):
   ${c.dim}echo -e "memory one\nmemory two" | memoclaw store --batch${c.reset}
   ${c.dim}echo '["first","second"]' | memoclaw store --batch${c.reset}
   ${c.dim}cat memories.json | memoclaw store --batch${c.reset}  (JSON array of objects)
+  ${c.dim}memoclaw store --batch memories.json${c.reset}  (read batch from file path)
 
 Options:
   --batch [file]        Batch mode. Pass a file path (memoclaw store --batch data.json) or pipe stdin (one per line or JSON array)
