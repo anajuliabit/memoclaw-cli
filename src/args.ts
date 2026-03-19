@@ -14,6 +14,18 @@ export const BOOLEAN_FLAGS = new Set([
   'noTruncate', 'batch', 'idOnly', 'noRetry', 'all', 'check', 'noPreview',
 ]);
 
+const TRUE_VALUES = new Set(['true', '1', 'yes', 'y', 'on']);
+const FALSE_VALUES = new Set(['false', '0', 'no', 'n', 'off']);
+
+function normalizeBoolean(value: any): boolean | null {
+  if (typeof value === 'boolean') return value;
+  if (value == null) return null;
+  const str = String(value).trim().toLowerCase();
+  if (TRUE_VALUES.has(str)) return true;
+  if (FALSE_VALUES.has(str)) return false;
+  return null;
+}
+
 /** Short flag aliases */
 const SHORT_FLAGS: Record<string, string> = {
   '-h': 'help',
@@ -61,7 +73,12 @@ export function parseArgs(args: string[]): ParsedArgs {
         const valuePart = arg.slice(eqIdx + 1);
         if (SHORT_FLAGS[flagPart]) {
           const key = SHORT_FLAGS[flagPart];
-          result[key] = valuePart;
+          if (BOOLEAN_FLAGS.has(key)) {
+            const boolVal = normalizeBoolean(valuePart);
+            result[key] = boolVal ?? true;
+          } else {
+            result[key] = valuePart;
+          }
           i++;
           continue;
         }
@@ -71,8 +88,15 @@ export function parseArgs(args: string[]): ParsedArgs {
       if (arg.length === 2 && SHORT_FLAGS[arg]) {
         const key = SHORT_FLAGS[arg];
         if (BOOLEAN_FLAGS.has(key)) {
-          result[key] = true;
-          i++;
+          const next = args[i + 1];
+          const boolVal = next !== undefined && !next.startsWith('--') ? normalizeBoolean(next) : null;
+          if (boolVal !== null) {
+            result[key] = boolVal;
+            i += 2;
+          } else {
+            result[key] = true;
+            i++;
+          }
         } else {
           const next = args[i + 1];
           // Match long-flag behavior: only reject values starting with '--'
@@ -99,7 +123,14 @@ export function parseArgs(args: string[]): ParsedArgs {
             const flag = `-${chars[ci]}`;
             const key = SHORT_FLAGS[flag];
             if (BOOLEAN_FLAGS.has(key)) {
-              result[key] = true;
+              const next = args[i + 1];
+              const boolVal = next !== undefined && !next.startsWith('--') ? normalizeBoolean(next) : null;
+              if (boolVal !== null && ci === chars.length - 1) {
+                result[key] = boolVal;
+                i++; // extra bump when value consumed
+              } else {
+                result[key] = true;
+              }
             } else if (ci === chars.length - 1) {
               // Last flag can take a value
               const next = args[i + 1];
@@ -141,11 +172,23 @@ export function parseArgs(args: string[]): ParsedArgs {
       }
 
       if (inlineValue !== undefined) {
-        result[key] = inlineValue;
+        if (BOOLEAN_FLAGS.has(key)) {
+          const boolVal = normalizeBoolean(inlineValue);
+          result[key] = boolVal ?? true;
+        } else {
+          result[key] = inlineValue;
+        }
         i++;
       } else if (BOOLEAN_FLAGS.has(key)) {
-        result[key] = true;
-        i++;
+        const next = args[i + 1];
+        const boolVal = next !== undefined && (!next.startsWith('--') || /^--?\d/.test(next)) ? normalizeBoolean(next) : null;
+        if (boolVal !== null) {
+          result[key] = boolVal;
+          i += 2;
+        } else {
+          result[key] = true;
+          i++;
+        }
       } else {
         const next = args[i + 1];
         // Allow negative numbers as values (e.g., --offset -1 is unlikely but --importance -0.5... well)

@@ -171,7 +171,7 @@ export async function cmdConsolidate(opts: ParsedArgs) {
   if (opts.namespace) body.namespace = opts.namespace;
   if (opts.minSimilarity != null && opts.minSimilarity !== true) body.min_similarity = parseFloat(opts.minSimilarity);
   if (opts.mode) body.mode = opts.mode;
-  if (opts.dryRun !== undefined) body.dry_run = true;
+  if (opts.dryRun === true || opts.dryRun === 'true') body.dry_run = true;
 
   const result = await request('POST', '/v1/memories/consolidate', body) as any;
   if (outputJson) {
