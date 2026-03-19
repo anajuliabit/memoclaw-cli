@@ -18,12 +18,13 @@ via --content flag, or piped via stdin.
   ${c.dim}echo "Hello world" | memoclaw store${c.reset}
 
 Batch mode (pipe multiple memories):
-  ${c.dim}echo -e "memory one\\nmemory two" | memoclaw store --batch${c.reset}
+  ${c.dim}memoclaw store --batch memories.json${c.reset}        (JSON array or newline-delimited file)
+  ${c.dim}echo -e "memory one\nmemory two" | memoclaw store --batch${c.reset}
   ${c.dim}echo '["first","second"]' | memoclaw store --batch${c.reset}
   ${c.dim}cat memories.json | memoclaw store --batch${c.reset}  (JSON array of objects)
 
 Options:
-  --batch                Read multiple memories from stdin (one per line or JSON array)
+  --batch                Read multiple memories from a file or stdin (one per line or JSON array)
   --content <text>       Memory content (alternative to positional arg)
   --importance <0-1>     Importance score (default: 0.5)
   --tags <tag1,tag2>     Comma-separated tags

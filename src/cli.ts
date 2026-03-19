@@ -110,13 +110,25 @@ try {
     case 'store': {
       if (args.batch) {
         let batchText: string | null = null;
-        if (args.file) {
-          batchText = readFileContent(args.file);
+        let batchSource: string | null = null;
+        if (args.file && args.file !== true) {
+          batchSource = String(args.file);
+        } else if (rest.length > 0) {
+          batchSource = rest[0];
+        }
+        if (batchSource) {
+          batchText = readFileContent(batchSource);
+          if (!args.file && rest.length > 0) {
+            rest.shift();
+          }
         }
         if (!batchText) {
           batchText = await readStdin();
         }
-        const lines = batchText ? batchText.split('\n') : [];
+        if (!batchText) {
+          throw new Error('No input. Provide a file path (memoclaw store --batch data.json), use --file <path>, or pipe data via stdin.');
+        }
+        const lines = batchText.split('\n');
         await cmdStoreBatch(args, lines);
         break;
       }
