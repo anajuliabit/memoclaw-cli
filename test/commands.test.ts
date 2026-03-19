@@ -1196,6 +1196,14 @@ describe('cmdNamespace', () => {
     expect(parsed.count).toBe(2);
     restoreConsole();
   });
+
+  test('list shows (default) label for empty namespace', async () => {
+    mockFetchResponse = { namespaces: ['', 'proj'] };
+    await cmdNamespace('list', [], { _: [] } as any);
+    const output = consoleOutput.join('\n');
+    expect(output).toContain('(default)');
+    restoreConsole();
+  });
 });
 
 // ─── Export ──────────────────────────────────────────────────────────────────
