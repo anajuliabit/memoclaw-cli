@@ -107,3 +107,17 @@ export function readFileContent(filePath: string): string {
   if (!fs.existsSync(filePath)) throw new Error(`File not found: ${filePath}`);
   return fs.readFileSync(filePath, 'utf-8').trim();
 }
+
+/** Determine which file path should feed --batch input */
+export function resolveBatchFilePath(opts: ParsedArgs, rest: string[]): { path: string | null; consumedPositional: boolean } {
+  if (opts.file && opts.file !== true) {
+    return { path: String(opts.file), consumedPositional: false };
+  }
+  if (opts.batch && opts.batch !== true) {
+    return { path: String(opts.batch), consumedPositional: false };
+  }
+  if (rest.length > 0) {
+    return { path: rest[0], consumedPositional: true };
+  }
+  return { path: null, consumedPositional: false };
+}

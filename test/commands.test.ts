@@ -98,7 +98,7 @@ function resetOutputState(overrides: Record<string, any> = {}) {
 
 // ─── Import commands ─────────────────────────────────────────────────────────
 
-const { cmdStore, cmdStoreBatch } = await import('../src/commands/store.js');
+const { cmdStore, cmdStoreBatch, resolveBatchFilePath } = await import('../src/commands/store.js');
 const { cmdRecall } = await import('../src/commands/recall.js');
 const { cmdList } = await import('../src/commands/list.js');
 const { cmdGet, cmdDelete, cmdUpdate, cmdBulkDelete, cmdPin, cmdUnpin, cmdLock, cmdUnlock, cmdEdit, cmdCopy, cmdMove } = await import('../src/commands/memory.js');
@@ -264,6 +264,34 @@ describe('cmdStoreBatch', () => {
 
   test('throws on empty input', async () => {
     await expect(cmdStoreBatch({ _: [] } as any, [])).rejects.toThrow('No input');
+  });
+});
+
+// ─── Batch source resolution ──────────────────────────────────────────────
+
+describe('resolveBatchFilePath', () => {
+  test('prefers --file flag when present', () => {
+    const result = resolveBatchFilePath({ _: [], batch: true, file: '/tmp/from-flag.json' } as any, ['positional.json']);
+    expect(result.path).toBe('/tmp/from-flag.json');
+    expect(result.consumedPositional).toBe(false);
+  });
+
+  test('uses inline --batch=value syntax when provided', () => {
+    const result = resolveBatchFilePath({ _: [], batch: 'inline.json' } as any, []);
+    expect(result.path).toBe('inline.json');
+    expect(result.consumedPositional).toBe(false);
+  });
+
+  test('falls back to positional argument when no flags specify the file', () => {
+    const result = resolveBatchFilePath({ _: [], batch: true } as any, ['memories.json', 'extra']);
+    expect(result.path).toBe('memories.json');
+    expect(result.consumedPositional).toBe(true);
+  });
+
+  test('returns null when no file path is provided', () => {
+    const result = resolveBatchFilePath({ _: [], batch: true } as any, []);
+    expect(result.path).toBeNull();
+    expect(result.consumedPositional).toBe(false);
   });
 });
 

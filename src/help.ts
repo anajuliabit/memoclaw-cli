@@ -24,7 +24,7 @@ Batch mode (pipe multiple memories):
   ${c.dim}cat memories.json | memoclaw store --batch${c.reset}  (JSON array of objects)
 
 Options:
-  --batch                Read multiple memories from a file or stdin (one per line or JSON array)
+  --batch [file]        Batch mode. Pass a file path (memoclaw store --batch data.json) or pipe stdin (one per line or JSON array)
   --content <text>       Memory content (alternative to positional arg)
   --importance <0-1>     Importance score (default: 0.5)
   --tags <tag1,tag2>     Comma-separated tags
