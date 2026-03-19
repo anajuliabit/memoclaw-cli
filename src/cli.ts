@@ -19,7 +19,7 @@ import { setRequestTimeout, setMaxRetries } from './http.js';
 import { printHelp } from './help.js';
 
 // Commands
-import { cmdStore, cmdStoreBatch, readFileContent } from './commands/store.js';
+import { cmdStore, cmdStoreBatch, readFileContent, resolveBatchFilePath } from './commands/store.js';
 import { cmdRecall } from './commands/recall.js';
 import { cmdList } from './commands/list.js';
 import { cmdGet, cmdDelete, cmdUpdate, cmdBulkDelete, cmdPin, cmdUnpin, cmdLock, cmdUnlock, cmdEdit, cmdCopy, cmdMove } from './commands/memory.js';
@@ -110,15 +110,10 @@ try {
     case 'store': {
       if (args.batch) {
         let batchText: string | null = null;
-        let batchSource: string | null = null;
-        if (args.file && args.file !== true) {
-          batchSource = String(args.file);
-        } else if (rest.length > 0) {
-          batchSource = rest[0];
-        }
+        const { path: batchSource, consumedPositional } = resolveBatchFilePath(args, rest);
         if (batchSource) {
           batchText = readFileContent(batchSource);
-          if (!args.file && rest.length > 0) {
+          if (consumedPositional) {
             rest.shift();
           }
         }
