@@ -1051,6 +1051,14 @@ describe('cmdConsolidate', () => {
     restoreConsole();
   });
 
+  test('does not send dry_run when flag is explicitly false', async () => {
+    mockFetchResponse = { merged_count: 1 };
+    await cmdConsolidate({ _: [], dryRun: false } as any);
+    const body = getLastBody();
+    expect(body.dry_run).toBeUndefined();
+    restoreConsole();
+  });
+
   test('shows dry run info', async () => {
     mockFetchResponse = { merged_count: 3, clusters: [1, 2, 3] };
     await cmdConsolidate({ _: [], dryRun: true } as any);

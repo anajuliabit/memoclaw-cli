@@ -94,6 +94,34 @@ describe('parseArgs', () => {
     expect(result.namespace).toBe('test');
   });
 
+  test('boolean flags accept --flag=false inline', () => {
+    const result = parseArgs(['--dry-run=false']);
+    expect(result.dryRun).toBe(false);
+  });
+
+  test('boolean flags accept explicit false value as next arg', () => {
+    const result = parseArgs(['--dry-run', 'false', 'restore']);
+    expect(result.dryRun).toBe(false);
+    expect(result._).toEqual(['restore']);
+  });
+
+  test('short boolean flags accept -d=false syntax', () => {
+    const result = parseArgs(['-d=false']);
+    expect(result.dryRun).toBe(false);
+  });
+
+  test('short boolean flags accept -d 0 syntax', () => {
+    const result = parseArgs(['-d', '0', 'run']);
+    expect(result.dryRun).toBe(false);
+    expect(result._).toEqual(['run']);
+  });
+
+  test('boolean flags treat --json=0 as false', () => {
+    const result = parseArgs(['--json=0', 'list']);
+    expect(result.json).toBe(false);
+    expect(result._).toEqual(['list']);
+  });
+
   test('handles flag without value at end', () => {
     const result = parseArgs(['--namespace']);
     expect(result.namespace).toBe(true);
