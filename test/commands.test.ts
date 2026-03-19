@@ -103,7 +103,7 @@ const { cmdRecall } = await import('../src/commands/recall.js');
 const { cmdList } = await import('../src/commands/list.js');
 const { cmdGet, cmdDelete, cmdUpdate, cmdBulkDelete, cmdPin, cmdUnpin, cmdLock, cmdUnlock, cmdEdit, cmdCopy, cmdMove } = await import('../src/commands/memory.js');
 const { cmdSearch, cmdContext, cmdExtract, cmdIngest, cmdConsolidate } = await import('../src/commands/search.js');
-const { cmdCount, cmdSuggested, cmdGraph } = await import('../src/commands/status.js');
+const { cmdCount, cmdSuggested, cmdGraph, cmdStats } = await import('../src/commands/status.js');
 const { cmdHistory } = await import('../src/commands/history.js');
 const { cmdCore } = await import('../src/commands/core.js');
 const { cmdRelations } = await import('../src/commands/relations.js');
@@ -731,6 +731,68 @@ describe('cmdUpdate', () => {
 });
 
 // ─── Count ───────────────────────────────────────────────────────────────────
+
+describe('cmdStats', () => {
+  test('outputs JSON with stats payload', async () => {
+    resetOutputState({ json: true });
+    mockFetchResponse = (url: string) => {
+      if (url.includes('/v1/stats')) {
+        return {
+          total_memories: 123,
+          pinned_count: 5,
+          never_accessed: 10,
+          total_accesses: 50,
+          avg_importance: 0.75,
+          oldest_memory: '2026-01-01T00:00:00Z',
+          newest_memory: '2026-03-01T00:00:00Z',
+          total_relations: 4,
+          by_namespace: { '': 70, support: 53 },
+          by_type: { general: 100, correction: 23 },
+        };
+      }
+      if (url.includes('/v1/free-tier/status')) {
+        return { wallet: '0xabc', free_tier_remaining: 80, free_tier_total: 100 };
+      }
+      throw new Error('Unexpected fetch ' + url);
+    };
+    await cmdStats({ _: [] } as any);
+    const parsed = JSON.parse(consoleOutput.join(''));
+    expect(parsed.total_memories).toBe(123);
+    expect(parsed.by_namespace['']).toBe(70);
+    expect(parsed.free_tier_remaining).toBe(80);
+    restoreConsole();
+  });
+
+  test('renders namespace table in text mode', async () => {
+    mockFetchResponse = (url: string) => {
+      if (url.includes('/v1/stats')) {
+        return {
+          total_memories: 10,
+          pinned_count: 2,
+          never_accessed: 5,
+          total_accesses: 9,
+          avg_importance: 0.66,
+          oldest_memory: '2026-01-01T00:00:00Z',
+          newest_memory: '2026-03-01T00:00:00Z',
+          total_relations: 1,
+          by_namespace: { '': 6, support: 4 },
+          by_type: { general: 8, preference: 2 },
+        };
+      }
+      if (url.includes('/v1/free-tier/status')) {
+        return { wallet: '0xabc', free_tier_remaining: 80, free_tier_total: 100 };
+      }
+      throw new Error('Unexpected fetch ' + url);
+    };
+    await cmdStats({ _: [], namespace: 'support' } as any);
+    const output = consoleOutput.join('\n');
+    expect(output).toContain('Top namespaces');
+    expect(output).toContain('(default)');
+    expect(output).toContain('support');
+    expect(output).toContain('Namespace:        support');
+    restoreConsole();
+  });
+});
 
 describe('cmdCount', () => {
   test('outputs total count as plain number', async () => {

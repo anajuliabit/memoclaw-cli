@@ -39,12 +39,41 @@ export async function cmdStatus() {
 }
 
 export async function cmdStats(opts: ParsedArgs) {
-  const params = new URLSearchParams();
-  if (opts.namespace) params.set('namespace', opts.namespace);
-  params.set('limit', '1');
+  const statsParams = new URLSearchParams();
+  if (opts.namespace) statsParams.set('namespace', opts.namespace);
+  const statsQuery = statsParams.toString();
 
-  const result = await request('GET', `/v1/memories?${params}`) as any;
-  const total = result.total ?? '?';
+  let statsData: any;
+  let statsLimited = false;
+  let statsError: any = null;
+  try {
+    const suffix = statsQuery ? `?${statsQuery}` : '';
+    statsData = await request('GET', `/v1/stats${suffix}`) as any;
+  } catch (err: any) {
+    statsLimited = true;
+    statsError = err;
+    const fallbackParams = new URLSearchParams();
+    if (opts.namespace) fallbackParams.set('namespace', opts.namespace);
+    fallbackParams.set('limit', '1');
+    try {
+      const fallback = await request('GET', `/v1/memories?${fallbackParams}`) as any;
+      const fallbackTotal = fallback.total ?? fallback.memories?.length ?? 0;
+      statsData = {
+        total_memories: fallbackTotal,
+        pinned_count: null,
+        never_accessed: null,
+        total_accesses: null,
+        avg_importance: null,
+        oldest_memory: null,
+        newest_memory: null,
+        total_relations: null,
+        by_type: {},
+        by_namespace: {},
+      };
+    } catch {
+      throw statsError;
+    }
+  }
 
   let tierData: any = {};
   try {
@@ -53,30 +82,133 @@ export async function cmdStats(opts: ParsedArgs) {
     // Non-critical: stats still works without tier info
   }
 
-  const statsRow = {
-    total_memories: total,
+  const wallet = tierData.wallet || getAccount().address;
+  const freeTierRemaining = tierData.free_tier_remaining;
+  const freeTierTotal = tierData.free_tier_total;
+  const freeTierUsed = typeof freeTierRemaining === 'number' && typeof freeTierTotal === 'number'
+    ? freeTierTotal - freeTierRemaining
+    : undefined;
+
+  const statsRow: any = {
+    ...statsData,
     api_url: API_URL,
-    wallet: tierData.wallet || getAccount().address,
-    free_tier_remaining: tierData.free_tier_remaining,
-    free_tier_total: tierData.free_tier_total,
+    wallet,
+    namespace: opts.namespace || null,
+    free_tier_remaining: freeTierRemaining,
+    free_tier_total: freeTierTotal,
+    free_tier_used: freeTierUsed,
+    partial: statsLimited || undefined,
   };
+
+  if (!statsRow.by_namespace) statsRow.by_namespace = {};
+  if (!statsRow.by_type) statsRow.by_type = {};
 
   if (outputJson) {
     out(statsRow);
-  } else if (outputFormat === 'csv' || outputFormat === 'tsv' || outputFormat === 'yaml') {
-    out([statsRow]);
-  } else {
-    outputWrite(`${c.bold}MemoClaw Stats${c.reset}`);
-    outputWrite(`${c.dim}${'─'.repeat(40)}${c.reset}`);
-    outputWrite(`Memories:        ${c.cyan}${total}${c.reset}`);
-    outputWrite(`API:             ${c.dim}${API_URL}${c.reset}`);
-    outputWrite(`Wallet:          ${c.dim}${tierData.wallet || getAccount().address}${c.reset}`);
-    if (tierData.free_tier_remaining !== undefined) {
-      outputWrite(`Free calls left: ${c.cyan}${tierData.free_tier_remaining}${c.reset}/${tierData.free_tier_total}`);
+    return;
+  }
+
+  if (outputFormat === 'csv' || outputFormat === 'tsv') {
+    const nsEntries = Object.entries(statsRow.by_namespace as Record<string, number>);
+    const typeEntries = Object.entries(statsRow.by_type as Record<string, number>);
+    const flatRow: any = {
+      total_memories: statsRow.total_memories ?? '',
+      pinned_count: statsRow.pinned_count ?? '',
+      never_accessed: statsRow.never_accessed ?? '',
+      total_accesses: statsRow.total_accesses ?? '',
+      avg_importance: statsRow.avg_importance ?? '',
+      oldest_memory: statsRow.oldest_memory || '',
+      newest_memory: statsRow.newest_memory || '',
+      total_relations: statsRow.total_relations ?? '',
+      wallet,
+      namespace: statsRow.namespace || '',
+      free_tier_remaining: freeTierRemaining ?? '',
+      free_tier_total: freeTierTotal ?? '',
+      free_tier_used: freeTierUsed ?? '',
+    };
+    if (nsEntries.length > 0) {
+      flatRow.top_namespace = nsEntries[0][0] || '(default)';
+      flatRow.top_namespace_count = nsEntries[0][1];
     }
-    if (opts.namespace) {
-      outputWrite(`Namespace:       ${c.cyan}${opts.namespace}${c.reset}`);
+    if (typeEntries.length > 0) {
+      flatRow.top_type = typeEntries[0][0];
+      flatRow.top_type_count = typeEntries[0][1];
     }
+    if (statsLimited) {
+      flatRow.partial = 'true';
+    }
+    out([flatRow]);
+    return;
+  }
+
+  if (outputFormat === 'yaml') {
+    out(statsRow);
+    return;
+  }
+
+  const formatNumber = (value: any) => {
+    if (value === null || value === undefined) return '—';
+    if (typeof value === 'number') return Number(value).toLocaleString();
+    return String(value);
+  };
+  const formatAvg = (value: any) => value == null ? '—' : Number(value).toFixed(3);
+  const formatDate = (value: any) => value ? new Date(value).toLocaleDateString() : '—';
+  const nsEntries = Object.entries(statsRow.by_namespace as Record<string, number>);
+  const typeEntries = Object.entries(statsRow.by_type as Record<string, number>);
+
+  outputWrite(`${c.bold}MemoClaw Stats${c.reset}`);
+  outputWrite(`${c.dim}${'─'.repeat(42)}${c.reset}`);
+  outputWrite(`Total memories:   ${c.cyan}${formatNumber(statsRow.total_memories)}${c.reset}`);
+  if (statsRow.pinned_count != null || statsRow.never_accessed != null) {
+    outputWrite(`Pinned / never accessed: ${c.cyan}${formatNumber(statsRow.pinned_count)}${c.reset} / ${c.cyan}${formatNumber(statsRow.never_accessed)}${c.reset}`);
+  }
+  if (statsRow.total_accesses != null) {
+    outputWrite(`Total accesses:   ${c.cyan}${formatNumber(statsRow.total_accesses)}${c.reset}`);
+  }
+  if (statsRow.avg_importance != null) {
+    outputWrite(`Avg importance:   ${c.cyan}${formatAvg(statsRow.avg_importance)}${c.reset}`);
+  }
+  if (statsRow.oldest_memory || statsRow.newest_memory) {
+    outputWrite(`Range:            ${formatDate(statsRow.oldest_memory)} → ${formatDate(statsRow.newest_memory)}`);
+  }
+  outputWrite(`API:              ${c.dim}${API_URL}${c.reset}`);
+  outputWrite(`Wallet:           ${c.dim}${wallet}${c.reset}`);
+  if (freeTierRemaining !== undefined) {
+    const totalCalls = freeTierTotal ?? 100;
+    const totalLabel = totalCalls != null ? `/${totalCalls}` : '';
+    outputWrite(`Free calls left:  ${c.cyan}${formatNumber(freeTierRemaining)}${c.reset}${totalLabel}`);
+  }
+  if (opts.namespace) {
+    outputWrite(`Namespace:        ${c.cyan}${opts.namespace}${c.reset}`);
+  }
+  if (statsLimited) {
+    outputWrite(`${c.yellow}Stats endpoint unavailable on this API. Showing limited totals.${c.reset}`);
+  }
+
+  if (nsEntries.length) {
+    outputWrite('');
+    outputWrite(`${c.bold}Top namespaces${c.reset}`);
+    const nsRows = nsEntries.slice(0, 10).map(([ns, count]) => ({
+      namespace: ns || '(default)',
+      memories: count,
+    }));
+    table(nsRows, [
+      { key: 'namespace', label: 'NAMESPACE', width: 20 },
+      { key: 'memories', label: 'MEMORIES', width: 10 },
+    ], { wide: !!opts.wide });
+  }
+
+  if (typeEntries.length) {
+    outputWrite('');
+    outputWrite(`${c.bold}Top memory types${c.reset}`);
+    const typeRows = typeEntries.slice(0, 10).map(([type, count]) => ({
+      type: type || '(unknown)',
+      memories: count,
+    }));
+    table(typeRows, [
+      { key: 'type', label: 'TYPE', width: 20 },
+      { key: 'memories', label: 'MEMORIES', width: 10 },
+    ], { wide: !!opts.wide });
   }
 }
 
