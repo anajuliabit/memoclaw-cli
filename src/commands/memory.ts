@@ -244,17 +244,55 @@ export async function cmdMove(ids: string[], opts: ParsedArgs) {
   }
 
   // If no explicit IDs but filter flags provided, resolve IDs from filters
+  let resolvedMemories: Array<{ id: string; content?: string }> = [];
   if (ids.length === 0 && (opts.fromNamespace || opts.tags || opts.since || opts.until)) {
-    ids = await resolveFilteredIds(opts);
-    if (ids.length === 0) {
+    resolvedMemories = await resolveFilteredMemories(opts);
+    if (resolvedMemories.length === 0) {
       if (outputJson) {
-        out({ moved: 0, namespace: opts.namespace, ids: [] });
+        out(opts.dryRun ? { dry_run: true, would_move: 0, namespace: opts.namespace, ids: [] } : { moved: 0, namespace: opts.namespace, ids: [] });
       } else {
         success(`No memories matched the filter criteria`);
       }
       return;
     }
-    if (!outputQuiet) {
+    ids = resolvedMemories.map(m => m.id);
+
+    // --dry-run: show preview and exit without moving (#207)
+    if (opts.dryRun) {
+      if (outputJson) {
+        out({ dry_run: true, would_move: ids.length, namespace: opts.namespace, ids });
+      } else {
+        out(`Dry run — would move ${ids.length} memor${ids.length === 1 ? 'y' : 'ies'}:`);
+        for (const m of resolvedMemories) {
+          const preview = (m.content || '').slice(0, 60).replace(/\n/g, ' ');
+          outputWrite(`  ${c.cyan}${m.id.slice(0, 8)}${c.reset}  ${preview}${(m.content || '').length > 60 ? '…' : ''}`);
+        }
+      }
+      return;
+    }
+
+    // Confirmation prompt for bulk filter-based moves (#206)
+    // Skip when: --yes/-y, --json/-j, stdin is not a TTY, or only 1 match
+    const skipConfirm = opts.yes || outputJson || !process.stdin.isTTY || ids.length <= 1;
+    if (!skipConfirm) {
+      const sampleCount = Math.min(resolvedMemories.length, 5);
+      process.stderr.write(`\nFound ${c.bold}${ids.length}${c.reset} memories matching filters.\n`);
+      for (let i = 0; i < sampleCount; i++) {
+        const m = resolvedMemories[i];
+        const preview = (m.content || '').slice(0, 60).replace(/\n/g, ' ');
+        process.stderr.write(`  ${c.cyan}${m.id.slice(0, 8)}${c.reset}  ${preview}${(m.content || '').length > 60 ? '…' : ''}\n`);
+      }
+      if (ids.length > sampleCount) {
+        process.stderr.write(`  ${c.dim}... and ${ids.length - sampleCount} more${c.reset}\n`);
+      }
+      process.stderr.write(`\nMove all ${ids.length} to namespace ${c.cyan}${opts.namespace}${c.reset}? [y/N] `);
+
+      const confirmed = await askConfirm();
+      if (!confirmed) {
+        process.stderr.write('Aborted.\n');
+        return;
+      }
+    } else if (!outputQuiet && !outputJson) {
       process.stderr.write(`${c.dim}Found ${ids.length} matching memor${ids.length === 1 ? 'y' : 'ies'}${c.reset}\n`);
     }
   }
@@ -280,8 +318,20 @@ export async function cmdMove(ids: string[], opts: ParsedArgs) {
   }
 }
 
-/** Fetch memory IDs matching filter flags (--from-namespace, --tags, --since, --until) */
-async function resolveFilteredIds(opts: ParsedArgs): Promise<string[]> {
+/** Prompt user for y/N confirmation via readline */
+async function askConfirm(): Promise<boolean> {
+  const readline = await import('readline');
+  return new Promise(resolve => {
+    const rl = readline.createInterface({ input: process.stdin, output: process.stderr });
+    rl.question('', answer => {
+      rl.close();
+      resolve(answer.trim().toLowerCase() === 'y');
+    });
+  });
+}
+
+/** Fetch memories matching filter flags (--from-namespace, --tags, --since, --until) */
+async function resolveFilteredMemories(opts: ParsedArgs): Promise<Array<{ id: string; content?: string }>> {
   const params = new URLSearchParams({ limit: '1000' });
   if (opts.fromNamespace) params.set('namespace', opts.fromNamespace);
   if (opts.tags) params.set('tags', opts.tags);
@@ -292,7 +342,7 @@ async function resolveFilteredIds(opts: ParsedArgs): Promise<string[]> {
     throw new Error('Invalid date format. Use ISO 8601 (2025-01-01) or relative shorthand (1h, 7d, 2w, 1mo, 1y).');
   }
 
-  const allIds: string[] = [];
+  const all: Array<{ id: string; content?: string }> = [];
   let offset = 0;
 
   while (true) {
@@ -304,13 +354,13 @@ async function resolveFilteredIds(opts: ParsedArgs): Promise<string[]> {
     const filtered = (sinceDate || untilDate)
       ? filterByDateRange(memories, 'created_at', sinceDate, untilDate)
       : memories;
-    allIds.push(...filtered.map((m: any) => m.id));
+    all.push(...filtered.map((m: any) => ({ id: m.id, content: m.content })));
 
     if (memories.length < 1000) break;
     offset += 1000;
-    if (!outputQuiet) process.stderr.write(`\r  ${c.dim}Scanning... ${allIds.length} matching${c.reset}`);
+    if (!outputQuiet) process.stderr.write(`\r  ${c.dim}Scanning... ${all.length} matching${c.reset}`);
   }
-  if (!outputQuiet && allIds.length > 0) process.stderr.write('\r' + ' '.repeat(60) + '\r');
+  if (!outputQuiet && all.length > 0) process.stderr.write('\r' + ' '.repeat(60) + '\r');
 
-  return allIds;
+  return all;
 }
