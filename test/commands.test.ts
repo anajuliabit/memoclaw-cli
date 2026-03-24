@@ -218,6 +218,29 @@ describe('cmdStore', () => {
   });
 });
 
+
+// ─── Batch input helper ───────────────────────────────────────────────────
+
+describe('resolveBatchFilePath', () => {
+  test('prefers --file flag when provided', () => {
+    const result = resolveBatchFilePath({ _: [], batch: true, file: 'memories.json' } as any, ['fallback.json']);
+    expect(result.path).toBe('memories.json');
+    expect(result.consumedPositional).toBe(false);
+  });
+
+  test('uses positional path when --file missing', () => {
+    const result = resolveBatchFilePath({ _: [], batch: true } as any, ['positional.json']);
+    expect(result.path).toBe('positional.json');
+    expect(result.consumedPositional).toBe(true);
+  });
+
+  test('returns null path when no file source available', () => {
+    const result = resolveBatchFilePath({ _: [], batch: true } as any, []);
+    expect(result.path).toBeNull();
+    expect(result.consumedPositional).toBe(false);
+  });
+});
+
 // ─── Store Batch ─────────────────────────────────────────────────────────────
 
 describe('cmdStoreBatch', () => {
