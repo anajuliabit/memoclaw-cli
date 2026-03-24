@@ -107,7 +107,10 @@ export async function cmdSearch(query: string, opts: ParsedArgs) {
 export async function cmdContext(query: string, opts: ParsedArgs) {
   const body: Record<string, any> = { query };
   if (opts.namespace) body.namespace = opts.namespace;
-  if (opts.limit != null && opts.limit !== true) body.limit = parseInt(opts.limit);
+  if (opts.limit != null && opts.limit !== true) {
+    const parsedLimit = parseInt(String(opts.limit));
+    if (!isNaN(parsedLimit) && parsedLimit > 0) body.limit = parsedLimit;
+  }
 
   const result = await request('POST', '/v1/context', body) as any;
 

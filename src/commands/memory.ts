@@ -301,6 +301,19 @@ export async function cmdMove(ids: string[], opts: ParsedArgs) {
     throw new Error('Memory ID(s) or filter flags required. Usage: memoclaw move <id> --namespace <target>\n  Or: memoclaw move --from-namespace <src> --namespace <target>');
   }
 
+  // --dry-run for explicit IDs (filter-based dry-run handled above)
+  if (opts.dryRun) {
+    if (outputJson) {
+      out({ dry_run: true, would_move: ids.length, namespace: opts.namespace, ids });
+    } else {
+      outputWrite(`Dry run — would move ${ids.length} memor${ids.length === 1 ? 'y' : 'ies'} to namespace ${c.cyan}${opts.namespace}${c.reset}:`);
+      for (const id of ids) {
+        outputWrite(`  ${c.cyan}${id.slice(0, 8)}…${c.reset}`);
+      }
+    }
+    return;
+  }
+
   let moved = 0;
   for (const id of ids) {
     await request('PATCH', `/v1/memories/${id}`, { namespace: opts.namespace });

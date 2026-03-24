@@ -368,6 +368,22 @@ describe('cmdRecall', () => {
     expect(consoleOutput.join('\n')).toContain('mem-123');
     restoreConsole();
   });
+
+  test('ignores non-numeric --limit value (NaN guard)', async () => {
+    mockFetchResponse = { memories: [] };
+    await cmdRecall('q', { _: [], limit: 'abc' } as any);
+    const body = getLastBody();
+    expect(body.limit).toBeUndefined();
+    restoreConsole();
+  });
+
+  test('ignores boolean --limit value (NaN guard)', async () => {
+    mockFetchResponse = { memories: [] };
+    await cmdRecall('q', { _: [], limit: true } as any);
+    const body = getLastBody();
+    expect(body.limit).toBeUndefined();
+    restoreConsole();
+  });
 });
 
 // ─── List ────────────────────────────────────────────────────────────────────
@@ -894,6 +910,21 @@ describe('cmdHistory', () => {
     expect(parsed.history).toBeDefined();
     restoreConsole();
   });
+
+  test('ignores non-numeric --limit (NaN guard)', async () => {
+    mockFetchResponse = {
+      history: [
+        { id: 'h1', created_at: '2025-01-01T00:00:00Z', changes: { content: true } },
+        { id: 'h2', created_at: '2025-01-02T00:00:00Z', changes: { importance: true } },
+      ]
+    };
+    await cmdHistory('abc', { _: [], limit: 'xyz' } as any);
+    const output = consoleOutput.join('\n');
+    // Should show all entries since invalid limit is ignored
+    expect(output).toContain('h1');
+    expect(output).toContain('h2');
+    restoreConsole();
+  });
 });
 
 // ─── Relations ───────────────────────────────────────────────────────────────
@@ -1010,6 +1041,14 @@ describe('cmdContext', () => {
     mockFetchResponse = { text: 'alt text field' };
     await cmdContext('q', { _: [] } as any);
     expect(consoleOutput.join('\n')).toContain('alt text field');
+    restoreConsole();
+  });
+
+  test('ignores non-numeric --limit value (NaN guard)', async () => {
+    mockFetchResponse = { context: 'ok' };
+    await cmdContext('q', { _: [], limit: 'xyz' } as any);
+    const body = getLastBody();
+    expect(body.limit).toBeUndefined();
     restoreConsole();
   });
 });
@@ -4127,5 +4166,32 @@ describe('move confirmation prompt (#206)', () => {
     expect(source).toContain('askConfirm');
     expect(source).toContain('skipConfirm');
     expect(source).toContain('process.stdin.isTTY');
+  });
+});
+
+// ─── #225: move --dry-run with explicit IDs ──────────────────────────────────
+
+describe('move --dry-run with explicit IDs (#225)', () => {
+  test('dry-run with explicit IDs does not call PATCH', async () => {
+    let patchCalled = false;
+    const origFetch = globalThis.fetch;
+    globalThis.fetch = (async (url: string, opts: any) => {
+      if (opts?.method === 'PATCH') patchCalled = true;
+      return new Response(JSON.stringify({}), { status: 200 });
+    }) as any;
+
+    resetOutputState({ json: true });
+    captureConsole();
+    await cmdMove(['id-abc-123', 'id-def-456'], { _: ['move'], namespace: 'archive', dryRun: true } as any);
+    restoreConsole();
+    resetOutputState();
+
+    expect(patchCalled).toBe(false);
+    const parsed = JSON.parse(consoleOutput.join(''));
+    expect(parsed.dry_run).toBe(true);
+    expect(parsed.would_move).toBe(2);
+
+    globalThis.fetch = origFetch;
+    setupMockFetch();
   });
 });

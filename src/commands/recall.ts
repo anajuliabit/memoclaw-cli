@@ -28,7 +28,10 @@ function renderMemories(memories: any[], opts: { showId?: boolean } = {}) {
 
 export async function cmdRecall(query: string, opts: ParsedArgs) {
   const body: Record<string, any> = { query };
-  if (opts.limit != null && opts.limit !== true) body.limit = parseInt(opts.limit);
+  if (opts.limit != null && opts.limit !== true) {
+    const parsedLimit = parseInt(String(opts.limit));
+    if (!isNaN(parsedLimit) && parsedLimit > 0) body.limit = parsedLimit;
+  }
   if (opts.minSimilarity != null && opts.minSimilarity !== true) body.min_similarity = parseFloat(opts.minSimilarity);
   if (opts.namespace) body.namespace = opts.namespace;
   if (opts.tags) body.filters = { tags: opts.tags.split(',').map((t: string) => t.trim()) };

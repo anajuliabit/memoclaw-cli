@@ -13,7 +13,9 @@ export async function cmdHistory(id: string, opts?: ParsedArgs) {
   let history = result.history || [];
 
   // Apply --limit: show only the N most recent entries
-  const userLimit = opts?.limit != null && opts.limit !== true ? parseInt(opts.limit) : undefined;
+  const userLimit = opts?.limit != null && opts.limit !== true
+    ? (() => { const n = parseInt(String(opts.limit)); return !isNaN(n) && n > 0 ? n : undefined; })()
+    : undefined;
   if (userLimit != null && userLimit > 0) {
     history = history.slice(-userLimit);
   }
