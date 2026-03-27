@@ -407,6 +407,14 @@ describe('cmdRecall', () => {
     expect(body.limit).toBeUndefined();
     restoreConsole();
   });
+
+  test('watch mode rejects invalid --watch-interval value', async () => {
+    await expect(
+      cmdRecall('q', { _: [], watch: true, watchInterval: '0' } as any)
+    ).rejects.toThrow('Invalid --watch-interval value');
+    expect(allFetches.length).toBe(0);
+    restoreConsole();
+  });
 });
 
 // ─── List ────────────────────────────────────────────────────────────────────
@@ -541,6 +549,14 @@ describe('cmdList', () => {
     await cmdList({ _: [], agentId: 'agent-1', sessionId: 'sess-1' } as any);
     expect(lastFetchUrl).toContain('agent_id=agent-1');
     expect(lastFetchUrl).toContain('session_id=sess-1');
+    restoreConsole();
+  });
+
+  test('watch mode rejects invalid --watch-interval value', async () => {
+    await expect(
+      cmdList({ _: [], watch: true, watchInterval: '-1' } as any)
+    ).rejects.toThrow('Invalid --watch-interval value');
+    expect(allFetches.length).toBe(0);
     restoreConsole();
   });
 });
