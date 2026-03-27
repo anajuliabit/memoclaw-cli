@@ -9,7 +9,11 @@ import { outputJson, outputFormat, out, outputWrite, table } from '../output.js'
 import { sortMemories } from './list.js';
 
 export async function cmdWatch(opts: ParsedArgs) {
-  const interval = parseInt(opts.interval || '3') * 1000;
+  const intervalSeconds = Number(opts.interval ?? '3');
+  if (!Number.isFinite(intervalSeconds) || intervalSeconds < 1) {
+    throw new Error('Invalid --interval value. Must be a number >= 1 second.');
+  }
+  const interval = intervalSeconds * 1000;
   const params = new URLSearchParams();
   params.set('sort', 'created_at');
   params.set('order', 'desc');
