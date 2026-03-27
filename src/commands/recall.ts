@@ -5,6 +5,14 @@ import { outputJson, outputTruncate, outputFormat, out, outputWrite, truncate } 
 import { parseDate, filterByDateRange, overfetchLimit } from '../dates.js';
 import { sortMemories } from './list.js';
 
+function parseWatchIntervalMs(value: unknown): number {
+  const interval = Number(value ?? '5000');
+  if (!Number.isFinite(interval) || interval < 1) {
+    throw new Error('Invalid --watch-interval value. Must be a number >= 1 ms.');
+  }
+  return interval;
+}
+
 /** Render a list of recall memories to stdout (shared between normal and watch mode) */
 function renderMemories(memories: any[], opts: { showId?: boolean } = {}) {
   if (memories.length === 0) {
@@ -58,7 +66,7 @@ export async function cmdRecall(query: string, opts: ParsedArgs) {
   // Watch mode
   if (opts.watch) {
     let lastFingerprint = '';
-    const pollInterval = parseInt(opts.watchInterval || '5000');
+    const pollInterval = parseWatchIntervalMs(opts.watchInterval);
     const watchTrimLimit = hasDateFilter && userLimit ? userLimit : undefined;
 
     outputWrite(`${c.dim}Watching for changes... Press Ctrl+C to stop.${c.reset}`);
