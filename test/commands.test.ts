@@ -2954,6 +2954,17 @@ describe('cmdWatch', () => {
     const mod = await import('../src/commands/watch.js');
     expect(typeof mod.cmdWatch).toBe('function');
   });
+
+  test('rejects non-numeric --interval', async () => {
+    const mod = await import('../src/commands/watch.js');
+    await expect(mod.cmdWatch({ _: ['watch'], interval: 'abc' } as any)).rejects.toThrow('Invalid --interval value');
+  });
+
+  test('rejects non-positive --interval', async () => {
+    const mod = await import('../src/commands/watch.js');
+    await expect(mod.cmdWatch({ _: ['watch'], interval: '-5' } as any)).rejects.toThrow('Invalid --interval value');
+    await expect(mod.cmdWatch({ _: ['watch'], interval: '0' } as any)).rejects.toThrow('Invalid --interval value');
+  });
 });
 
 // ─── #140: over-fetch when date filters active ──────────────────────────────
