@@ -4,6 +4,14 @@ import { c } from '../colors.js';
 import { outputJson, outputFormat, outputTruncate, noTruncate, out, table, outputWrite } from '../output.js';
 import { parseDate, filterByDateRange, overfetchLimit } from '../dates.js';
 
+function parseWatchIntervalMs(value: unknown): number {
+  const interval = Number(value ?? '5000');
+  if (!Number.isFinite(interval) || interval < 1) {
+    throw new Error('Invalid --watch-interval value. Must be a number >= 1 ms.');
+  }
+  return interval;
+}
+
 /** Apply client-side sorting to memories array */
 export function sortMemories(memories: any[], opts: ParsedArgs): any[] {
   if (!opts.sortBy || memories.length === 0) return memories;
@@ -146,7 +154,7 @@ export async function cmdList(opts: ParsedArgs) {
   // Watch mode
   if (opts.watch) {
     let lastFingerprint = '';
-    const pollInterval = parseInt(opts.watchInterval || '5000');
+    const pollInterval = parseWatchIntervalMs(opts.watchInterval);
     const columns = buildColumns(opts);
     const watchTrimLimit = hasDateFilter && userLimit ? userLimit : undefined;
 
